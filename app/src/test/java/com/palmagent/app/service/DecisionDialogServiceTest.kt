@@ -86,7 +86,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我挂号","goal":"打开微信搜小程序","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("帮我挂号", emptyList())
+        val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
         val capturedBody = testInterceptor.capturedBodies.firstOrNull()
@@ -120,7 +120,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我挂号","goal":"打开微信挂号","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("帮我挂号", emptyList())
+        val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
         // 第二次请求应含 role=tool 的 list_apps 结果
@@ -154,7 +154,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我挂号","goal":"打开微信搜小程序","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("帮我挂号", emptyList())
+        val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
         val secondBody = testInterceptor.capturedBodies[1]
@@ -176,7 +176,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"附近有什么医院","goal":"打开高德地图查附近医院","steps":[{"order":1,"goal":"打开高德地图","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("附近有什么医院", emptyList())
+        val result = dialogService.chat("附近有什么医院", emptyList(), "test-session")
 
         // amap 工具会尝试调 WebMCPService，可能因为没有真实 API 失败；
         // 但工具循环逻辑应该不崩，模型最终应该返回 ready
@@ -199,7 +199,7 @@ class DecisionDialogServiceTest {
             )
         }
 
-        val result = dialogService.chat("测试", emptyList())
+        val result = dialogService.chat("测试", emptyList(), "test-session")
 
         // 应在 9 轮后返回 Error，不死循环
         assertTrue("达到循环上限应返回 Error: $result", result is DecisionDialogService.DialogResult.Error)
@@ -215,7 +215,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我打开微信","goal":"打开微信","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("帮我打开微信", emptyList())
+        val result = dialogService.chat("帮我打开微信", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
         val plan = (result as DecisionDialogService.DialogResult.Ready).plan
@@ -242,7 +242,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我挂号","goal":"打开微信挂号","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("帮我挂号", emptyList())
+        val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
         // 第 4 次请求发送前，框架已清理到只保留最近 1 轮（KEEP_TOOL_ROUNDS=1）工具结果
@@ -271,7 +271,7 @@ class DecisionDialogServiceTest {
             mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我挂号","goal":"打开微信挂号","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
         )
 
-        val result = dialogService.chat("帮我挂号", emptyList())
+        val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
         // 第 2 次请求的 system 消息应包含工作区内容（模型写入的关键信息）
