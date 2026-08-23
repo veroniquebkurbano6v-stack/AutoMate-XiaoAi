@@ -358,6 +358,25 @@ object KVUtils {
     fun isComplexModeEnabled(): Boolean = getBoolean(KEY_COMPLEX_MODE_ENABLED, true)
     fun setComplexModeEnabled(value: Boolean) = putBoolean(KEY_COMPLEX_MODE_ENABLED, value)
 
+    // ==================== TTS 语音播报配置 ====================
+    private const val KEY_TTS_ENABLED = "KEY_TTS_ENABLED"
+    private const val KEY_TTS_SPEECH_RATE = "KEY_TTS_SPEECH_RATE"
+
+    /** TTS 语音播报是否启用（默认开启） */
+    fun isTtsEnabled(): Boolean = getBoolean(KEY_TTS_ENABLED, true)
+    fun setTtsEnabled(value: Boolean) = putBoolean(KEY_TTS_ENABLED, value)
+
+    /** TTS 播报语速（0.5-2.0，1.0=正常，老年人推荐 0.85） */
+    fun getTtsSpeechRate(): Float = getFloat(KEY_TTS_SPEECH_RATE, 0.85f)
+    fun setTtsSpeechRate(value: Float) = putFloat(KEY_TTS_SPEECH_RATE, value)
+
+    // ==================== 语音输入（ASR）配置 ====================
+    private const val KEY_VOICE_INPUT_ENABLED = "KEY_VOICE_INPUT_ENABLED"
+
+    /** 语音输入是否启用 */
+    fun isVoiceInputEnabled(): Boolean = getBoolean(KEY_VOICE_INPUT_ENABLED, true)
+    fun setVoiceInputEnabled(value: Boolean) = putBoolean(KEY_VOICE_INPUT_ENABLED, value)
+
     // ==================== BuildConfig 强制导入 ====================
 
     /**

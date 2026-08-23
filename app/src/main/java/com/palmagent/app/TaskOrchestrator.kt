@@ -8,6 +8,7 @@ import com.palmagent.app.agent.AgentServiceFactory
 import com.palmagent.app.agent.Plan
 import com.palmagent.app.floating.FloatingProgressManager
 import com.palmagent.app.service.GUIAccessibilityService
+import com.palmagent.app.service.TtsManager
 import com.palmagent.app.channel.Channel
 import com.palmagent.app.channel.ChannelManager
 import com.palmagent.app.tool.ToolResult
@@ -22,6 +23,9 @@ import javax.inject.Singleton
 class TaskOrchestrator @Inject constructor(
     private val agentServiceFactory: AgentServiceFactory
 ) {
+    /** TTS 语音播报实例（由 Application 初始化后注入） */
+    @Volatile
+    var ttsManager: TtsManager? = null
 
     companion object {
         private const val TAG = "TaskOrchestrator"
@@ -191,6 +195,10 @@ class TaskOrchestrator @Inject constructor(
                 Log.d(TAG, "Loop $round 开始")
                 FloatingProgressManager.updateProgress(round, "执行中·第${round}轮")
                 LiveLogBuffer.append("🔁 第${round}轮开始 — ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}")
+                // TTS：首轮播报任务开始执行
+                if (round == 1 && !reportToWeChat) {
+                    ttsManager?.speakProgress("执行任务中")
+                }
             }
 
             override fun onContent(round: Int, content: String) {
@@ -216,6 +224,10 @@ class TaskOrchestrator @Inject constructor(
                     taskStateListener?.onTaskContent(answer, isFinal = true)
                     FloatingProgressManager.setLastModelMessage(answer)
                 }
+                // TTS：播报最终结果
+                if (!reportToWeChat) {
+                    ttsManager?.speakResult(answer)
+                }
                 if (answer.isNotEmpty()) {
                     onTaskFinished(channel, answer, messageID)
                 } else {
@@ -234,6 +246,10 @@ class TaskOrchestrator @Inject constructor(
                     taskStateListener?.onTaskContent(errorMsg, isFinal = true)
                     FloatingProgressManager.setLastModelMessage(errorMsg)
                 }
+                // TTS：播报错误信息
+                if (!reportToWeChat) {
+                    ttsManager?.speakError(error.message ?: "未知错误")
+                }
                 onTaskFinished(channel, "任务执行失败: ${error.message}", messageID)
             }
 
@@ -251,6 +267,10 @@ class TaskOrchestrator @Inject constructor(
                 roundBuffer.append("$status $toolName: $data")
                 // 工具结果同步写入 LiveLogBuffer（App 内日志界面可见）
                 LiveLogBuffer.append("📦 工具结果: $status $toolName → $data")
+                // TTS：敏感操作（REQUEST_USER_ACTION）需要语音播报提醒
+                if (toolName == "REQUEST_USER_ACTION" && !reportToWeChat) {
+                    ttsManager?.speakConfirmation(parameters)
+                }
             }
         }
     }

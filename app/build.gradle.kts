@@ -96,6 +96,13 @@ android {
     aaptOptions {
         noCompress("tflite", "onnx")
     }
+    packaging {
+        jniLibs {
+            // sherpa-onnx static AAR 的 x86 目录冗余携带 libonnxruntime.so（其自身已静态链接 onnxruntime），
+            // 与 onnxruntime-android 的同名 .so 冲突 → 任取其一即可（arm64 真机不受影响，AAR 该 ABI 无此 .so）
+            pickFirsts += "lib/x86/libonnxruntime.so"
+        }
+    }
 }
 
 dependencies {
@@ -118,6 +125,9 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite:2.16.1")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
+    // sherpa-onnx（官方 SenseVoice ASR）：static-link 版 arm64 仅含 libsherpa-onnx-jni.so（已静态链接 onnxruntime），
+    // 与上方 onnxruntime-android（VAD 用）不冲突
+    implementation(files("libs/sherpa-onnx-static-1.13.6.aar"))
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 

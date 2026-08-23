@@ -1,5 +1,6 @@
 package com.palmagent.app.floating
 
+import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
@@ -30,6 +31,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import android.graphics.Color
+import android.graphics.PorterDuff
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import com.palmagent.app.R
@@ -90,6 +92,9 @@ object FloatingProgressManager {
 
     var onProgressUpdate: ((round: Int, taskText: String) -> Unit)? = null
 
+    /** 语音输入按钮点击回调 */
+    var onVoiceInputClick: (() -> Unit)? = null
+
     // USER_ACTION 状态：保存进入前的状态
     private var savedStateBeforeUserAction: State = State.CHIP
 
@@ -112,6 +117,61 @@ object FloatingProgressManager {
     private const val AUTO_HIDE_DELAY = 3_000L // 3秒无操作自动隐藏到边缘
     // EDGE_HIDDEN 贴边小条的呼吸点动画
     private var breatheAnimator: ObjectAnimator? = null
+
+    /** 悬浮窗麦克风按钮（录音动画用） */
+    private var micBtn: ImageView? = null
+
+    /** 悬浮窗麦克风脉冲动画（AnimatorSet 统一管理 XY 轴，停止时可一并 cancel） */
+    private var micAnimator: AnimatorSet? = null
+
+    /** 启动麦克风录音脉冲动画 */
+    fun startMicAnimation() {
+        val btn = micBtn ?: return
+        micAnimator?.cancel()
+        val animX = ObjectAnimator.ofFloat(btn, View.SCALE_X, 1f, 1.25f).apply {
+            duration = 600
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+        }
+        val animY = ObjectAnimator.ofFloat(btn, View.SCALE_Y, 1f, 1.25f).apply {
+            duration = 600
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+        }
+        // 两轴统一放入 AnimatorSet：停止时一并 cancel，避免 SCALE_Y 动画泄漏导致动画停不掉
+        micAnimator = AnimatorSet().apply {
+            playTogether(animX, animY)
+            start()
+        }
+    }
+
+    /**
+     * 将语音识别文本写入悬浮窗输入框（在光标处插入/续写，不覆盖已有内容）
+     * 由外部（HomeActivity 语音回调）在悬浮窗麦克风输入场景下调用。
+     *
+     * @return true=已写入悬浮窗输入框；false=悬浮窗输入框不可用（未显示/已销毁），调用方应回退处理
+     */
+    fun setVoiceInputText(text: String): Boolean {
+        val edit = currentEditText ?: return false
+        mainHandler.post {
+            val editable = edit.text
+            val selStart = edit.selectionStart.coerceAtLeast(0)
+            val selEnd = edit.selectionEnd.coerceAtLeast(selStart)
+            editable.replace(selStart, selEnd, text)
+            edit.setSelection(selStart + text.length)
+        }
+        return true
+    }
+
+    /** 停止麦克风录音脉冲动画 */
+    fun stopMicAnimation() {
+        micAnimator?.cancel()
+        micAnimator = null
+        micBtn?.apply {
+            scaleX = 1f
+            scaleY = 1f
+        }
+    }
 
     fun show(application: Application) {
         if (isShowing || showPending) return
@@ -626,6 +686,29 @@ object FloatingProgressManager {
             )
         }
         inputRow.addView(sendBtn)
+
+        // 语音输入按钮（麦克风图标）
+        val micBtn = ImageView(appRef!!).apply {
+            // 使用自定义麦克风图标
+            setImageDrawable(ContextCompat.getDrawable(appRef!!, R.drawable.ic_mic))
+            scaleType = ImageView.ScaleType.CENTER
+            val micColor = if (com.palmagent.app.utils.KVUtils.isVoiceInputEnabled())
+                "#22D3EE".toColorInt() else "#CCCCCC".toColorInt()
+            setColorFilter(micColor, PorterDuff.Mode.SRC_ATOP)
+            setOnClickListener {
+                // 触发语音输入（由外部注册的 onVoiceInputClick 回调处理）
+                onVoiceInputClick?.invoke()
+            }
+            layoutParams = LinearLayout.LayoutParams(
+                (30 * density).toInt(),
+                (30 * density).toInt()
+            ).apply {
+                marginStart = (4 * density).toInt()
+            }
+        }
+        // 保存引用以便动画控制
+        this@FloatingProgressManager.micBtn = micBtn
+        inputRow.addView(micBtn)
 
         root.addView(inputRow)
 

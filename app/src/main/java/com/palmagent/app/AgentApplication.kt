@@ -5,6 +5,7 @@ import android.app.Activity
 import android.os.Bundle
 import com.palmagent.app.service.AIService
 import com.palmagent.app.service.GuiOwlService
+import com.palmagent.app.service.TtsManager
 import com.palmagent.app.framework.config.AppConfig
 import com.palmagent.app.framework.event.EventBus
 import com.palmagent.app.framework.coroutine.AgentCoroutineScope
@@ -108,6 +109,20 @@ class AgentApplication : Application() {
                     LocalKbEngine.init(this@AgentApplication)
                 } catch (e: Exception) {
                     Log.e(TAG, "端侧知识库初始化失败: ${e.message}", e)
+                }
+            }
+        }
+
+        // TTS 语音播报引擎初始化（后台线程异步初始化，不阻塞主线程）
+        if (KVUtils.isTtsEnabled()) {
+            val ttsManager = TtsManager(this)
+            appCoordinatorInstance.setTtsManager(ttsManager)
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    ttsManager.initialize()
+                    Log.i(TAG, "TTS 引擎初始化完成")
+                } catch (e: Exception) {
+                    Log.e(TAG, "TTS 引擎初始化失败: ${e.message}", e)
                 }
             }
         }

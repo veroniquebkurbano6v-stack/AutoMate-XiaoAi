@@ -8,7 +8,6 @@
 # - *.kt / *.java / *.gradle 等代码/构建文件：强制 LF（Unix 惯例，跨平台一致）
 # - *.md / *.bat / *.cmd：保留 CRLF（Markdown 在 Windows 渲染更稳，bat 必须 CRLF）
 # - 其它文本：autocrlf 自然处理
-
 # Kotlin 源码
 *.kt             text eol=lf
 # Java 源码

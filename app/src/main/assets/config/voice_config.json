@@ -1,0 +1,28 @@
+{
+  "sample_rate": 16000,
+  "max_record_seconds": 60,
+  "silence_timeout_ms": 3000,
+  "voice_volume_threshold": 0.02,
+  "vad": {
+    "model_asset_path": "vad/silero_vad.onnx",
+    "frame_size": 512,
+    "speech_threshold": 0.5,
+    "silence_threshold": 0.3,
+    "silence_frames": 94,
+    "min_speech_frames": 16
+  },
+  "asr": {
+    "model_asset_path": "sensevoice/model.int8.onnx",
+    "tokens_asset_path": "sensevoice/tokens.txt",
+    "language": "zh",
+    "use_itn": true,
+    "num_threads": 2
+  },
+  "fbank": {
+    "n_fft": 512,
+    "win_length": 400,
+    "hop_length": 160,
+    "n_mels": 80,
+    "lfr_m": 7
+  }
+}

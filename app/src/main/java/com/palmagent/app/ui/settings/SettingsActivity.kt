@@ -31,6 +31,7 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.gson.Gson
@@ -104,6 +105,7 @@ class SettingsActivity : AppCompatActivity() {
         refreshPlannerConfigDisplay()
         
         refreshOcrEngineDisplay()
+        refreshTtsConfigDisplay()
         setupLLMConfig()
         setupKeyboardVlmConfig()
         setupVisionModeSwitch()
@@ -112,6 +114,7 @@ class SettingsActivity : AppCompatActivity() {
         setupPlannerConfig()
         
         setupOcrEngineConfig()
+        setupTtsConfig()
         setupWeChatBinding()
         setupDiagnoseAll()
         setupKbConfig()
@@ -129,6 +132,7 @@ class SettingsActivity : AppCompatActivity() {
         refreshPlannerConfigDisplay()
         
         refreshOcrEngineDisplay()
+        refreshTtsConfigDisplay()
         refreshKbStatus()
     }
 
@@ -1725,6 +1729,75 @@ class SettingsActivity : AppCompatActivity() {
                 val label = if (selected == "rapidocr") "RapidOCR" else "ML Kit"
                 Toast.makeText(this, "已切换为$label", Toast.LENGTH_SHORT).show()
                 dialog.dismiss()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    // ==================== TTS 语音播报配置 ====================
+
+    @SuppressLint("SetTextI18n")
+    private fun refreshTtsConfigDisplay() {
+        val tv = findViewById<TextView>(R.id.tvTtsConfigValue)
+        if (KVUtils.isTtsEnabled()) {
+            tv.text = "已开启"
+            tv.setTextColor(0xFF4CAF50.toInt())
+        } else {
+            tv.text = "已关闭"
+            tv.setTextColor(0xFF999999.toInt())
+        }
+    }
+
+    private fun setupTtsConfig() {
+        findViewById<LinearLayout>(R.id.menu_tts_config).setOnClickListener {
+            showTtsConfigDialog()
+        }
+    }
+
+    private fun showTtsConfigDialog() {
+        val enabled = KVUtils.isTtsEnabled()
+        val switchView = SwitchCompat(this).apply {
+            text = "任务结果语音播报"
+            textSize = 14f
+            setTextColor(0xFF333333.toInt())
+            isChecked = enabled
+            setPadding(0, 16, 0, 16)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val descText = TextView(this).apply {
+            text = "开启后，模型完成任务或出错时将通过语音播报结果。\n\n关闭后，所有任务结果仅通过文字显示。"
+            textSize = 12f
+            setTextColor(0xFF666666.toInt())
+            setPadding(0, 0, 0, 16)
+        }
+
+        val scrollView = ScrollView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(48, 24, 48, 8)
+        }
+        layout.addView(switchView)
+        layout.addView(descText)
+        scrollView.addView(layout)
+
+        AlertDialog.Builder(this)
+            .setTitle("语音播报")
+            .setView(scrollView)
+            .setPositiveButton("确定") { _, _ ->
+                val newValue = switchView.isChecked
+                KVUtils.setTtsEnabled(newValue)
+                refreshTtsConfigDisplay()
+                Toast.makeText(this, if (newValue) "语音播报已开启" else "语音播报已关闭", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("取消", null)
             .show()

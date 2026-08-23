@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 麦克风录音激活态圆形背景：品牌主色渐变 + 淡青光环，与发送按钮风格一致 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33FFFFFF">
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:angle="135"
+                android:startColor="#22D3EE"
+                android:endColor="#3B82F6" />
+        </shape>
+    </item>
+</ripple>

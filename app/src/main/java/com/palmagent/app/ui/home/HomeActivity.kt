@@ -1,14 +1,21 @@
 package com.palmagent.app.ui.home
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.*
 import android.provider.Settings
 import android.util.Log
+import android.animation.AnimatorSet
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.view.View
 import android.widget.*
 import androidx.activity.ComponentActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -28,6 +35,8 @@ import com.palmagent.app.service.GuiOwlService
 import com.palmagent.app.service.RapidOcrService
 import com.palmagent.app.service.DecisionDialogService
 import com.palmagent.app.service.DecisionDialogService.DialogResult
+import com.palmagent.app.service.VoiceInputManager
+import com.palmagent.app.service.VoiceConfig
 import com.palmagent.app.floating.FloatingProgressManager
 import com.palmagent.app.TaskOrchestrator
 import com.palmagent.app.ui.chat.ChatAdapter
@@ -58,11 +67,104 @@ class HomeActivity : ComponentActivity() {
     private lateinit var recyclerChat: androidx.recyclerview.widget.RecyclerView
     private lateinit var etInput: EditText
     private lateinit var btnSend: Button
+    private lateinit var btnVoiceInput: ImageButton
     private lateinit var chatAdapter: ChatAdapter
     private var shouldAutoScroll = true
 
     private val dialogService = DecisionDialogService()
     private val chatHistory = mutableListOf<ChatMessage>()
+
+    // 语音输入（Phase 2）
+    private val voiceInputManager: VoiceInputManager by lazy {
+        VoiceInputManager(application, VoiceConfig.load(application))
+    }
+    private var voiceInputState = VoiceInputManager.RecordingState.IDLE
+    private var micAnimator: AnimatorSet? = null
+    /** 语音输入来源：true=悬浮窗麦克风触发（结果写悬浮窗输入框），false=主界面（结果写主界面输入框） */
+    @Volatile
+    private var voiceInputFromFloating = false
+    private val voiceInputCallback = object : VoiceInputManager.VoiceInputCallback {
+        override fun onStateChanged(state: VoiceInputManager.RecordingState) {
+            voiceInputState = state
+            // 更新按钮动画（录音中脉冲，空闲恢复）
+            runOnUiThread {
+                when (state) {
+                    VoiceInputManager.RecordingState.WAITING_FOR_SPEECH,
+                    VoiceInputManager.RecordingState.RECORDING -> {
+                        startMicAnimation(true)
+                        // 悬浮窗也启动动画
+                        FloatingProgressManager.startMicAnimation()
+                    }
+                    VoiceInputManager.RecordingState.TRANSCRIBING -> {
+                        startMicAnimation(false)
+                        FloatingProgressManager.stopMicAnimation()
+                        Toast.makeText(this@HomeActivity, "正在识别…", Toast.LENGTH_SHORT).show()
+                    }
+                    VoiceInputManager.RecordingState.ERROR -> {
+                        startMicAnimation(false)
+                        FloatingProgressManager.stopMicAnimation()
+                        Toast.makeText(this@HomeActivity, "语音输入出错", Toast.LENGTH_SHORT).show()
+                    }
+                    else -> {
+                        // IDLE
+                        startMicAnimation(false)
+                        FloatingProgressManager.stopMicAnimation()
+                    }
+                }
+            }
+        }
+        override fun onVoiceInputResult(text: String) {
+            if (text.isNotBlank()) {
+                Log.d(TAG, "语音输入结果: $text (fromFloating=$voiceInputFromFloating)")
+                runOnUiThread {
+                    if (voiceInputFromFloating) {
+                        // 悬浮窗麦克风触发：写入悬浮窗输入框（续写，不覆盖）；
+                        // 悬浮窗不可用（未显示/已销毁）时回退写入主界面输入框，避免结果静默丢失
+                        if (!FloatingProgressManager.setVoiceInputText(text)) {
+                            insertIntoInput(text)
+                        }
+                    } else {
+                        // 主界面触发：续写而非覆盖，在光标位置插入识别文本，保留输入框已有内容
+                        insertIntoInput(text)
+                    }
+                }
+            }
+        }
+
+        /** 将识别文本插入主界面输入框（光标处插入，保留已有内容，光标移到插入后） */
+        private fun insertIntoInput(text: String) {
+            val editable = etInput.text
+            val selStart = etInput.selectionStart.coerceAtLeast(0)
+            val selEnd = etInput.selectionEnd.coerceAtLeast(selStart)
+            // 若存在选中文本则替换选中区，否则在光标处插入
+            editable.replace(selStart, selEnd, text)
+            // 光标移动到插入内容之后，便于继续输入
+            etInput.setSelection(selStart + text.length)
+            etInput.requestFocus()
+            // 不自动发送，用户可自行编辑后发送
+        }
+        override fun onVoiceInputError(error: String) {
+            Log.w(TAG, "语音输入错误: $error")
+            runOnUiThread {
+                Toast.makeText(this@HomeActivity, "语音识别失败: $error", Toast.LENGTH_SHORT).show()
+            }
+        }
+        override fun onVolumeChanged(volume: Float) {
+            // 可选：更新 UI 音量指示器
+        }
+    }
+
+    // 录音权限请求
+    private val recordAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            Log.d(TAG, "录音权限已授予")
+            startVoiceInput()
+        } else {
+            Toast.makeText(this, "语音输入需要录音权限，请在设置中开启", Toast.LENGTH_LONG).show()
+        }
+    }
 
     // 会话持久化：会话列表/当前会话消息由 ChatViewModel 管理，HomeActivity 仅同步写库
     private val chatViewModel: ChatViewModel by viewModels()
@@ -149,6 +251,8 @@ class HomeActivity : ComponentActivity() {
         super.onDestroy()
         // v3.2 Bug-W 补丁：Activity 销毁时注销 listener，避免单例 TaskOrchestrator 持有已销毁 Activity 引用
         appCoordinator.taskOrchestrator.taskStateListener = null
+        // Phase 2: 释放语音输入资源
+        voiceInputManager.release()
     }
 
     private fun showGuideIfNeeded() {
@@ -367,6 +471,11 @@ class HomeActivity : ComponentActivity() {
         recyclerChat = findViewById(R.id.recyclerChat)
         etInput = findViewById(R.id.etInput)
         btnSend = findViewById(R.id.btnSend)
+        btnVoiceInput = findViewById(R.id.btnVoiceInput)
+        btnVoiceInput.setOnClickListener {
+            voiceInputFromFloating = false   // 主界面麦克风：结果写主界面输入框
+            startVoiceInput()
+        }
 
         chatAdapter = ChatAdapter()
         recyclerChat.layoutManager = LinearLayoutManager(this).apply {
@@ -595,6 +704,76 @@ class HomeActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * 控制主界面麦克风按钮脉冲动画
+     * @param recording true=启动脉冲动画，false=停止
+     */
+    private fun startMicAnimation(recording: Boolean) {
+        if (!::btnVoiceInput.isInitialized) return
+        if (recording) {
+            if (micAnimator?.isRunning == true) return
+            micAnimator?.cancel()
+            // 激活态：切换为品牌渐变圆形背景 + 白色图标，视觉与发送按钮统一
+            btnVoiceInput.setBackgroundResource(R.drawable.bg_mic_active)
+            btnVoiceInput.setImageTintList(android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.WHITE
+            ))
+            // 柔和呼吸：两轴同步 1f→1.12f + 透明度 0.9→1.0，避免生硬的大幅缩放
+            val animX = ObjectAnimator.ofFloat(btnVoiceInput, View.SCALE_X, 1f, 1.12f).apply {
+                duration = 700
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+            }
+            val animY = ObjectAnimator.ofFloat(btnVoiceInput, View.SCALE_Y, 1f, 1.12f).apply {
+                duration = 700
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+            }
+            val animAlpha = ObjectAnimator.ofFloat(btnVoiceInput, View.ALPHA, 0.9f, 1f).apply {
+                duration = 700
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+            }
+            micAnimator = AnimatorSet().apply {
+                playTogether(animX, animY, animAlpha)
+                start()
+            }
+        } else {
+            micAnimator?.cancel()
+            micAnimator = null
+            // 恢复空闲态：原背景 + 深色图标 + 复位缩放/透明度
+            btnVoiceInput.setBackgroundResource(R.drawable.bg_icon_button)
+            btnVoiceInput.setImageTintList(android.content.res.ColorStateList.valueOf(
+                android.graphics.Color.parseColor("#1A1A2E")
+            ))
+            btnVoiceInput.scaleX = 1f
+            btnVoiceInput.scaleY = 1f
+            btnVoiceInput.alpha = 1f
+        }
+    }
+
+    /**
+     * 启动语音输入：检查权限 → 启动 VoiceInputManager
+     * Phase 2: 语音输入入口
+     */
+    private fun startVoiceInput() {
+        if (voiceInputState != VoiceInputManager.RecordingState.IDLE) {
+            // 正在录音中 → 停止并转录（再次点击 = 结束录音并识别，而非丢弃）
+            voiceInputManager.stopAndTranscribe()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        val started = voiceInputManager.startVoiceInput(voiceInputCallback)
+        if (!started) {
+            Toast.makeText(this, "无法启动语音输入", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private fun scrollToBottom() {
         if (!shouldAutoScroll) return
         recyclerChat.post {
@@ -621,6 +800,11 @@ class HomeActivity : ComponentActivity() {
             }
             FloatingProgressManager.onSendCommand = { text ->
                 handleFloatingCommand(text)
+            }
+            // Phase 2: 悬浮窗麦克风按钮 → 启动语音输入（结果写入悬浮窗输入框）
+            FloatingProgressManager.onVoiceInputClick = {
+                voiceInputFromFloating = true
+                startVoiceInput()
             }
             lifecycleScope.launch {
                 repeatOnLifecycle(Lifecycle.State.STARTED) {

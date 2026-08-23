@@ -295,12 +295,26 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
+            <!-- 语音输入按钮 -->
+            <ImageButton
+                android:id="@+id/btnVoiceInput"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_icon_button"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="8dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_mic"
+                android:contentDescription="语音输入" />
+
             <!-- 发送按钮 -->
             <Button
                 android:id="@+id/btnSend"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="4dp"
                 android:background="@drawable/bg_send_button_circle"
                 android:drawableStart="@drawable/ic_send_plane"
                 android:drawableTint="@android:color/white"

@@ -99,6 +99,19 @@ class GUIAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
+        // TalkBack 兼容：当 AI 正在操作时，跳过非关键事件处理，减少与 TalkBack 的资源竞争
+        // 但保留 TYPE_WINDOW_STATE_CHANGED 等关键事件，确保 AI 能感知页面跳转
+        if (agentActing) {
+            when (event.eventType) {
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                    // 窗口变化是 AI 执行的关键信号，即使 agentActing 也要记录
+                    lastEventTime = System.currentTimeMillis()
+                }
+                // 其他事件在 AI 操作时全部跳过，减少冲突
+                else -> return
+            }
+        }
+
         eventCount++
         lastEventTime = System.currentTimeMillis()
 

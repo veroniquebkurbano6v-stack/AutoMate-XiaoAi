@@ -8,3 +8,11 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="100" />
+    <!--
+        TalkBack 兼容性说明：
+        - feedbackGeneric 而非 feedbackSpoken：本服务不占用系统语音通道，TalkBack 可正常读屏
+        - 未设置 flagRequestTouchExplorationMode：不干扰 TalkBack 的触摸浏览手势
+        - notificationTimeout=100ms：事件过滤窗口，减少事件量避免 AI 分析过载
+        - 当 AI 正在操作时（setAgentActing=true），getCurrentScreenInfo 会自动跳过
+          不必要的节点遍历，降低与 TalkBack 的资源竞争
+    -->

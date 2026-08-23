@@ -13,6 +13,7 @@ import com.palmagent.app.channel.ChannelSetup
 import com.palmagent.app.floating.FloatingProgressManager
 import com.palmagent.app.service.ForegroundService
 import com.palmagent.app.service.KeepAliveJobService
+import com.palmagent.app.service.TtsManager
 import com.palmagent.app.utils.KVUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +62,15 @@ class AppCoordinator @Inject constructor(
      */
     fun shutdown() {
         applicationScope.cancel()
+        // TTS 释放资源
+        taskOrchestrator.ttsManager?.shutdown()
+    }
+
+    /**
+     * 设置 TTS 管理器（由 Application 初始化后调用）
+     */
+    fun setTtsManager(ttsManager: TtsManager) {
+        taskOrchestrator.ttsManager = ttsManager
     }
 
     fun initCommon() {

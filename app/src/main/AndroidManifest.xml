@@ -14,6 +14,9 @@
     <!-- 无感保活：通过 ADB 授权后可编程恢复无障碍服务 -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
+    <!-- 语音输入：录音权限 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- 查询已安装应用列表（决策模型确认应用安装状态） -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
