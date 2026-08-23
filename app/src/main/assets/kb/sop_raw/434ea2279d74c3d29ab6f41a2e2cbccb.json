@@ -1,41 +1,38 @@
 {
   "sop_id": "434ea2279d74c3d2",
   "original_task_name": "用哔哩哔哩查找“肖申克的救赎”的影评视频。",
-  "task_name": "用哔哩哔哩查找特定影视的影评视频。",
+  "task_name": "用哔哩哔哩查找目标影视作品的影评视频",
   "app_name": "B站",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "媒体",
   "keywords": [
     "B站",
-    "特定影视",
+    "哔哩哔哩",
+    "影视作品",
     "影评",
-    "搜索"
+    "视频",
+    "搜索",
+    "查找"
   ],
   "steps": [
     {
-      "goal": "点击哔哩哔哩应用图标",
-      "expected": "打开哔哩哔哩应用",
+      "goal": "点击手机桌面上哔哩哔哩应用图标启动应用",
+      "expected": "哔哩哔哩应用成功打开并显示首页推荐内容",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏中的文本区域",
-      "expected": "搜索栏内容被选中，准备输入新的搜索关键词",
+      "goal": "点击首页顶部搜索栏中的文本输入区域",
+      "expected": "搜索输入框获得焦点，弹出键盘准备输入",
       "action_type": "click",
       "step_order": 2
     },
     {
+      "goal": "在搜索输入框中输入目标影视作品的名称并进行搜索",
+      "expected": "搜索结果页面加载完成，显示相关影评视频列表",
       "action_type": "type",
-      "goal": "在文本输入框中输入'特定影视的影评视频'",
-      "expected": "文本输入框中显示'特定影视的影评视频'",
       "step_order": 3
-    },
-    {
-      "goal": "点击搜索按钮执行搜索操作",
-      "expected": "搜索结果页面加载完成，显示与'特定影视的影评视频'相关的搜索结果",
-      "action_type": "click",
-      "step_order": 4
     }
   ]
 }

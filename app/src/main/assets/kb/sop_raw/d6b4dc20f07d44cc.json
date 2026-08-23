@@ -1,25 +1,27 @@
 {
   "sop_id": "d6b4dc20f07d44cc",
   "original_task_name": "美团外卖点1杯珍珠奶茶，温度正常冰，甜度半糖，加入购物车",
-  "task_name": "美团外卖搜索特定奶茶店铺并选奶茶加入购物车",
+  "task_name": "美团外卖搜索奶茶店铺并选奶茶加入购物车",
   "app_name": "美团外卖",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "购物",
   "keywords": [
     "美团外卖",
-    "珍珠奶茶",
     "奶茶",
+    "珍珠奶茶",
     "搜索",
     "店铺",
     "加入购物车",
-    "购物车"
+    "购物车",
+    "点单",
+    "饮品"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的美团外卖应用图标",
-      "expected": "应用启动，进入美团外卖首页（底部有首页/订单/消息/我的等标签）",
+      "expected": "应用启动，进入美团外卖首页，底部显示首页/订单/消息/我的标签栏",
       "action_type": "click"
     },
     {
@@ -30,56 +32,44 @@
     },
     {
       "step_order": 3,
-      "goal": "在文本输入框中输入珍珠奶茶",
-      "expected": "文本输入框中显示珍珠奶茶，下方出现搜索联想词",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "进入搜索结果页，显示售卖目标饮品的店铺列表",
       "action_type": "type"
     },
     {
       "step_order": 4,
-      "goal": "点击搜索按钮执行搜索",
-      "expected": "进入搜索结果页，显示售卖珍珠奶茶的店铺列表",
-      "action_type": "click"
-    },
-    {
-      "step_order": 5,
-      "goal": "点击目标奶茶店铺进入店铺详情页",
+      "goal": "点击搜索结果中目标奶茶店铺卡片进入店铺",
       "expected": "进入店铺详情页，可看到店铺商品列表和顶部搜索图标",
       "action_type": "click"
     },
     {
-      "step_order": 6,
-      "goal": "点击顶部搜索图标进入搜索界面",
-      "expected": "页面切换至搜索界面，搜索栏获得焦点",
+      "step_order": 5,
+      "goal": "点击店铺详情页顶部的搜索图标",
+      "expected": "页面切换至店铺内搜索界面，搜索栏获得焦点",
       "action_type": "click"
     },
     {
-      "step_order": 7,
-      "goal": "在文本输入框中输入珍珠奶茶",
-      "expected": "文本输入框中显示珍珠奶茶",
+      "step_order": 6,
+      "goal": "在店铺内搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果加载完成，显示该店铺内目标饮品商品列表",
       "action_type": "type"
     },
     {
+      "step_order": 7,
+      "goal": "点击搜索结果中的目标饮品商品卡片",
+      "expected": "进入商品详情页，显示价格及规格选择区域",
+      "action_type": "click"
+    },
+    {
       "step_order": 8,
-      "goal": "点击搜索按钮执行搜索",
-      "expected": "搜索结果页面加载完成，显示该店铺内珍珠奶茶商品列表",
+      "goal": "在规格选择区域选择目标温度和甜度选项",
+      "expected": "规格选择完成，底部加入购物车按钮变为可点击状态",
       "action_type": "click"
     },
     {
       "step_order": 9,
-      "goal": "点击搜索结果中的珍珠奶茶商品卡片",
-      "expected": "进入商品详情，显示价格、规格选择",
-      "action_type": "click"
-    },
-    {
-      "step_order": 10,
-      "goal": "选择规格（温度正常冰、甜度半糖）",
-      "expected": "规格选择完成，可点击加入购物车",
-      "action_type": "click"
-    },
-    {
-      "step_order": 11,
-      "goal": "点击加入购物车按钮",
-      "expected": "商品成功加入购物车，购物车角标+1",
+      "goal": "点击底部加入购物车按钮",
+      "expected": "商品成功加入购物车，购物车图标角标数字加1",
       "action_type": "click"
     }
   ]

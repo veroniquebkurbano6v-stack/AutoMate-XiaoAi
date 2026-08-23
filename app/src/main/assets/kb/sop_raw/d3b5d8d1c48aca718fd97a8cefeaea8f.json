@@ -1,77 +1,74 @@
 {
   "sop_id": "d3b5d8d1c48aca71",
   "original_task_name": "在淘宝里找找vivo S10的128GB手机，选两款不同颜色的加入购物车。",
-  "task_name": "在淘宝里找找特定商品，选两款不同颜色的加入购物车。",
+  "task_name": "在淘宝搜索目标手机并选两款不同颜色加入购物车",
   "app_name": "淘宝",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "购物",
   "keywords": [
     "淘宝",
-    "特定商品",
+    "手机",
+    "搜索",
     "购物车",
-    "搜索"
+    "加入购物车",
+    "颜色选择",
+    "存储容量"
   ],
   "steps": [
     {
       "goal": "点击淘宝应用图标以打开应用",
-      "expected": "打开淘宝应用界面",
+      "expected": "进入淘宝首页，显示搜索栏和推荐内容",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏中的'跑步鞋'文字区域",
-      "expected": "激活搜索栏，准备输入新的搜索关键词",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "显示目标商品的搜索结果列表页面",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定商品'",
-      "expected": "文本输入框中显示'特定商品'",
-      "action_type": "type",
+      "goal": "点击搜索结果中目标商品卡片进入详情页",
+      "expected": "进入目标商品详情页，显示商品图片和规格",
+      "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "执行点击操作以提交搜索",
-      "expected": "搜索界面进入搜索结果页面",
+      "goal": "点击详情页中颜色选项区域选择第一种颜色",
+      "expected": "第一种颜色选项高亮显示为选中状态",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击特定商品卡片进入详情页",
-      "expected": "进入特定商品详情页面",
+      "goal": "点击详情页中存储容量选项区域选择目标容量",
+      "expected": "目标存储容量选项高亮显示为选中状态",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "点击购物车图标进入购物车页面",
-      "expected": "进入购物车页面，显示商品列表和结算选项",
+      "goal": "点击详情页底部加入购物车按钮",
+      "expected": "页面弹出加购成功提示，购物车图标数字增加",
       "action_type": "click",
       "step_order": 6
     },
     {
-      "goal": "选择特定存储容量并点击加入购物车",
-      "expected": "选择特定存储容量后，点击加入购物车按钮",
+      "goal": "点击详情页中颜色选项区域选择第二种颜色",
+      "expected": "第二种颜色选项高亮显示为选中状态",
       "action_type": "click",
       "step_order": 7
     },
     {
-      "goal": "确认商品已成功加入购物车",
-      "expected": "页面顶部弹出“加购成功”提示",
+      "goal": "点击详情页底部加入购物车按钮",
+      "expected": "页面弹出加购成功提示，购物车图标数字再次增加",
       "action_type": "click",
       "step_order": 8
     },
     {
-      "goal": "选择手机颜色选项",
-      "expected": "选择'特定颜色'作为手机颜色",
+      "goal": "点击底部导航栏购物车图标进入购物车页面",
+      "expected": "进入购物车页面，显示两款不同颜色的目标商品",
       "action_type": "click",
       "step_order": 9
-    },
-    {
-      "goal": "选择存储容量选项",
-      "expected": "选择'特定容量'存储选项",
-      "action_type": "click",
-      "step_order": 10
     }
   ]
 }

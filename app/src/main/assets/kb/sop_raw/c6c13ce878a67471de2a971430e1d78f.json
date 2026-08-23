@@ -1,7 +1,7 @@
 {
   "sop_id": "c6c13ce878a67471",
   "original_task_name": "在大众点评中搜索小寨附近热门的咖啡店，导航过去",
-  "task_name": "在大众点评中搜索目的地附近热门的咖啡店，导航过去",
+  "task_name": "在大众点评中搜索目标地点附近热门咖啡店并导航前往",
   "app_name": "大众点评",
   "source": "cagui_auto",
   "difficulty": "L4",
@@ -9,111 +9,98 @@
   "keywords": [
     "大众点评",
     "咖啡店",
-    "目的地",
-    "导航"
+    "咖啡馆",
+    "搜索",
+    "筛选",
+    "导航",
+    "路线",
+    "附近",
+    "热门"
   ],
   "steps": [
     {
-      "goal": "点击大众点评应用图标",
-      "expected": "打开大众点评应用",
+      "goal": "点击大众点评应用图标启动应用",
+      "expected": "大众点评应用打开，显示首页界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
-      "action_type": "click",
+      "goal": "在首页顶部搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页面展示与目标关键词相关的店铺列表",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'咖啡店'",
-      "expected": "文本输入框中显示'咖啡店'",
-      "action_type": "type",
+      "goal": "点击搜索结果页上方的筛选按钮打开筛选面板",
+      "expected": "筛选面板展开，显示位置、排序等筛选条件选项",
+      "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作以查看咖啡店相关结果",
-      "expected": "搜索界面显示搜索结果列表",
+      "goal": "在筛选面板中点击位置区域选择目标地点",
+      "expected": "位置选择界面弹出，显示搜索输入框和热门地点列表",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击筛选按钮以打开筛选菜单",
-      "expected": "打开筛选菜单，用户可以在此选择不同的筛选条件来缩小搜索范围",
-      "action_type": "click",
+      "goal": "在位置搜索输入框中输入目标地点名称并进行搜索",
+      "expected": "搜索结果列表中显示与目标地点名称匹配的地点条目",
+      "action_type": "type",
       "step_order": 5
     },
     {
-      "goal": "选择指定地点筛选咖啡店",
-      "expected": "筛选出指定地点的咖啡店",
+      "goal": "点击搜索结果中第一个匹配的目标地点条目",
+      "expected": "目标地点被选中并添加到位置筛选列表中",
       "action_type": "click",
       "step_order": 6
     },
     {
-      "goal": "点击搜索栏以激活输入功能",
-      "expected": "搜索栏获得焦点，准备输入位置名称",
+      "goal": "点击确认按钮将目标地点设为筛选位置",
+      "expected": "筛选面板关闭，搜索结果按目标地点范围重新加载",
       "action_type": "click",
       "step_order": 7
     },
     {
-      "goal": "在文本输入框中输入'目的地'",
-      "expected": "文本输入框中显示'目的地'",
-      "action_type": "type",
+      "goal": "点击排序筛选按钮展开排序选项列表",
+      "expected": "排序选项列表弹出，显示距离优先、好评优先等选项",
+      "action_type": "click",
       "step_order": 8
     },
     {
-      "goal": "选择第一个搜索结果“目的地”，将其添加到位置列表中",
-      "expected": "位置列表中新增了“目的地”条目",
+      "goal": "在排序选项列表中点击距离优先选项",
+      "expected": "排序选项收起，列表按距离由近到远重新排列",
       "action_type": "click",
       "step_order": 9
     },
     {
-      "goal": "确认选择'目的地'作为目的地",
-      "expected": "点击'选择此地点'按钮后，系统将确认'目的地'为目的地，并可能进入下一步路线规划流程。",
+      "goal": "点击搜索结果中排名靠前的目标咖啡店条目",
+      "expected": "进入该咖啡店的详情页面，显示店铺信息和评价",
       "action_type": "click",
       "step_order": 10
     },
     {
-      "goal": "点击排序筛选按钮展开排序选项",
-      "expected": "筛选菜单弹出，显示不同排序方式",
+      "goal": "点击店铺详情页中的地址或导航入口区域",
+      "expected": "弹出地图导航页面，显示店铺位置和路线规划选项",
       "action_type": "click",
       "step_order": 11
     },
     {
-      "goal": "选择排序方式为距离优先",
-      "expected": "界面显示排序选项中已选中“距离优先”",
+      "goal": "点击推荐的驾车路线方案条目",
+      "expected": "界面显示驾车路线详情，包含距离、预计时间和路线图",
       "action_type": "click",
       "step_order": 12
     },
     {
-      "goal": "点击特定咖啡馆店铺条目",
-      "expected": "进入该店铺详情页面",
+      "goal": "点击地图服务选择按钮选择导航应用",
+      "expected": "弹出地图应用选择列表，显示可用的导航地图选项",
       "action_type": "click",
       "step_order": 13
     },
     {
-      "goal": "点击营业时间信息区域",
-      "expected": "进入该咖啡厅的营业时间详情页面",
+      "goal": "点击开始导航按钮启动实时导航",
+      "expected": "导航界面启动，显示实时路线指引和预计到达时间",
       "action_type": "click",
       "step_order": 14
-    },
-    {
-      "goal": "选择推荐的驾车路线方案",
-      "expected": "界面显示推荐的驾车路线方案，包含总距离、预计时间、路线图和终点信息",
-      "action_type": "click",
-      "step_order": 15
-    },
-    {
-      "goal": "选择地图服务类型",
-      "expected": "选择百度地图作为导航地图",
-      "action_type": "click",
-      "step_order": 16
-    },
-    {
-      "goal": "点击'开始导航'按钮，启动路线规划后的导航流程",
-      "expected": "导航界面开始运行，显示实时导航路线和预计到达时间",
-      "action_type": "click",
-      "step_order": 17
     }
   ]
 }

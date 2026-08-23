@@ -1,58 +1,49 @@
 {
   "sop_id": "1d18ff9816e578df",
   "original_task_name": "在哔哩哔哩上播放“三生三世十里桃花”的第16集。",
-  "task_name": "在哔哩哔哩上播放“特定影视”的第16集。",
+  "task_name": "在哔哩哔哩上播放目标影视作品的指定集数",
   "app_name": "B站",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "B站",
-    "特定影视",
+    "哔哩哔哩",
+    "影视作品",
     "播放",
-    "搜索"
+    "搜索",
+    "视频",
+    "剧集"
   ],
   "steps": [
     {
       "step_order": 1,
-      "goal": "点击手机桌面上的B站应用图标",
-      "expected": "打开哔哩哔哩应用",
+      "goal": "点击手机桌面上的B站应用图标以启动应用",
+      "expected": "成功打开B站应用并进入首页推荐界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击页面顶部的搜索框",
-      "expected": "搜索框获得焦点，准备输入搜索内容",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在搜索框中输入“三生三世十里桃花”",
-      "expected": "搜索框中显示“三生三世十里桃花”",
+      "goal": "在首页顶部搜索输入框中输入目标影视作品的名称并进行搜索",
+      "expected": "搜索结果页面展示与目标影视作品相关的视频列表",
       "action_type": "type"
     },
     {
+      "step_order": 3,
+      "goal": "点击搜索结果中目标影视作品对应的视频条目",
+      "expected": "进入目标影视作品的详情页面并显示剧集选集列表",
+      "action_type": "click"
+    },
+    {
       "step_order": 4,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果页面显示多个相关视频",
+      "goal": "点击选集列表中第16集对应的集数按钮",
+      "expected": "页面跳转至第16集的播放页面并开始加载视频",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "点击搜索结果中的视频条目",
-      "expected": "进入该视频的详情页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 6,
-      "goal": "点击视频列表中的第16集",
-      "expected": "进入第16集的播放页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 7,
-      "goal": "点击播放按钮",
-      "expected": "视频开始播放",
+      "goal": "点击视频播放区域中央的播放按钮启动播放",
+      "expected": "第16集视频开始正常播放并显示播放进度条",
       "action_type": "click"
     }
   ]

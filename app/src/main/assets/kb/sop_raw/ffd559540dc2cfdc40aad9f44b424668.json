@@ -1,90 +1,44 @@
 {
   "sop_id": "ffd559540dc2cfdc",
   "original_task_name": "打开酷狗音乐Beatport电子舞曲榜的歌，从第一首开始播放",
-  "task_name": "打开酷狗音乐特定榜单的歌，从第一首开始播放",
+  "task_name": "打开酷狗音乐目标榜单并从第一首开始播放",
   "app_name": "酷狗音乐",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "媒体",
   "keywords": [
     "酷狗音乐",
-    "特定榜单",
-    "特定歌曲",
+    "榜单",
+    "排行榜",
     "播放",
-    "搜索"
+    "搜索",
+    "歌曲",
+    "音乐"
   ],
   "steps": [
     {
-      "goal": "点击淘米应用图标以打开应用",
-      "expected": "应用启动并进入主界面",
+      "goal": "点击酷狗音乐应用图标以打开应用",
+      "expected": "应用启动并进入酷狗音乐主界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域以激活搜索功能",
-      "expected": "搜索栏获得焦点，可输入搜索内容",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标榜单名称并进行搜索",
+      "expected": "搜索结果页展示与目标榜单相关的内容列表",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "点击搜索栏中的'点击'位置，以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
+      "goal": "在搜索结果中点击目标榜单对应的入口链接",
+      "expected": "跳转至目标榜单的详情页面",
       "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "进入特定榜单页面",
-      "expected": "导航至特定榜单",
+      "goal": "在目标榜单详情页点击第一首歌曲的播放按钮",
+      "expected": "第一首歌曲开始播放，播放界面显示歌曲信息",
       "action_type": "click",
       "step_order": 4
-    },
-    {
-      "goal": "点击'特定榜单'标题进入榜单页面",
-      "expected": "进入特定榜单页面",
-      "action_type": "click",
-      "step_order": 5
-    },
-    {
-      "goal": "点击特定榜单的歌曲列表项",
-      "expected": "进入该榜单的歌曲详情页面",
-      "action_type": "click",
-      "step_order": 6
-    },
-    {
-      "goal": "点击特定榜单按钮",
-      "expected": "进入特定榜单页面",
-      "action_type": "click",
-      "step_order": 7
-    },
-    {
-      "goal": "点击特定榜单进入榜单详情页",
-      "expected": "进入特定榜单的详情页面",
-      "action_type": "click",
-      "step_order": 8
-    },
-    {
-      "goal": "进入排行榜页面",
-      "expected": "进入排行榜页面",
-      "action_type": "click",
-      "step_order": 9
-    },
-    {
-      "goal": "点击'特定榜单'进入该榜单页面",
-      "expected": "进入特定榜单详情页面",
-      "action_type": "click",
-      "step_order": 10
-    },
-    {
-      "goal": "点击特定榜单进入榜单页面",
-      "expected": "进入特定榜单的播放界面",
-      "action_type": "click",
-      "step_order": 11
-    },
-    {
-      "goal": "点击歌曲《特定歌曲》的标题区域",
-      "expected": "歌曲信息区域展开，显示歌曲详情",
-      "action_type": "click",
-      "step_order": 12
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "sop_id": "933bcb05ac0c2d69",
   "original_task_name": "给微信群“老友记”发条消息，告诉大家周末一起聚个餐吧。",
-  "task_name": "给微信群组发条消息，告诉大家周末一起聚个餐吧。",
+  "task_name": "给微信群组发送聚餐邀请消息",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -9,39 +9,54 @@
   "keywords": [
     "微信",
     "群组",
+    "群聊",
     "消息",
-    "聚会"
+    "发送消息",
+    "聚餐",
+    "邀请"
   ],
   "steps": [
     {
-      "goal": "打开微信应用",
-      "expected": "微信应用图标被选中，进入微信主界面",
+      "goal": "点击桌面上的微信应用图标打开微信",
+      "expected": "微信启动并进入聊天列表主界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击微信顶部的搜索图标",
-      "expected": "搜索界面弹出",
+      "goal": "点击微信主界面右上角的搜索放大镜图标",
+      "expected": "弹出搜索输入框，光标自动聚焦",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "点击聊天界面底部的输入框区域",
-      "expected": "激活聊天输入框",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标群组的名称并进行搜索",
+      "expected": "搜索结果中显示目标群组，点击可进入群聊",
+      "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "在文本输入框中输入'大家周末一起聚个餐吧'",
-      "expected": "文本输入框中显示'大家周末一起聚个餐吧'",
-      "action_type": "type",
+      "goal": "点击搜索结果中的目标群组进入群聊界面",
+      "expected": "进入目标群组的聊天详情页面",
+      "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "发送消息'大家周末一起聚个餐吧'",
-      "expected": "消息已成功发送，界面底部显示'发送'按钮被激活",
+      "goal": "点击群聊界面底部的消息输入框区域",
+      "expected": "输入框被激活，键盘弹出准备输入",
       "action_type": "click",
       "step_order": 5
+    },
+    {
+      "goal": "在输入框中输入目标消息内容",
+      "expected": "输入框中显示已输入的消息文本内容",
+      "action_type": "type",
+      "step_order": 6
+    },
+    {
+      "goal": "点击输入框右侧的发送按钮发送消息",
+      "expected": "消息发送成功，聊天区域显示新消息气泡",
+      "action_type": "click",
+      "step_order": 7
     }
   ]
 }

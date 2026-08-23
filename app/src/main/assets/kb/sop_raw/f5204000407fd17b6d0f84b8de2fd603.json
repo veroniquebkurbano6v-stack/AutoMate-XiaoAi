@@ -1,7 +1,7 @@
 {
   "sop_id": "f5204000407fd17b",
   "original_task_name": "高德搜索附近有没有P+R停车场",
-  "task_name": "在高德地图搜索附近有没有停车场",
+  "task_name": "在高德地图搜索附近停车场",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L2",
@@ -10,32 +10,28 @@
     "高德地图",
     "停车场",
     "附近",
-    "搜索"
+    "搜索",
+    "P+R停车场",
+    "停车"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "高德地图应用图标被选中，应用启动并进入主界面",
+      "expected": "高德地图应用启动并进入地图主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击屏幕中间的搜索框区域",
-      "expected": "搜索栏获得焦点，准备输入对应地点",
+      "goal": "点击主界面顶部中央的搜索输入框区域",
+      "expected": "搜索框获得焦点并弹出输入键盘",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "在文本输入框中输入'附近停车场'",
-      "expected": "文本输入框中显示'附近停车场'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页面展示附近停车场列表信息",
       "action_type": "type"
-    },
-    {
-      "step_order": 4,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果页面显示附近的停车场列表",
-      "action_type": "click"
     }
   ]
 }

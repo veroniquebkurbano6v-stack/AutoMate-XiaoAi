@@ -1,7 +1,7 @@
 {
   "sop_id": "e438daac87db7e76",
   "original_task_name": "高德地图查找乐游原青龙寺并导航过去",
-  "task_name": "在高德地图查找指定地点并导航过去",
+  "task_name": "在高德地图查找目标地点并导航",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -9,38 +9,34 @@
   "keywords": [
     "高德地图",
     "查找",
+    "搜索",
     "目的地",
-    "导航"
+    "导航",
+    "路线规划"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "高德地图应用图标被选中，应用启动并进入主界面",
+      "expected": "高德地图应用启动并进入主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击屏幕中间的搜索框区域",
-      "expected": "搜索栏获得焦点，准备输入对应地点",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在文本输入框中输入需要查找的地点",
-      "expected": "文本输入框中显示对应输入的地点",
+      "goal": "在搜索输入框中输入目标地点名称并进行搜索",
+      "expected": "搜索结果列表展示与目标地点匹配的条目",
       "action_type": "type"
     },
     {
-      "step_order": 4,
-      "goal": "点击搜索结果中对应的地点条目",
-      "expected": "进入该地点的详细信息页面",
+      "step_order": 3,
+      "goal": "点击搜索结果列表中目标地点对应的条目",
+      "expected": "进入目标地点的详细信息页面",
       "action_type": "click"
     },
     {
-      "step_order": 5,
-      "goal": "点击页面底部的'导航'按钮",
-      "expected": "进入导航功能界面",
+      "step_order": 4,
+      "goal": "点击地点详情页面底部的导航按钮",
+      "expected": "进入导航路线规划界面并显示推荐路线",
       "action_type": "click"
     }
   ]

@@ -1,53 +1,43 @@
 {
   "sop_id": "2efd8d7706462ad9",
   "original_task_name": "酷狗播放张学友的“在你身边”专辑中的第1首歌",
-  "task_name": "酷狗播放联系人的特定专辑中的第1首歌",
+  "task_name": "酷狗音乐播放目标歌手的指定专辑中的第一首歌",
   "app_name": "酷狗音乐",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "酷狗音乐",
-    "联系人",
-    "特定专辑",
-    "特定歌曲",
-    "播放"
+    "歌手",
+    "专辑",
+    "歌曲",
+    "播放",
+    "搜索",
+    "音乐播放"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的酷狗音乐应用图标",
-      "expected": "应用图标被选中，进入酷狗音乐主界面",
+      "expected": "应用启动，进入酷狗音乐主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击页面顶部的搜索栏",
-      "expected": "搜索栏获得焦点，准备输入搜索内容",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在搜索栏中输入'张学友 在你身边'",
-      "expected": "搜索栏中显示'张学友 在你身边'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页面展示与目标关键词相关的多个结果",
       "action_type": "type"
     },
     {
+      "step_order": 3,
+      "goal": "点击搜索结果中目标歌手对应的专辑条目",
+      "expected": "进入目标专辑详情页面，显示专辑歌曲列表",
+      "action_type": "click"
+    },
+    {
       "step_order": 4,
-      "goal": "点击搜索栏右侧的搜索按钮",
-      "expected": "搜索结果页面显示多个相关内容",
-      "action_type": "click"
-    },
-    {
-      "step_order": 5,
-      "goal": "点击搜索结果中的专辑条目",
-      "expected": "进入专辑详情页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 6,
-      "goal": "点击专辑中的第1首歌曲",
-      "expected": "第1首歌曲开始播放",
+      "goal": "点击专辑歌曲列表中排列第一的歌曲条目",
+      "expected": "第一首歌曲开始播放，底部出现播放控制栏",
       "action_type": "click"
     }
   ]

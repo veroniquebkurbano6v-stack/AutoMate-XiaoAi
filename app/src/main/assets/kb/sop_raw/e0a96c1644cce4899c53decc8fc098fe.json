@@ -1,65 +1,50 @@
 {
   "sop_id": "e0a96c1644cce489",
   "original_task_name": "用哔哩哔哩播放贤者之孙的最新一集",
-  "task_name": "用哔哩哔哩播放特定影视的最新一集",
+  "task_name": "用哔哩哔哩播放目标影视的最新一集",
   "app_name": "B站",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "B站",
-    "特定影视",
+    "哔哩哔哩",
+    "目标影视",
     "最新一集",
-    "播放"
+    "播放",
+    "番剧",
+    "观看"
   ],
   "steps": [
     {
-      "goal": "点击哔哩哔哩应用图标",
-      "expected": "打开哔哩哔哩应用",
+      "goal": "点击桌面上的B站应用图标启动应用",
+      "expected": "B站应用成功打开并显示首页推荐内容",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标影视名称并进行搜索",
+      "expected": "搜索结果列表展示与目标影视相关的条目",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定影视'",
-      "expected": "文本输入框中显示'特定影视'",
-      "action_type": "type",
+      "goal": "点击搜索结果中目标影视的番剧条目",
+      "expected": "进入目标影视的详情页面展示剧集列表",
+      "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "执行点击操作以触发搜索结果展示",
-      "expected": "搜索结果列表出现",
+      "goal": "关闭页面中弹出的会员专享内容提示弹窗",
+      "expected": "弹窗消失，详情页面恢复完整可操作状态",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击标题为特定影视的番剧条目",
-      "expected": "进入该特定影视的详情页面",
+      "goal": "点击剧集列表中最新一集的标题区域",
+      "expected": "开始播放目标影视最新一集的视频内容",
       "action_type": "click",
       "step_order": 5
-    },
-    {
-      "goal": "关闭会员专享内容弹窗",
-      "expected": "弹窗消失，会员订阅页面恢复完整显示",
-      "action_type": "click",
-      "step_order": 6
-    },
-    {
-      "goal": "点击特定剧集标题区域",
-      "expected": "进入特定剧集的播放页面",
-      "action_type": "click",
-      "step_order": 7
-    },
-    {
-      "goal": "点击特定剧集标题进入该集详情页",
-      "expected": "进入特定剧集的播放或信息页面",
-      "action_type": "click",
-      "step_order": 8
     }
   ]
 }

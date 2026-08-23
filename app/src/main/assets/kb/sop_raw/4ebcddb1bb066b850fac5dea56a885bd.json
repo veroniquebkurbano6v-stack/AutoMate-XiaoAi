@@ -1,7 +1,7 @@
 {
   "sop_id": "4ebcddb1bb066b85",
   "original_task_name": "给微信群“电影推荐”发条消息“周末有兴趣去爬山的可以报名哦！”",
-  "task_name": "给微信群组发条消息“周末有兴趣去爬山的可以报名哦！”",
+  "task_name": "给微信群组发送消息",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -9,39 +9,53 @@
   "keywords": [
     "微信",
     "群组",
+    "群聊",
     "消息",
-    "爬山报名"
+    "发送",
+    "群消息"
   ],
   "steps": [
     {
-      "goal": "打开小红书应用",
-      "expected": "小红书应用图标被点击，应用启动并显示其主界面",
+      "goal": "点击微信应用图标打开微信",
+      "expected": "微信启动并显示聊天列表主界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击微信顶部的搜索图标",
-      "expected": "搜索界面弹出",
+      "goal": "点击微信首页右上角的搜索图标",
+      "expected": "搜索输入框弹出并处于激活状态",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "操作点击，进入消息输入界面",
-      "expected": "操作后界面状态：消息输入框已激活，可输入新消息",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标群名称并进行搜索",
+      "expected": "搜索结果中显示目标群组名称",
+      "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "在文本输入框中输入'周末有兴趣去爬山的可以报名哦！'",
-      "expected": "文本输入框中显示'周末有兴趣去爬山的可以报名哦！'",
-      "action_type": "type",
+      "goal": "点击搜索结果中的目标群组名称",
+      "expected": "进入目标群组的聊天界面",
+      "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "发送消息“周末有兴趣去爬山的可以报名哦！”",
-      "expected": "消息已成功发送，界面底部显示绿色的“发送”按钮，表示消息已提交。",
+      "goal": "点击聊天界面底部的消息输入框",
+      "expected": "输入框激活，键盘弹出可输入文字",
       "action_type": "click",
       "step_order": 5
+    },
+    {
+      "goal": "在底部输入框中输入目标消息内容",
+      "expected": "输入框中显示目标消息文字内容",
+      "action_type": "type",
+      "step_order": 6
+    },
+    {
+      "goal": "点击输入框右侧的发送按钮",
+      "expected": "消息发送成功，聊天区显示该消息气泡",
+      "action_type": "click",
+      "step_order": 7
     }
   ]
 }

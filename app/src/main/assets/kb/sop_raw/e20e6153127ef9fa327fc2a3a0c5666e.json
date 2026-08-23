@@ -1,77 +1,60 @@
 {
   "sop_id": "e20e6153127ef9fa",
   "original_task_name": "美团上点711便利店的两个虾仁沙拉酱饭团送到家",
-  "task_name": "美团上点特定便利店的特定商品送到家",
+  "task_name": "美团外卖下单便利店商品送到家",
   "app_name": "美团",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "购物",
   "keywords": [
     "美团",
-    "特定便利店",
-    "特定商品",
+    "便利店",
     "外卖",
-    "购物车"
+    "商品下单",
+    "购物车",
+    "配送到家"
   ],
   "steps": [
     {
       "step_order": 1,
-      "goal": "打开美团App",
-      "expected": "应用图标被选中，进入美团应用界面",
+      "goal": "点击手机桌面上的美团App图标",
+      "expected": "进入美团首页，显示外卖、美食等功能入口",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在文本输入框中输入'特定便利店'",
-      "expected": "文本输入框中显示用户指定的便利店名称",
+      "goal": "在首页顶部搜索输入框中输入目标便利店名称并进行搜索",
+      "expected": "搜索结果页展示匹配的便利店店铺列表",
       "action_type": "type"
     },
     {
+      "step_order": 3,
+      "goal": "点击搜索结果列表中的目标便利店店铺条目",
+      "expected": "进入目标便利店店铺详情页，显示商品分类",
+      "action_type": "click"
+    },
+    {
       "step_order": 4,
-      "goal": "点击搜索按钮以执行搜索操作",
-      "expected": "搜索结果页面显示",
+      "goal": "点击店铺详情页顶部的店内搜索栏区域",
+      "expected": "店内搜索栏获得焦点，光标闪烁等待输入",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "点击店铺列表中的特定便利店条目",
-      "expected": "进入该特定便利店的详细页面",
-      "action_type": "click"
+      "goal": "在店内搜索输入框中输入目标商品名称并进行搜索",
+      "expected": "搜索结果展示匹配的目标商品列表",
+      "action_type": "type"
     },
     {
       "step_order": 6,
-      "goal": "点击搜索栏以激活输入功能",
-      "expected": "搜索栏获得焦点，准备输入商品名称",
+      "goal": "点击搜索结果中的目标商品卡片查看详情",
+      "expected": "弹出商品详情弹窗，显示规格与数量选择",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "在文本输入框中输入'特定商品'",
-      "expected": "文本输入框中显示用户指定的商品名称",
-      "action_type": "type"
-    },
-    {
-      "step_order": 8,
-      "goal": "点击搜索按钮以执行商品搜索",
-      "expected": "搜索结果页面显示该商品",
-      "action_type": "click"
-    },
-    {
-      "step_order": 9,
-      "goal": "点击目标商品卡片，确认规格/数量",
-      "expected": "商品详情或商品条目显示正确规格与数量",
-      "action_type": "click"
-    },
-    {
-      "step_order": 10,
-      "goal": "点击加入购物车按钮",
-      "expected": "商品已成功加入购物车（购物车数量角标更新）",
+      "goal": "在商品详情弹窗中点击加入购物车按钮",
+      "expected": "商品成功加入购物车，底部购物车角标数量更新",
       "action_type": "click"
     }
   ]

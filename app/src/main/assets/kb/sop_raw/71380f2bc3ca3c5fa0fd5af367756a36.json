@@ -1,7 +1,7 @@
 {
   "sop_id": "71380f2bc3ca3c5f",
   "original_task_name": "使用微信给好友陈青发条消息“祝你生日快乐！”",
-  "task_name": "使用微信给联系人发条消息'特定消息内容'",
+  "task_name": "使用微信给联系人发送消息",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -10,38 +10,53 @@
     "微信",
     "联系人",
     "消息",
-    "发送"
+    "发送",
+    "聊天",
+    "好友",
+    "文字消息"
   ],
   "steps": [
     {
-      "goal": "打开微信应用",
-      "expected": "微信应用图标被选中，准备进入应用界面",
+      "goal": "点击桌面上的微信应用图标以启动应用",
+      "expected": "微信应用启动，进入主界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击微信顶部的'微信'文字区域",
-      "expected": "进入微信应用的主界面",
+      "goal": "点击底部导航栏中的通讯录标签",
+      "expected": "界面切换至通讯录列表页面",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "发送消息",
-      "expected": "操作后界面状态：消息输入框已激活，准备接收用户输入",
+      "goal": "在通讯录列表中找到并点击目标联系人",
+      "expected": "进入目标联系人的个人资料页面",
       "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "在文本输入框中输入'特定消息内容'",
-      "expected": "文本输入框中显示'特定消息内容'",
-      "action_type": "type",
+      "goal": "点击页面中的发消息按钮进入聊天界面",
+      "expected": "进入与目标联系人的聊天对话界面",
+      "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "发送消息'特定消息内容'",
-      "expected": "消息已成功发送，界面底部显示绿色的“发送”按钮和红色的“发送”文字提示",
+      "goal": "点击聊天界面底部的文本输入框",
+      "expected": "输入框被激活，弹出键盘准备输入",
       "action_type": "click",
       "step_order": 5
+    },
+    {
+      "goal": "在文本输入框中输入目标消息内容",
+      "expected": "输入框中显示已输入的目标消息内容",
+      "action_type": "type",
+      "step_order": 6
+    },
+    {
+      "goal": "点击输入框右侧的发送按钮提交消息",
+      "expected": "消息发送成功，聊天气泡显示在对话区域",
+      "action_type": "click",
+      "step_order": 7
     }
   ]
 }

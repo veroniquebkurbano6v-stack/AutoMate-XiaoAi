@@ -1,7 +1,7 @@
 {
   "sop_id": "eb268a972ccda1c0",
   "original_task_name": "导航到华清宫的快递点",
-  "task_name": "导航到指定地点的快递点",
+  "task_name": "导航到目标地点的快递点",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -10,43 +10,33 @@
     "高德地图",
     "导航",
     "目的地",
-    "搜索"
+    "搜索",
+    "快递点",
+    "路线规划"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "高德地图应用图标被选中，应用启动并进入主界面",
+      "expected": "高德地图应用启动并进入主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击屏幕中间的搜索框区域",
-      "expected": "搜索栏获得焦点，准备输入对应地点",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在文本输入框中输入需要查找的地点",
-      "expected": "文本输入框中显示对应输入的地点",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页面展示与目标关键词相关的地点列表",
       "action_type": "type"
     },
     {
+      "step_order": 3,
+      "goal": "点击搜索结果列表中目标地点对应的条目",
+      "expected": "进入目标地点的详细信息页面",
+      "action_type": "click"
+    },
+    {
       "step_order": 4,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果页面显示搜索结果",
-      "action_type": "click"
-    },
-    {
-      "step_order": 5,
-      "goal": "点击搜索结果中对应的地点条目",
-      "expected": "进入该地点的详细信息页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 6,
-      "goal": "点击页面底部的'导航'按钮",
-      "expected": "进入导航功能界面",
+      "goal": "点击页面底部的导航按钮",
+      "expected": "进入导航路线规划界面并显示推荐路线",
       "action_type": "click"
     }
   ]

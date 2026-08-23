@@ -1,16 +1,19 @@
 {
   "sop_id": "cb2845b2ed4f2f72",
   "original_task_name": "高德把西安外国语大学长安校区增加到常去地点，改备注成景点",
-  "task_name": "高德把目的地增加到常去地点，改备注成景点",
+  "task_name": "高德地图添加常去地点并修改备注",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "导航",
   "keywords": [
     "高德地图",
-    "目的地",
     "常去地点",
-    "备注"
+    "添加",
+    "备注",
+    "修改",
+    "收藏地点",
+    "常用位置"
   ],
   "steps": [
     {
@@ -22,55 +25,55 @@
     {
       "step_order": 2,
       "goal": "点击底部导航栏中的'我的'按钮",
-      "expected": "进入个人中心页面",
+      "expected": "进入个人中心页面，显示用户信息",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "进入常去地点管理页面",
-      "expected": "界面显示常去地点管理选项，可选择目的地并设置为常用位置",
+      "goal": "点击个人中心页面中的'常去地点'入口",
+      "expected": "进入常去地点管理页面，显示已有地点列表",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击'添加常去地点'按钮",
-      "expected": "进入添加常去地点界面",
+      "goal": "点击常去地点页面中的'添加常去地点'按钮",
+      "expected": "进入添加常去地点界面，显示搜索输入框",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "在文本输入框中输入'目的地'",
-      "expected": "文本输入框中显示'目的地'",
+      "goal": "在搜索输入框中输入目标地点名称并进行搜索",
+      "expected": "搜索结果列表显示目标地点相关条目",
       "action_type": "type"
     },
     {
       "step_order": 6,
-      "goal": "点击搜索结果中的'目的地'条目以选择该位置",
-      "expected": "界面显示该位置的详细信息",
+      "goal": "点击搜索结果中目标地点对应的条目",
+      "expected": "界面显示该地点的详细信息页面",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "点击'目的地'条目右侧的三点菜单按钮",
-      "expected": "展开该地点的更多操作选项",
+      "goal": "点击地点详情页右上角的三点更多菜单按钮",
+      "expected": "展开该地点的更多操作选项列表",
       "action_type": "click"
     },
     {
       "step_order": 8,
-      "goal": "点击修改地点选项以进入地点编辑界面",
-      "expected": "弹出修改地点的模态对话框",
+      "goal": "点击更多操作选项中的'修改地点'选项",
+      "expected": "弹出修改地点的编辑对话框",
       "action_type": "click"
     },
     {
       "step_order": 9,
-      "goal": "在文本输入框中输入'景点'",
-      "expected": "文本输入框中显示'景点'",
+      "goal": "在备注名输入框中输入目标备注内容",
+      "expected": "备注名输入框中显示目标备注文字",
       "action_type": "type"
     },
     {
       "step_order": 10,
-      "goal": "确认修改备注名并保存设置",
-      "expected": "界面返回到上一级，备注名修改完成",
+      "goal": "点击编辑对话框底部的确认保存按钮",
+      "expected": "界面返回常去地点列表，备注名已更新",
       "action_type": "click"
     }
   ]

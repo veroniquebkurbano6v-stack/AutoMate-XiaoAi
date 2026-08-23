@@ -1,84 +1,81 @@
 {
   "sop_id": "e76ace65e4c0c1e2",
   "original_task_name": "通过美团查找朱雀大街北段附近人均价格低的北京菜餐馆，如果可以线上排队就拿个号",
-  "task_name": "通过美团查找特定地点附近人均价格低的特定菜系餐馆，如果可以线上排队就拿个号",
+  "task_name": "通过美团查找目标地点附近人均价格低的目标菜系餐馆并线上排队取号",
   "app_name": "美团",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "生活服务",
   "keywords": [
     "美团",
-    "特定菜系餐馆",
-    "特定地点",
+    "目标菜系餐馆",
+    "目标地点",
     "线上排队",
-    "搜索"
+    "取号",
+    "搜索",
+    "人均价格",
+    "排序"
   ],
   "steps": [
     {
-      "goal": "点击美团应用图标",
-      "expected": "进入美团应用界面",
+      "goal": "点击美团应用图标，启动美团App",
+      "expected": "进入美团首页，显示顶部搜索栏和功能入口",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击顶部红色箭头指示的区域",
-      "expected": "界面顶部状态栏区域被选中",
+      "goal": "点击顶部搜索栏区域以激活输入状态",
+      "expected": "搜索栏获得焦点，弹出键盘准备输入内容",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "点击搜索栏以激活输入功能",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标地点并进行搜索",
+      "expected": "搜索结果页展示与目标地点匹配的位置列表",
+      "action_type": "type",
       "step_order": 3
     },
     {
-      "action_type": "type",
-      "goal": "在文本输入框中输入'特定地点'",
-      "expected": "文本输入框中显示'特定地点'",
+      "goal": "点击搜索结果中第一个匹配的位置选项",
+      "expected": "页面定位到目标地点，显示附近商家信息",
+      "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击搜索结果中的第一个位置选项",
-      "expected": "搜索结果列表中第一个位置选项被选中",
+      "goal": "点击顶部搜索栏区域以再次激活输入状态",
+      "expected": "搜索栏获得焦点，弹出键盘准备输入新内容",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "点击顶部搜索栏区域",
-      "expected": "激活搜索栏，准备输入搜索关键词",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标菜系关键词并进行搜索",
+      "expected": "搜索结果页展示目标地点附近的目标菜系餐馆列表",
+      "action_type": "type",
       "step_order": 6
     },
     {
-      "action_type": "type",
-      "goal": "在文本输入框中输入'特定菜系餐馆'",
-      "expected": "文本输入框中显示'特定菜系餐馆'",
+      "goal": "点击排序选项按钮，展开排序方式下拉菜单",
+      "expected": "弹出排序菜单，显示综合排序、好评优先等选项",
+      "action_type": "click",
       "step_order": 7
     },
     {
-      "goal": "点击搜索按钮执行搜索操作",
-      "expected": "搜索结果页面显示",
+      "goal": "点击选择人均价格从低到高的排序方式",
+      "expected": "餐馆列表按人均价格升序重新排列展示",
       "action_type": "click",
       "step_order": 8
     },
     {
-      "goal": "点击排序选项以展开排序菜单",
-      "expected": "展开排序下拉菜单，显示不同排序方式供选择",
+      "goal": "点击列表中人均价格最低的目标餐馆名称",
+      "expected": "进入该餐馆详情页，显示菜品、评价和排队信息",
       "action_type": "click",
       "step_order": 9
     },
     {
-      "goal": "选择排序方式为“好评优先”",
-      "expected": "筛选出按用户评价排序的餐厅列表",
+      "goal": "点击详情页中的线上排队或取号按钮",
+      "expected": "弹出排队取号页面，显示当前排队人数和预计等待时间",
       "action_type": "click",
       "step_order": 10
-    },
-    {
-      "goal": "点击餐厅名称进入详情页",
-      "expected": "进入该餐厅的详细页面",
-      "action_type": "click",
-      "step_order": 11
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "sop_id": "e298cf08b4c1c117",
   "original_task_name": "全体成员请设置为静音状态。",
-  "task_name": "全体成员请设置为静音状态",
+  "task_name": "设置全体成员静音",
   "app_name": "腾讯会议",
   "source": "cagui_auto",
   "difficulty": "L2",
@@ -9,32 +9,34 @@
   "keywords": [
     "腾讯会议",
     "全体静音",
-    "会议",
-    "管理"
+    "全员静音",
+    "静音",
+    "会议管理",
+    "成员管理"
   ],
   "steps": [
     {
       "step_order": 1,
-      "goal": "点击手机桌面上的腾讯会议应用图标",
-      "expected": "进入腾讯会议主界面",
+      "goal": "点击手机桌面上的腾讯会议应用图标启动应用",
+      "expected": "成功进入腾讯会议主界面，显示首页功能入口",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击'加入会议'按钮并输入会议号进入会议",
-      "expected": "进入会议房间",
+      "goal": "点击主界面中的加入会议按钮并输入会议号进入会议",
+      "expected": "成功进入目标会议房间，显示会议进行中的界面",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "点击会议界面底部的'成员'按钮",
-      "expected": "展开成员列表面板",
+      "goal": "点击会议界面底部工具栏中的成员按钮",
+      "expected": "展开成员列表面板，显示当前会议所有参会成员",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击成员列表下方的'全员静音'按钮",
-      "expected": "全体成员被静音，任务完成",
+      "goal": "点击成员列表面板下方的全员静音按钮",
+      "expected": "全体成员被设置为静音状态，任务完成",
       "action_type": "click"
     }
   ],

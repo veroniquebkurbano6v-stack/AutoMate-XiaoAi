@@ -1,39 +1,42 @@
 {
   "sop_id": "db7f44ab0358fee6",
   "original_task_name": "于哔哩哔哩平台追番《牧神记》。",
-  "task_name": "于哔哩哔哩平台追番《特定影视》。",
+  "task_name": "在B站追番目标影视作品",
   "app_name": "B站",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "媒体",
   "keywords": [
     "B站",
-    "特定影视",
+    "哔哩哔哩",
     "追番",
-    "搜索"
+    "搜索",
+    "目标影视作品",
+    "关注",
+    "订阅"
   ],
   "steps": [
     {
-      "goal": "点击哔哩哔哩应用图标",
-      "expected": "打开哔哩哔哩应用",
+      "goal": "点击手机桌面上的B站应用图标",
+      "expected": "B站应用启动并显示首页推荐内容",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "在文本输入框中输入'特定影视'",
-      "expected": "文本输入框中显示'特定影视'",
+      "goal": "在首页顶部搜索输入框中输入目标影视作品名称并进行搜索",
+      "expected": "搜索结果页展示与目标影视作品相关的视频列表",
       "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "执行搜索操作以查看“特定影视”相关内容",
-      "expected": "搜索结果页面显示与“特定影视”相关的条目",
+      "goal": "在搜索结果中点击目标影视作品的封面或标题进入详情页",
+      "expected": "进入目标影视作品的详情页并显示追番按钮",
       "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "点击追番按钮以添加《特定影视》至追番列表",
-      "expected": "追番按钮状态变为已选中",
+      "goal": "点击详情页中的追番按钮完成追番操作",
+      "expected": "追番按钮变为已追番状态表示添加成功",
       "action_type": "click",
       "step_order": 4
     }

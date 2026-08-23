@@ -1,47 +1,43 @@
 {
   "sop_id": "ec237dd93b1d6e79",
   "original_task_name": "看小红书上西安的景点推荐攻略",
-  "task_name": "看小红书上特定地点的景点推荐攻略",
+  "task_name": "查看小红书目标地点的景点推荐攻略",
   "app_name": "小红书",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "生活服务",
   "keywords": [
     "小红书",
-    "特定地点",
+    "目标地点",
     "景点推荐",
-    "攻略"
+    "攻略",
+    "旅游",
+    "搜索"
   ],
   "steps": [
     {
-      "goal": "打开小红书应用",
-      "expected": "小红书应用图标被点击，应用启动并显示其主界面",
+      "goal": "点击手机桌面上的小红书应用图标",
+      "expected": "小红书启动并显示首页推荐信息流",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击屏幕右上角的搜索图标",
-      "expected": "进入搜索界面",
+      "goal": "点击首页顶部搜索栏中的放大镜搜索图标",
+      "expected": "进入搜索页面，显示搜索输入框和光标",
       "action_type": "click",
       "step_order": 2
     },
     {
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面显示与目标关键词相关的搜索结果列表",
       "action_type": "type",
-      "goal": "在文本输入框中输入'特定地点的景点推荐'",
-      "expected": "文本输入框中显示'特定地点的景点推荐'",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作",
-      "expected": "搜索界面进入待执行状态",
+      "goal": "点击搜索结果中一篇目标景点推荐攻略笔记",
+      "expected": "进入该笔记详情页，展示景点推荐内容",
       "action_type": "click",
       "step_order": 4
-    },
-    {
-      "goal": "点击旅游攻略帖子中的'点击'按钮",
-      "expected": "进入详细旅游攻略页面",
-      "action_type": "click",
-      "step_order": 5
     }
   ]
 }

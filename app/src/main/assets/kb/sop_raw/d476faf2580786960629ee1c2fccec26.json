@@ -1,7 +1,7 @@
 {
   "sop_id": "d476faf258078696",
   "original_task_name": "用大众点评探索附近的画廊。",
-  "task_name": "用大众点评探索附近的画廊。",
+  "task_name": "用大众点评搜索附近画廊",
   "app_name": "大众点评",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -10,38 +10,29 @@
     "大众点评",
     "画廊",
     "搜索",
-    "附近"
+    "附近",
+    "周边",
+    "展览",
+    "美术馆"
   ],
   "steps": [
     {
-      "goal": "打开大众点评应用",
-      "expected": "应用图标被选中，进入应用主界面",
-      "action_type": "click",
-      "step_order": 1
+      "step_order": 1,
+      "goal": "点击手机桌面上的大众点评应用图标",
+      "expected": "大众点评应用启动并进入主界面",
+      "action_type": "click"
     },
     {
-      "goal": "点击'附近'按钮，查看周边商家和活动",
-      "expected": "进入附近商家和活动列表页面",
-      "action_type": "click",
-      "step_order": 2
+      "step_order": 2,
+      "goal": "点击首页底部导航栏中的'附近'按钮",
+      "expected": "页面跳转至附近商家和活动列表页",
+      "action_type": "click"
     },
     {
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入搜索内容",
-      "action_type": "click",
-      "step_order": 3
-    },
-    {
-      "goal": "在文本输入框中输入'画廊'",
-      "expected": "文本输入框中显示'画廊'",
-      "action_type": "type",
-      "step_order": 4
-    },
-    {
-      "goal": "执行搜索操作以查看与“画廊”相关的搜索结果",
-      "expected": "搜索结果列表显示",
-      "action_type": "click",
-      "step_order": 5
+      "step_order": 3,
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果列表展示与目标关键词相关的商家信息",
+      "action_type": "type"
     }
   ]
 }

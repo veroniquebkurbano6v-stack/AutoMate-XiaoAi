@@ -1,42 +1,38 @@
 {
   "sop_id": "febde7a7bafe99ae",
   "original_task_name": "在小红书搜索如何制作美味蛋糕的教程",
-  "task_name": "在小红书搜索如何制作特定菜品的教程",
+  "task_name": "在小红书搜索制作教程",
   "app_name": "小红书",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "生活服务",
   "keywords": [
     "小红书",
-    "特定菜品",
+    "搜索",
     "教程",
+    "制作",
     "美食",
-    "搜索"
+    "做法",
+    "配方"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的小红书应用图标",
-      "expected": "小红书应用图标被选中，应用启动并进入主界面",
+      "expected": "小红书应用启动并进入首页推荐信息流界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击页面右上角的搜索图标",
-      "expected": "进入搜索界面",
+      "goal": "点击首页顶部右侧的放大镜搜索图标",
+      "expected": "页面跳转至搜索界面并显示搜索输入框",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "在文本输入框中输入'特定菜品教程'",
-      "expected": "文本输入框中显示'特定菜品教程'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页展示与目标关键词相关的笔记列表",
       "action_type": "type"
-    },
-    {
-      "step_order": 4,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果页面显示",
-      "action_type": "click"
     }
   ]
 }

@@ -1,7 +1,7 @@
 {
   "sop_id": "d42baae0b6c41906",
   "original_task_name": "在腾讯会议中开启屏幕共享，展示的内容。",
-  "task_name": "在腾讯会议中开启屏幕共享，展示的内容。",
+  "task_name": "在腾讯会议中开启屏幕共享",
   "app_name": "腾讯会议",
   "source": "cagui_auto",
   "difficulty": "L2",
@@ -9,31 +9,39 @@
   "keywords": [
     "腾讯会议",
     "屏幕共享",
+    "共享屏幕",
+    "投屏",
     "共享"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的腾讯会议应用图标",
-      "expected": "进入腾讯会议主界面",
+      "expected": "成功打开应用，进入腾讯会议主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击'加入会议'按钮并输入会议号进入会议",
-      "expected": "进入会议房间",
+      "goal": "点击主界面中的'加入会议'按钮",
+      "expected": "弹出会议号输入框，等待输入会议号",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "点击会议界面底部的'共享屏幕'按钮",
-      "expected": "弹出共享选择面板",
-      "action_type": "click"
+      "goal": "在会议号输入框中输入目标会议号并点击加入",
+      "expected": "成功进入目标会议房间，显示会议画面",
+      "action_type": "type"
     },
     {
       "step_order": 4,
-      "goal": "点击共享面板中的'屏幕'选项",
-      "expected": "屏幕开始共享，任务完成",
+      "goal": "点击会议界面底部工具栏中的'共享屏幕'按钮",
+      "expected": "弹出共享方式选择面板，显示共享选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "点击共享选择面板中的'屏幕'选项",
+      "expected": "屏幕共享开启成功，状态栏显示共享中",
       "action_type": "click"
     }
   ],

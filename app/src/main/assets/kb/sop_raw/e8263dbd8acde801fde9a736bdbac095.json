@@ -1,17 +1,19 @@
 {
   "sop_id": "e8263dbd8acde801",
   "original_task_name": "腾讯视频搜综艺令人心动的offer第1季，从第5集开始播放",
-  "task_name": "腾讯视频搜索特定影视，从特定剧集开始播放",
+  "task_name": "腾讯视频搜索目标影视作品并从指定剧集开始播放",
   "app_name": "腾讯视频",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "腾讯视频",
-    "特定影视",
-    "特定剧集",
     "搜索",
-    "播放"
+    "影视作品",
+    "剧集",
+    "播放",
+    "综艺",
+    "指定集数"
   ],
   "steps": [
     {
@@ -21,34 +23,22 @@
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏中的文字区域",
-      "expected": "搜索栏处于可编辑状态，准备输入新的搜索内容",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标影视作品的名称并进行搜索",
+      "expected": "搜索结果页面显示与目标影视作品相关的条目",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "action_type": "type",
-      "goal": "在文本输入框中输入'特定影视'",
-      "expected": "文本输入框中显示'特定影视'",
+      "goal": "点击搜索结果中目标影视作品卡片上的更多按钮",
+      "expected": "展开剧集列表，显示各集缩略图和集数信息",
+      "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作以查看与关键词相关的结果",
-      "expected": "搜索结果页面显示与输入内容相关的条目",
+      "goal": "在剧集列表中点击目标集数对应的视频缩略图",
+      "expected": "进入目标集数的播放页面并开始播放",
       "action_type": "click",
       "step_order": 4
-    },
-    {
-      "goal": "点击'更多'按钮以展开剧集列表",
-      "expected": "点击后展开剧集列表，显示更多单集信息",
-      "action_type": "click",
-      "step_order": 5
-    },
-    {
-      "goal": "点击特定剧集的视频缩略图以进入该内容页面",
-      "expected": "进入特定剧集的播放或详情页面",
-      "action_type": "click",
-      "step_order": 6
     }
   ]
 }

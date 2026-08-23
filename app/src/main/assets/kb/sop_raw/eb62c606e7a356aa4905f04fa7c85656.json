@@ -1,7 +1,7 @@
 {
   "sop_id": "eb62c606e7a356aa",
   "original_task_name": "高德，导航下高新一中到曲江池遗址公园的公交线路。",
-  "task_name": "在高德地图导航从出发地到目的地的公交线路",
+  "task_name": "在高德地图导航从出发地到目的地的公交路线",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L4",
@@ -9,69 +9,71 @@
   "keywords": [
     "高德地图",
     "导航",
+    "公交",
+    "路线规划",
+    "出行",
     "出发地",
-    "目的地",
-    "公交"
+    "目的地"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "高德地图应用图标被选中，应用启动并进入主界面",
+      "expected": "高德地图应用启动并进入主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
       "goal": "点击页面底部的'路线'按钮",
-      "expected": "进入路线规划界面",
+      "expected": "进入路线规划界面，显示起终点输入框",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "点击起点输入框",
-      "expected": "起点输入框获得焦点，准备输入出发地",
+      "goal": "点击路线规划界面顶部的起点输入框",
+      "expected": "起点输入框获得焦点，弹出键盘准备输入",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "在文本输入框中输入出发地",
-      "expected": "文本输入框中显示输入的地点",
+      "goal": "在起点输入框中输入目标出发地名称",
+      "expected": "输入框显示出发地文字，下方出现搜索建议列表",
       "action_type": "type"
     },
     {
       "step_order": 5,
-      "goal": "点击搜索结果中对应的出发地条目",
-      "expected": "出发地设置完成，界面显示已选出发地",
+      "goal": "点击搜索建议列表中对应的出发地条目",
+      "expected": "出发地设置完成，起点输入框显示已选地点名称",
       "action_type": "click"
     },
     {
       "step_order": 6,
-      "goal": "点击终点输入框",
-      "expected": "终点输入框获得焦点，准备输入目的地",
+      "goal": "点击路线规划界面顶部的终点输入框",
+      "expected": "终点输入框获得焦点，弹出键盘准备输入",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "在文本输入框中输入目的地",
-      "expected": "文本输入框中显示输入的地点",
+      "goal": "在终点输入框中输入目标目的地名称",
+      "expected": "输入框显示目的地文字，下方出现搜索建议列表",
       "action_type": "type"
     },
     {
       "step_order": 8,
-      "goal": "点击搜索结果中对应的目的地条目",
-      "expected": "目的地设置完成，界面显示已选目的地",
+      "goal": "点击搜索建议列表中对应的目的地条目",
+      "expected": "目的地设置完成，终点输入框显示已选地点名称",
       "action_type": "click"
     },
     {
       "step_order": 9,
-      "goal": "点击'公交地铁'选项卡",
-      "expected": "界面显示公交路线方案",
+      "goal": "点击路线规划结果上方的'公交地铁'选项卡",
+      "expected": "界面切换显示公交路线方案列表",
       "action_type": "click"
     },
     {
       "step_order": 10,
-      "goal": "点击'开始导航'按钮",
-      "expected": "启动路线导航",
+      "goal": "点击目标公交方案下方的'开始导航'按钮",
+      "expected": "启动公交路线导航，进入导航引导界面",
       "action_type": "click"
     }
   ]

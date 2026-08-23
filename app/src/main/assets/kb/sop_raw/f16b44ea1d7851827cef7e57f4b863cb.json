@@ -1,7 +1,7 @@
 {
   "sop_id": "f16b44ea1d785182",
   "original_task_name": "导航到西北工业大学附近的便利店",
-  "task_name": "导航到指定地点附近的便利店",
+  "task_name": "导航到目标地点附近的便利店",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L4",
@@ -11,73 +11,51 @@
     "导航",
     "目的地",
     "便利店",
-    "搜索"
+    "搜索",
+    "周边",
+    "路线"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "高德地图应用图标被选中，应用启动并进入主界面",
+      "expected": "高德地图应用启动并进入主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击屏幕中间的搜索框区域",
-      "expected": "搜索栏获得焦点，准备输入对应地点",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在文本输入框中输入需要查找的地点",
-      "expected": "文本输入框中显示对应输入的地点",
+      "goal": "在搜索输入框中输入目标地点名称并进行搜索",
+      "expected": "搜索结果页面显示与目标地点相关的结果列表",
       "action_type": "type"
     },
     {
+      "step_order": 3,
+      "goal": "点击搜索结果列表中目标地点对应的条目",
+      "expected": "进入目标地点的详细信息页面",
+      "action_type": "click"
+    },
+    {
       "step_order": 4,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果页面显示搜索结果",
+      "goal": "点击地点详情页面底部的周边按钮",
+      "expected": "进入周边搜索功能页面，显示分类选项",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "点击搜索结果中对应的地点条目",
-      "expected": "进入该地点的详细信息页面",
-      "action_type": "click"
+      "goal": "在周边搜索输入框中输入目标场所关键词并进行搜索",
+      "expected": "搜索结果列表显示附近匹配的目标场所",
+      "action_type": "type"
     },
     {
       "step_order": 6,
-      "goal": "点击页面底部的'周边'按钮",
-      "expected": "进入周边功能页面",
+      "goal": "点击搜索结果列表中目标场所对应的条目",
+      "expected": "进入目标场所的详细信息页面",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "点击搜索栏区域",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
-      "action_type": "click"
-    },
-    {
-      "step_order": 8,
-      "goal": "在文本输入框中输入需要查找的场所",
-      "expected": "文本输入框中显示对应输入的场所",
-      "action_type": "type"
-    },
-    {
-      "step_order": 9,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果列表显示",
-      "action_type": "click"
-    },
-    {
-      "step_order": 10,
-      "goal": "点击搜索结果中对应的场所条目",
-      "expected": "进入该场所的详细信息页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 11,
-      "goal": "点击页面底部的'导航'按钮",
-      "expected": "进入导航功能界面",
+      "goal": "点击目标场所详情页面底部的导航按钮",
+      "expected": "进入导航路线规划界面，显示前往路线",
       "action_type": "click"
     }
   ]

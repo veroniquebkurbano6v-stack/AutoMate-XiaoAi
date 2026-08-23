@@ -1,41 +1,43 @@
 {
   "sop_id": "fdf5e0db28a4bb6c",
   "original_task_name": "搜西安大雁塔附近的学校",
-  "task_name": "搜索地点附近的学校",
+  "task_name": "搜索目标地点附近的学校",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "导航",
   "keywords": [
     "高德地图",
-    "目的地",
     "学校",
     "附近",
-    "搜索"
+    "搜索",
+    "周边",
+    "地点",
+    "查询"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "进入高德地图主界面",
+      "expected": "成功打开高德地图，显示主界面地图视图",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击屏幕中间的搜索框输入'学校名称'",
-      "expected": "界面显示搜索结果列表",
+      "goal": "在顶部搜索输入框中输入目标关键词并进行搜索",
+      "expected": "界面显示与目标关键词相关的搜索结果列表",
       "action_type": "type"
     },
     {
       "step_order": 3,
-      "goal": "点击搜索结果中的目标学校条目",
-      "expected": "进入该学校的详细信息页面，显示地址和评分",
+      "goal": "点击搜索结果列表中的目标学校条目",
+      "expected": "进入该学校的详情页，显示地址和评分信息",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击详情页底部的'导航'按钮",
-      "expected": "进入路线规划界面，任务完成",
+      "goal": "点击详情页底部的导航按钮",
+      "expected": "进入路线规划界面，显示导航路线方案",
       "action_type": "click"
     }
   ],

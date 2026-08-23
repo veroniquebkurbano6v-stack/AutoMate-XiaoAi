@@ -1,7 +1,7 @@
 {
   "sop_id": "fd556bc8bd394b1f",
   "original_task_name": "百度地图导航从这到陕西历史博物馆的打车路线。",
-  "task_name": "百度地图导航从这到目的地的打车路线。",
+  "task_name": "百度地图导航到目的地的打车路线",
   "app_name": "百度地图",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -11,44 +11,40 @@
     "导航",
     "目的地",
     "打车",
-    "路线"
+    "路线",
+    "出行",
+    "叫车"
   ],
   "steps": [
     {
-      "goal": "点击百度地图应用图标",
-      "expected": "打开百度地图应用",
+      "goal": "点击桌面上的百度地图应用图标",
+      "expected": "百度地图应用启动并进入首页",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏以激活输入功能",
-      "expected": "搜索栏处于可输入状态",
+      "goal": "点击首页顶部的搜索栏区域",
+      "expected": "搜索栏激活并弹出输入键盘",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'目的地'",
-      "expected": "文本输入框中显示'目的地'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页显示目标地点的相关信息",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "点击搜索框右侧的'搜索'按钮",
-      "expected": "搜索结果页面显示目的地的详细信息和相关推荐",
+      "goal": "点击搜索结果中的到这去按钮",
+      "expected": "进入目标地点的路线规划页面",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击'到这去'按钮，进入目的地的详细信息页面",
-      "expected": "进入目的地的详细信息页面",
+      "goal": "点击路线规划页中的打车选项卡",
+      "expected": "页面切换显示打车费用及预估时间",
       "action_type": "click",
       "step_order": 5
-    },
-    {
-      "goal": "点击'打车'按钮以确认选择打车服务模式",
-      "expected": "界面切换至打车服务页面，显示可选的打车目的地",
-      "action_type": "click",
-      "step_order": 6
     }
   ]
 }

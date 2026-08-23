@@ -11,50 +11,59 @@
     "自驾",
     "出发地",
     "目的地",
-    "路线"
+    "路线",
+    "导航",
+    "驾车",
+    "路径规划"
   ],
   "steps": [
     {
-      "goal": "点击地图应用图标以打开应用",
-      "expected": "打开地图应用",
+      "goal": "点击桌面或应用列表中的地图应用图标",
+      "expected": "地图应用启动并显示主界面地图",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索框以激活输入功能",
-      "expected": "搜索框获得焦点，准备输入地点信息",
+      "goal": "点击主界面顶部的搜索输入框区域",
+      "expected": "搜索框获得焦点并弹出输入键盘",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'目的地'",
-      "expected": "文本输入框中显示'目的地'",
+      "goal": "在搜索输入框中输入目的地名称并进行搜索",
+      "expected": "界面展示与目的地匹配的搜索结果列表",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "点击搜索结果中的目的地条目",
-      "expected": "界面显示目的地位置详情",
+      "goal": "点击搜索结果列表中目标目的地的条目",
+      "expected": "界面显示目的地的位置详情页面",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "确认起点位置是否已正确设置",
-      "expected": "确认起点已设置为“我的位置”",
+      "goal": "点击目的地详情页中的路线或导航按钮",
+      "expected": "界面进入路线规划页面并显示起终点",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "在文本输入框中输入'出发地'",
-      "expected": "文本输入框中显示'出发地'",
-      "action_type": "type",
+      "goal": "点击路线规划页面中的起点输入框区域",
+      "expected": "起点输入框获得焦点并弹出输入键盘",
+      "action_type": "click",
       "step_order": 6
     },
     {
-      "goal": "选择出发地作为路线规划的起点",
-      "expected": "界面显示出发地为已选起点",
-      "action_type": "click",
+      "goal": "在起点输入框中输入出发地名称并进行搜索",
+      "expected": "界面展示与出发地匹配的搜索结果列表",
+      "action_type": "type",
       "step_order": 7
+    },
+    {
+      "goal": "点击搜索结果列表中目标出发地的条目",
+      "expected": "界面显示从出发地到目的地的自驾路线",
+      "action_type": "click",
+      "step_order": 8
     }
   ]
 }

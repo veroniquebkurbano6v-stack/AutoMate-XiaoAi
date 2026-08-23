@@ -1,47 +1,43 @@
 {
   "sop_id": "ee89603b566c0765",
   "original_task_name": "网易云音乐搜你好吗并播放",
-  "task_name": "网易云音乐搜索特定歌曲并播放",
+  "task_name": "网易云音乐搜索歌曲并播放",
   "app_name": "网易云音乐",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "网易云音乐",
-    "特定歌曲",
+    "歌曲",
     "搜索",
-    "播放"
+    "播放",
+    "音乐",
+    "听歌"
   ],
   "steps": [
     {
-      "goal": "点击百度地图应用图标",
-      "expected": "打开百度地图应用",
+      "goal": "点击网易云音乐应用图标打开应用",
+      "expected": "网易云音乐应用成功启动并显示首页",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域以激活输入功能",
-      "expected": "搜索栏获得焦点，准备输入搜索内容",
+      "goal": "点击首页顶部搜索栏区域以激活输入",
+      "expected": "搜索栏获得焦点并弹出键盘准备输入",
       "action_type": "click",
       "step_order": 2
     },
     {
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页面展示目标歌曲相关列表",
       "action_type": "type",
-      "goal": "在文本输入框中输入'特定歌曲'",
-      "expected": "文本输入框中显示'特定歌曲'",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作以查看“特定歌曲”相关结果",
-      "expected": "搜索结果列表显示",
+      "goal": "点击搜索结果中目标歌曲的标题或播放按钮",
+      "expected": "目标歌曲开始播放并进入播放详情页",
       "action_type": "click",
       "step_order": 4
-    },
-    {
-      "goal": "点击单曲列表中第一首特定歌曲的标题区域",
-      "expected": "进入该歌曲的详情页面",
-      "action_type": "click",
-      "step_order": 5
     }
   ]
 }

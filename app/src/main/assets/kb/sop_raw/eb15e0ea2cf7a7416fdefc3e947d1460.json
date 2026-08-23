@@ -1,45 +1,47 @@
 {
   "sop_id": "eb15e0ea2cf7a741",
   "original_task_name": "酷狗单曲循环播放毛阿敏的思念",
-  "task_name": "酷狗单曲循环播放特定歌曲",
+  "task_name": "酷狗音乐单曲循环播放目标歌曲",
   "app_name": "酷狗音乐",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "酷狗音乐",
-    "特定歌曲",
+    "目标歌曲",
     "单曲循环",
-    "播放"
+    "播放",
+    "循环播放",
+    "搜索歌曲"
   ],
   "steps": [
     {
-      "goal": "打开酷狗音乐应用",
-      "expected": "应用图标被选中，进入应用主界面",
+      "goal": "点击桌面上的酷狗音乐应用图标",
+      "expected": "酷狗音乐应用启动，进入主界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击顶部导航栏中的'点击'标签",
-      "expected": "导航栏中'点击'标签被选中并高亮显示",
+      "goal": "点击顶部导航栏中的搜索标签",
+      "expected": "搜索标签被选中高亮，显示搜索输入框",
       "action_type": "click",
       "step_order": 2
     },
     {
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页面展示与目标歌曲相关的列表",
       "action_type": "type",
-      "goal": "在文本输入框中输入'特定歌曲'",
-      "expected": "文本输入框中显示'特定歌曲'",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作，获取与“特定歌曲”相关的搜索结果",
-      "expected": "搜索结果页面显示",
+      "goal": "点击搜索结果中目标歌曲的标题区域",
+      "expected": "开始播放目标歌曲，进入播放界面",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击特定歌曲的标题区域",
-      "expected": "进入歌曲详情页面",
+      "goal": "点击播放界面中的播放模式切换按钮",
+      "expected": "播放模式切换为单曲循环，图标高亮显示",
       "action_type": "click",
       "step_order": 5
     }

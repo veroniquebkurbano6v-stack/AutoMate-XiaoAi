@@ -1,41 +1,36 @@
 {
   "sop_id": "d02681bf95acf5c5",
   "original_task_name": "搜索一下“人工智能发展历程”。",
-  "task_name": "搜索一下“特定内容”。",
+  "task_name": "搜索目标关键词",
   "app_name": "小红书",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "社交",
   "keywords": [
     "小红书",
-    "特定内容",
     "搜索",
-    "查找"
+    "查找",
+    "关键词",
+    "检索"
   ],
   "steps": [
     {
-      "goal": "打开小红书应用",
-      "expected": "小红书应用图标被选中，准备启动应用",
+      "goal": "点击小红书应用图标以启动应用",
+      "expected": "小红书应用成功启动并进入首页",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏中的文本区域",
-      "expected": "搜索栏处于可编辑状态",
+      "goal": "点击首页顶部搜索栏中的文本输入区域",
+      "expected": "搜索栏获得焦点，处于可编辑输入状态",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定内容'",
-      "expected": "文本输入框中显示'特定内容'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面展示与目标关键词相关的搜索结果列表",
       "action_type": "type",
       "step_order": 3
-    },
-    {
-      "goal": "清除搜索栏中已有的文本内容",
-      "expected": "搜索栏中显示的文本已被清除，当前搜索栏为空",
-      "action_type": "click",
-      "step_order": 4
     }
   ]
 }

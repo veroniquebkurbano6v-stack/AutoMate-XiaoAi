@@ -1,46 +1,48 @@
 {
   "sop_id": "f7294996d642fd83",
   "original_task_name": "搜许嵩的歌曲，并从第2个开始播放",
-  "task_name": "搜特定歌手的歌曲，并从第2个开始播放",
+  "task_name": "搜索目标歌手的歌曲并从第2个开始播放",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "微信",
-    "特定歌手",
-    "特定歌曲",
+    "歌手",
+    "歌曲",
     "播放",
-    "搜索"
+    "搜索",
+    "音乐",
+    "听歌"
   ],
   "steps": [
     {
-      "goal": "点击微信应用图标",
-      "expected": "微信应用图标被选中，界面进入微信应用状态",
+      "goal": "点击桌面上的微信应用图标",
+      "expected": "微信应用启动，进入微信主界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击顶部导航栏中的'听书'标签",
-      "expected": "导航栏切换至听书页面",
+      "goal": "点击顶部导航栏中的听书标签",
+      "expected": "页面切换至听书内容列表页面",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定歌手'",
-      "expected": "文本输入框中显示'特定歌手'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面展示与目标关键词相关的搜索结果列表",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "点击搜索建议中的'特定歌手'选项",
-      "expected": "进入特定歌手的个人主页",
+      "goal": "点击搜索结果中目标歌手的名称选项",
+      "expected": "页面跳转至目标歌手的个人主页",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击特定歌手歌曲《特定歌曲》的原唱信息区域",
-      "expected": "进入该歌曲的详情页面",
+      "goal": "点击歌曲列表中第2首歌曲的播放按钮",
+      "expected": "第2首歌曲开始播放，播放控制栏显示播放状态",
       "action_type": "click",
       "step_order": 5
     }

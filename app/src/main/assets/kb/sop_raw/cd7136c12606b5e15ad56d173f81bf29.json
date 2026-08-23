@@ -1,7 +1,7 @@
 {
   "sop_id": "cd7136c12606b5e1",
   "original_task_name": "小红书搜居家健身的视频，播放并分享给微信好友吴敏",
-  "task_name": "小红书搜特定视频，播放并分享给微信联系人",
+  "task_name": "小红书搜索目标视频并分享给微信好友",
   "app_name": "小红书",
   "source": "cagui_auto",
   "difficulty": "L4",
@@ -9,64 +9,60 @@
   "keywords": [
     "小红书",
     "微信",
-    "特定视频",
+    "搜索",
+    "视频",
     "播放",
-    "分享"
+    "分享",
+    "好友"
   ],
   "steps": [
     {
-      "goal": "打开小红书应用",
-      "expected": "小红书应用图标被选中，应用启动并进入主界面",
+      "goal": "点击桌面上的小红书应用图标启动应用",
+      "expected": "小红书应用启动并进入首页推荐信息流界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击屏幕右上角的搜索图标",
-      "expected": "进入搜索界面",
+      "goal": "点击首页右上角的放大镜搜索图标",
+      "expected": "进入搜索页面，顶部显示搜索输入框和光标",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定视频'",
-      "expected": "文本输入框中显示'特定视频'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面展示与目标关键词相关的搜索结果列表",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索框右侧的搜索按钮被激活，界面进入搜索状态",
+      "goal": "点击搜索结果中目标视频的封面缩略图",
+      "expected": "进入目标视频详情页并开始自动播放视频内容",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击特定视频缩略图进入详情页",
-      "expected": "进入该特定视频的详细播放页面",
+      "goal": "点击视频详情页右上角的分享箭头图标",
+      "expected": "底部弹出分享面板，展示多种分享渠道选项",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "点击右上角的分享图标",
-      "expected": "分享当前视频",
+      "goal": "在分享面板中点击微信好友分享选项图标",
+      "expected": "跳转至微信联系人选择页面，显示最近聊天列表",
       "action_type": "click",
       "step_order": 6
     },
     {
-      "goal": "选择微信好友分享选项",
-      "expected": "分享菜单中微信好友选项被选中",
+      "goal": "在微信联系人列表中点击目标好友的头像",
+      "expected": "弹出确认分享对话框，显示目标好友昵称信息",
       "action_type": "click",
       "step_order": 7
     },
     {
-      "goal": "选择最近聊天中的联系人进行操作",
-      "expected": "进入联系人的聊天界面",
+      "goal": "点击确认分享对话框中的发送按钮完成分享",
+      "expected": "分享成功提示出现，返回小红书视频播放页面",
       "action_type": "click",
       "step_order": 8
-    },
-    {
-      "goal": "确认分享给联系人的操作",
-      "expected": "分享对话框关闭，返回选择一个聊天页面",
-      "action_type": "click",
-      "step_order": 9
     }
   ]
 }

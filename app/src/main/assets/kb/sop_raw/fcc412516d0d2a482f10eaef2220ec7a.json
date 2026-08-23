@@ -1,53 +1,50 @@
 {
   "sop_id": "fcc412516d0d2a48",
   "original_task_name": "在小红书搜索简单编织教程，并给我找到的第 4篇笔记点赞。",
-  "task_name": "在小红书搜索简单编织教程，并给我找到的第4篇笔记点赞。",
+  "task_name": "在小红书搜索编织教程并为指定笔记点赞",
   "app_name": "小红书",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "小红书",
+    "搜索",
+    "编织",
     "教程",
     "笔记",
     "点赞",
-    "搜索"
+    "收藏",
+    "手工"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的小红书应用图标",
-      "expected": "打开小红书应用",
+      "expected": "成功打开小红书，进入首页推荐信息流页面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击页面右上角的搜索图标",
-      "expected": "界面切换至搜索页面，显示搜索输入框和搜索建议",
+      "goal": "点击首页右上角的放大镜搜索图标",
+      "expected": "界面跳转至搜索页面，显示搜索输入框和热门搜索推荐",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "在文本输入框中输入'简单编织教程'",
-      "expected": "文本输入框中显示'简单编织教程'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页加载完成，展示相关笔记列表",
       "action_type": "type"
     },
     {
       "step_order": 4,
-      "goal": "点击搜索框右侧的搜索按钮",
-      "expected": "搜索结果列表显示",
+      "goal": "在搜索结果列表中点击第4篇目标笔记的封面",
+      "expected": "进入目标笔记详情页面，显示笔记内容和互动栏",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "点击教程列表中的第4篇笔记",
-      "expected": "进入该笔记的详情页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 6,
-      "goal": "点击笔记底部的点赞按钮",
-      "expected": "该笔记的点赞数增加",
+      "goal": "点击笔记详情页底部的点赞爱心图标按钮",
+      "expected": "爱心图标变为红色，点赞数增加1，表示点赞成功",
       "action_type": "click"
     }
   ]

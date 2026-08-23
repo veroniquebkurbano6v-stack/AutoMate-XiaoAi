@@ -1,7 +1,7 @@
 {
   "sop_id": "f13cf0ef0c3af664",
   "original_task_name": "",
-  "task_name": "通过美团找到出发地附近人气高的自助餐场所，如果可以线上排队就拿个号",
+  "task_name": "通过美团搜索附近人气高的自助餐并线上排队取号",
   "app_name": "美团",
   "source": null,
   "difficulty": "L2",
@@ -10,62 +10,47 @@
     "自助餐",
     "排队",
     "取号",
+    "线上排队",
     "美团",
-    "找店"
+    "找店",
+    "搜索",
+    "附近"
   ],
   "steps": [
     {
       "step_order": 1,
-      "goal": "打开美团App",
-      "expected": "应用图标被选中，进入美团应用界面",
+      "goal": "点击美团App图标打开应用",
+      "expected": "美团首页加载完成，显示搜索栏和功能入口",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击搜索栏右侧的搜索按钮",
-      "expected": "搜索栏右侧的搜索按钮被激活，界面进入搜索状态",
-      "action_type": "click"
-    },
-    {
-      "step_order": 3,
-      "goal": "在文本输入框中输入'自助餐'",
-      "expected": "文本输入框中显示'自助餐'",
+      "goal": "在首页顶部搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页加载完成，展示相关商家列表",
       "action_type": "type"
     },
     {
+      "step_order": 3,
+      "goal": "在搜索结果列表中点击人气较高的目标商家条目",
+      "expected": "进入目标商家详情页，展示店铺信息和操作按钮",
+      "action_type": "click"
+    },
+    {
       "step_order": 4,
-      "goal": "点击搜索按钮执行搜索操作",
-      "expected": "搜索结果页面加载完成",
+      "goal": "在商家详情页中查找并点击排队取号或线上排队入口按钮",
+      "expected": "弹出排队取号面板，显示用餐人数选择区域",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "点击自助餐商家列表中的特定商家条目",
-      "expected": "进入该特定商家的详情页面",
+      "goal": "在排队面板中点击人数选择器选择用餐人数",
+      "expected": "人数选择器更新为所选人数，确认按钮可点击",
       "action_type": "click"
     },
     {
       "step_order": 6,
-      "goal": "查找并点击'排队取号'或'线上排队'入口",
-      "expected": "页面显示排队入口按钮（部分店铺可能不支持线上排队）",
-      "action_type": "click"
-    },
-    {
-      "step_order": 7,
-      "goal": "选择用餐人数",
-      "expected": "人数选择器显示，可增减人数",
-      "action_type": "click"
-    },
-    {
-      "step_order": 8,
-      "goal": "点击'确认取号'或'立即排队'按钮",
-      "expected": "取号成功，显示排队号码和预计等待时间",
-      "action_type": "click"
-    },
-    {
-      "step_order": 9,
-      "goal": "任务完成，终止行动",
-      "expected": "已成功取号或确认该店铺不支持线上排队，向用户报告结果",
+      "goal": "点击面板底部的确认取号或立即排队按钮",
+      "expected": "取号成功，页面显示排队号码和预计等待时间",
       "action_type": "click"
     }
   ]

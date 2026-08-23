@@ -1,7 +1,7 @@
 {
   "sop_id": "895e803dba7620ae",
   "original_task_name": "微信里程宇航发给我的最后一条消息转发到群“家园美满”",
-  "task_name": "微信联系人发给我的最后一条消息转发到群组",
+  "task_name": "微信联系人消息转发到群组",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -11,7 +11,9 @@
     "联系人",
     "群组",
     "转发",
-    "消息"
+    "消息",
+    "分享",
+    "聊天记录"
   ],
   "steps": [
     {
@@ -22,21 +24,21 @@
     },
     {
       "step_order": 2,
-      "goal": "点击微信主界面顶部的搜索框输入'联系人姓名'",
-      "expected": "界面显示匹配的搜索结果条目",
+      "goal": "在微信主界面顶部搜索输入框中输入目标联系人名称并进行搜索",
+      "expected": "界面显示匹配的联系人搜索结果条目",
       "action_type": "type"
     },
     {
       "step_order": 3,
-      "goal": "点击搜索结果中的联系人条目",
+      "goal": "点击搜索结果中目标联系人的条目",
       "expected": "进入与该联系人的聊天界面",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "长按要转发的消息气泡",
+      "goal": "长按聊天界面中该联系人发送的最后一条消息气泡",
       "expected": "弹出操作菜单，包含转发、收藏、删除等选项",
-      "action_type": "long_press"
+      "action_type": "click"
     },
     {
       "step_order": 5,
@@ -46,22 +48,21 @@
     },
     {
       "step_order": 6,
-      "goal": "点击选择聊天界面上方的搜索框输入'群组或联系人姓名'",
-      "expected": "界面显示匹配的搜索结果条目",
+      "goal": "在选择聊天界面顶部搜索输入框中输入目标群组名称并进行搜索",
+      "expected": "界面显示匹配的群组搜索结果条目",
       "action_type": "type"
     },
     {
       "step_order": 7,
-      "goal": "点击搜索结果中的目标条目",
-      "expected": "弹出包含'确认'和'取消'按钮的确认转发对话框",
+      "goal": "点击搜索结果中目标群组的条目",
+      "expected": "弹出包含确认和取消按钮的转发对话框",
       "action_type": "click"
     },
     {
       "step_order": 8,
-      "goal": "点击对话框中的'确认'按钮",
-      "expected": "消息已转发成功，任务完成",
+      "goal": "点击确认转发对话框中的'确认'按钮",
+      "expected": "消息转发成功，返回聊天界面",
       "action_type": "click"
     }
-  ],
-  "_file": "895e803dba7620ae451f3466500ea719.json"
+  ]
 }

@@ -1,64 +1,66 @@
 {
   "sop_id": "f83e6fcbd949ede2",
   "original_task_name": "高德把西安交通大学兴庆校区设置成家庭住址，并保存至我的收藏夹 ",
-  "task_name": "在高德地图把指定地点设置成家庭住址并保存至收藏夹",
+  "task_name": "在高德地图设置家庭住址并保存至收藏夹",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "工具",
   "keywords": [
     "高德地图",
-    "目的地",
     "家庭住址",
-    "收藏夹"
+    "收藏夹",
+    "常用地址",
+    "设置地址",
+    "收藏"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的高德地图应用图标",
-      "expected": "高德地图应用图标被选中，应用启动并进入主界面",
+      "expected": "高德地图启动并进入首页主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击底部导航栏中的'我的'按钮",
-      "expected": "进入个人中心页面",
+      "goal": "点击底部导航栏右侧的'我的'按钮",
+      "expected": "进入个人中心页面，显示用户信息",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "点击'常用地址'入口",
-      "expected": "进入地址管理页面，可添加或编辑常用地址",
+      "goal": "点击个人中心页面中的'常用地址'入口",
+      "expected": "进入常用地址管理页面，显示地址列表",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击添加家庭住址的入口",
-      "expected": "进入添加地址页面",
+      "goal": "点击家庭住址对应的添加或编辑入口",
+      "expected": "进入家庭住址设置页面，显示搜索框",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "在文本输入框中输入需要查找的地点",
-      "expected": "文本输入框中显示对应输入的地点",
+      "goal": "在搜索输入框中输入目标地点名称并进行搜索",
+      "expected": "搜索结果列表展示与目标地点相关的条目",
       "action_type": "type"
     },
     {
       "step_order": 6,
-      "goal": "点击搜索结果中对应的地点条目",
-      "expected": "选择该地点，界面显示该地点的详细信息",
+      "goal": "点击搜索结果中目标地点对应的条目",
+      "expected": "选中该地点，界面显示地点详细信息",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "点击'设为家庭住址'按钮",
-      "expected": "界面显示'已设为家庭住址'提示",
+      "goal": "点击页面中的'设为家庭住址'确认按钮",
+      "expected": "界面提示已成功设为家庭住址",
       "action_type": "click"
     },
     {
       "step_order": 8,
-      "goal": "点击收藏按钮，将该地址保存至收藏夹",
-      "expected": "界面提示收藏成功",
+      "goal": "点击地点详情页中的收藏按钮图标",
+      "expected": "界面提示收藏成功，该地址已保存至收藏夹",
       "action_type": "click"
     }
   ]

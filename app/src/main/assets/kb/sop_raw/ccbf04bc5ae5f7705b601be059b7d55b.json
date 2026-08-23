@@ -1,7 +1,7 @@
 {
   "sop_id": "ccbf04bc5ae5f770",
   "original_task_name": "请用高德地图从当前位置导航到最近的网吧。",
-  "task_name": "请用高德地图从当前位置导航到最近的目的地",
+  "task_name": "从高德地图当前位置导航到最近的目的地",
   "app_name": "高德地图",
   "source": "cagui_auto",
   "difficulty": "L4",
@@ -10,61 +10,58 @@
     "高德地图",
     "目的地",
     "导航",
-    "搜索"
+    "搜索",
+    "附近",
+    "距离优先",
+    "路线规划"
   ],
   "steps": [
     {
       "step_order": 1,
-      "goal": "打开高德地图应用",
-      "expected": "高德地图应用图标被选中，应用启动并显示其界面",
+      "goal": "点击高德地图应用图标启动应用",
+      "expected": "应用启动并显示地图主界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击'附近'按钮以查看周边地点和交通服务",
-      "expected": "界面显示附近地点和交通服务选项",
+      "goal": "点击首页底部或中部的'附近'功能按钮",
+      "expected": "界面展示附近地点和周边服务分类列表",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "点击顶部搜索栏区域",
-      "expected": "激活搜索功能",
+      "goal": "点击页面顶部的搜索栏输入区域",
+      "expected": "搜索栏激活并弹出键盘等待输入",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "在文本输入框中输入需要查找的场所",
-      "expected": "文本输入框中显示对应的输入内容",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索完成并展示相关结果列表",
       "action_type": "type"
     },
     {
       "step_order": 5,
-      "goal": "点击搜索按钮以执行搜索操作",
-      "expected": "搜索界面显示搜索结果列表",
+      "goal": "点击搜索结果页的排序或筛选选项按钮",
+      "expected": "弹出排序方式选择面板",
       "action_type": "click"
     },
     {
       "step_order": 6,
-      "goal": "点击排序选项以查看排序方式",
-      "expected": "进入排序设置界面",
+      "goal": "在排序面板中选择距离优先排序方式",
+      "expected": "结果列表按距离由近到远重新排列",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "选择排序方式为距离优先",
-      "expected": "筛选出距离用户最近的场所",
+      "goal": "点击搜索结果列表中距离最近的目标条目",
+      "expected": "进入该目的地的详情信息页面",
       "action_type": "click"
     },
     {
       "step_order": 8,
-      "goal": "点击搜索结果中对应的'目的地'条目",
-      "expected": "进入该目的地的详细信息页面",
-      "action_type": "click"
-    },
-    {
-      "step_order": 9,
-      "goal": "点击导航按钮进入导航功能",
-      "expected": "进入导航界面",
+      "goal": "点击详情页中的'导航'或'路线'按钮",
+      "expected": "进入导航路线规划界面并开始导航",
       "action_type": "click"
     }
   ]

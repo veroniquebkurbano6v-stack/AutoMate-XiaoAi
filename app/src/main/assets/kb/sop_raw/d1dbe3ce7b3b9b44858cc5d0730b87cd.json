@@ -1,58 +1,61 @@
 {
   "sop_id": "d1dbe3ce7b3b9b44",
   "original_task_name": "大众点评上查看小吃快餐必吃榜，查看第2名的商户，导航过去",
-  "task_name": "大众点评上查看榜单，查看第2名的商户，导航过去",
+  "task_name": "大众点评查看必吃榜第2名商户并导航",
   "app_name": "大众点评",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "生活服务",
   "keywords": [
     "大众点评",
-    "特定榜单",
+    "必吃榜",
+    "榜单",
     "商户",
-    "导航"
+    "导航",
+    "排行",
+    "美食"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的大众点评应用图标",
-      "expected": "进入大众点评主界面",
+      "expected": "成功进入大众点评主界面，显示首页推荐内容",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击'美食排行'入口进入榜单页面",
-      "expected": "进入美食排行榜单页面",
+      "goal": "点击首页顶部或中部的'美食排行'入口按钮",
+      "expected": "进入美食排行榜单页面，展示榜单分类选项",
       "action_type": "click"
     },
     {
       "step_order": 3,
-      "goal": "点击'必吃榜'入口",
-      "expected": "进入必吃榜页面，展示榜单列表",
+      "goal": "点击榜单页面顶部的'必吃榜'标签入口",
+      "expected": "进入必吃榜页面，展示必吃榜商户列表",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击目标榜单分类筛选",
-      "expected": "筛选出对应类别的餐厅",
+      "goal": "点击必吃榜页面的目标榜单分类筛选标签",
+      "expected": "页面刷新，筛选出目标分类对应的商户列表",
       "action_type": "click"
     },
     {
       "step_order": 5,
-      "goal": "点击榜单中的第N名商户条目",
-      "expected": "进入该商户的详细信息页面",
+      "goal": "点击榜单列表中排名第2的商户条目卡片",
+      "expected": "进入该商户的详细信息页面，展示商户详情",
       "action_type": "click"
     },
     {
       "step_order": 6,
-      "goal": "点击详情页中的'导航'按钮",
-      "expected": "进入地图应用选择界面",
+      "goal": "点击商户详情页底部或右侧的'导航'按钮",
+      "expected": "弹出地图应用选择界面，显示可用导航应用",
       "action_type": "click"
     },
     {
       "step_order": 7,
-      "goal": "点击'高德地图'选项",
-      "expected": "进入高德地图路线规划界面，任务完成",
+      "goal": "点击地图应用选择界面中的'高德地图'选项",
+      "expected": "跳转至高德地图路线规划界面，任务完成",
       "action_type": "click"
     }
   ],

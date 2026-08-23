@@ -1,41 +1,36 @@
 {
   "sop_id": "cc0d4ad2c473e633",
   "original_task_name": "小红书找考试资料",
-  "task_name": "小红书找特定内容",
+  "task_name": "小红书搜索目标内容",
   "app_name": "小红书",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "社交",
   "keywords": [
     "小红书",
-    "特定内容",
     "搜索",
-    "查找"
+    "查找",
+    "目标内容",
+    "检索"
   ],
   "steps": [
     {
-      "goal": "点击小红书应用图标以打开应用",
-      "expected": "小红书应用启动并显示其主界面",
+      "goal": "点击手机桌面上的小红书应用图标以启动应用",
+      "expected": "小红书应用启动并显示首页推荐信息流",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "进入搜索界面以查找特定内容",
-      "expected": "点击搜索图标后，界面进入搜索模式，顶部出现搜索栏，用户可输入关键词进行内容查找",
+      "goal": "点击首页顶部中央的搜索输入框区域",
+      "expected": "界面跳转至搜索页面，顶部出现搜索输入框",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定内容'",
-      "expected": "文本输入框中显示'特定内容'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面展示与目标关键词相关的搜索结果列表",
       "action_type": "type",
       "step_order": 3
-    },
-    {
-      "goal": "点击搜索栏右侧的搜索按钮",
-      "expected": "搜索结果列表显示",
-      "action_type": "click",
-      "step_order": 4
     }
   ]
 }

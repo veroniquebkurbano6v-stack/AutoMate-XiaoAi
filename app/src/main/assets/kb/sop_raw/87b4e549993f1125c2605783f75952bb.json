@@ -1,39 +1,41 @@
 {
   "sop_id": "87b4e549993f1125",
   "original_task_name": "在哔哩哔哩上播放“向往的生活”第5集。",
-  "task_name": "在哔哩哔哩上播放特定影视第5集。",
+  "task_name": "在哔哩哔哩上搜索并播放目标影视作品指定集数",
   "app_name": "B站",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "媒体",
   "keywords": [
     "B站",
-    "特定影视",
+    "哔哩哔哩",
+    "影视",
     "播放",
-    "搜索"
+    "搜索",
+    "视频"
   ],
   "steps": [
     {
-      "goal": "打开bilibili应用",
-      "expected": "bilibili应用图标被选中，应用启动并进入主界面",
+      "goal": "点击桌面上的B站应用图标启动应用",
+      "expected": "B站应用启动成功，进入首页推荐信息流界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏中的文本区域",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
+      "goal": "点击首页顶部搜索栏的文本输入区域",
+      "expected": "搜索输入框获得焦点，弹出键盘准备输入内容",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定影视'",
-      "expected": "文本输入框中显示'特定影视'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页加载完成，展示与目标关键词相关的视频列表",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作以查看“特定影视”相关内容",
-      "expected": "搜索结果列表显示，包含多个与“特定影视”相关的条目",
+      "goal": "在搜索结果列表中点击目标影视作品对应集数的视频条目",
+      "expected": "视频播放页打开，目标影视作品指定集数开始自动播放",
       "action_type": "click",
       "step_order": 4
     }

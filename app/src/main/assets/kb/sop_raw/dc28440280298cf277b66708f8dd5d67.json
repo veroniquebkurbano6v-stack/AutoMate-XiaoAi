@@ -1,42 +1,44 @@
 {
   "sop_id": "dc28440280298cf2",
   "original_task_name": "前往哔哩哔哩订阅JKAI杰凯的“全网最真实的声乐点评”系列视频。",
-  "task_name": "前往哔哩哔哩订阅联系人的影视系列视频",
+  "task_name": "在哔哩哔哩订阅目标UP主的系列视频",
   "app_name": "B站",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "媒体",
   "keywords": [
     "B站",
-    "联系人",
-    "特定影视",
+    "哔哩哔哩",
+    "订阅",
+    "关注",
+    "UP主",
+    "系列视频",
     "追更"
   ],
   "steps": [
     {
       "step_order": 1,
-      "goal": "点击手机桌面上的哔哩哔哩应用图标",
-      "expected": "进入哔哩哔哩主界面",
+      "goal": "点击手机桌面上哔哩哔哩App的图标启动应用",
+      "expected": "成功进入哔哩哔哩首页推荐信息流界面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击页面顶部的搜索框输入'UP主名称'",
-      "expected": "界面显示搜索结果列表",
+      "goal": "在顶部搜索输入框中输入目标UP主的名称并进行搜索",
+      "expected": "界面展示与目标UP主相关的搜索结果列表",
       "action_type": "type"
     },
     {
       "step_order": 3,
-      "goal": "点击搜索结果中的UP主条目",
-      "expected": "进入该UP主的个人空间主页",
+      "goal": "在搜索结果列表中点击目标UP主的头像或名称条目",
+      "expected": "跳转进入该UP主的个人空间主页界面",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击UP主主页中的'订阅'按钮",
-      "expected": "订阅成功，任务完成",
+      "goal": "点击UP主个人主页中的关注或订阅按钮",
+      "expected": "按钮状态变为已关注，订阅成功任务完成",
       "action_type": "click"
     }
-  ],
-  "_file": "dc28440280298cf277b66708f8dd5d67.json"
+  ]
 }

@@ -1,47 +1,43 @@
 {
   "sop_id": "ced0ccb73a31a01c",
   "original_task_name": "在携程上查找上海陆家嘴附近的 Hilton 酒店",
-  "task_name": "在携程上查找目的地附近的特定酒店",
+  "task_name": "在携程上查找目的地附近的酒店",
   "app_name": "携程",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "生活服务",
   "keywords": [
     "携程",
-    "特定酒店",
+    "酒店",
     "目的地",
-    "搜索"
+    "搜索",
+    "查找",
+    "附近"
   ],
   "steps": [
     {
-      "goal": "点击百度地图应用图标",
-      "expected": "打开百度地图应用",
+      "goal": "点击携程应用图标打开应用",
+      "expected": "携程首页加载完成，显示搜索入口",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏中的'特定酒店'文字区域",
-      "expected": "搜索栏处于可编辑状态，用户可输入新的搜索关键词",
+      "goal": "点击首页顶部搜索输入框区域",
+      "expected": "搜索框获得焦点，弹出键盘可输入内容",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'目的地附近的特定酒店'",
-      "expected": "文本输入框中显示'目的地附近的特定酒店'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页展示符合条件的酒店列表",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "点击搜索按钮以执行酒店搜索操作",
-      "expected": "搜索结果页面显示多个符合查询条件的酒店列表",
+      "goal": "点击搜索栏右侧清除按钮清空内容",
+      "expected": "搜索栏内容被清空，恢复初始状态",
       "action_type": "click",
       "step_order": 4
-    },
-    {
-      "goal": "点击搜索栏中的'X'按钮以清除当前搜索内容",
-      "expected": "搜索栏内容被清除，界面保持酒店搜索结果状态",
-      "action_type": "click",
-      "step_order": 5
     }
   ]
 }

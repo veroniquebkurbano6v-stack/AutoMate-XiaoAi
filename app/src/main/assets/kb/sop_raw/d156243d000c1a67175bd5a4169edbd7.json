@@ -1,102 +1,75 @@
 {
   "sop_id": "d156243d000c1a67",
   "original_task_name": "在美团上找南大街附近的高评分火锅店，随后启动导航前往。",
-  "task_name": "在美团上找出发地附近的高评分火锅店，随后启动导航前往。",
+  "task_name": "搜索附近高评分火锅店并启动导航",
   "app_name": "美团",
   "source": "cagui_auto",
   "difficulty": "L4",
   "domain": "生活服务",
   "keywords": [
     "美团",
-    "出发地",
-    "目的地",
+    "附近",
+    "高评分",
     "火锅店",
-    "导航"
+    "导航",
+    "搜索",
+    "排序",
+    "店铺详情"
   ],
   "steps": [
     {
       "goal": "点击美团App图标以打开应用",
-      "expected": "打开美团App",
+      "expected": "美团App成功启动并显示首页界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击顶部搜索栏区域",
-      "expected": "搜索栏处于可输入状态",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页显示目标关键词相关的店铺列表",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'出发地'",
-      "expected": "文本输入框中显示'出发地'",
-      "action_type": "type",
+      "goal": "点击搜索结果中的目标地点条目",
+      "expected": "界面显示目标地点的详细信息及相关店铺列表",
+      "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "点击搜索结果中的'出发地'条目",
-      "expected": "界面显示出发地的详细信息，包括距离、位置和相关店铺列表",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索结果页显示目标关键词相关的店铺列表",
+      "action_type": "type",
       "step_order": 4
     },
     {
-      "goal": "点击搜索栏以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入搜索关键词",
+      "goal": "点击排序筛选按钮以展开排序选项菜单",
+      "expected": "排序菜单展开显示多种排序方式供选择",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "在文本输入框中输入'火锅店'",
-      "expected": "文本输入框中显示'火锅店'",
-      "action_type": "type",
+      "goal": "选择排序方式为离我最近以筛选附近店铺",
+      "expected": "搜索结果按距离排序显示附近的店铺列表",
+      "action_type": "click",
       "step_order": 6
     },
     {
-      "goal": "执行搜索操作，获取火锅店相关结果",
-      "expected": "搜索界面显示搜索结果列表",
+      "goal": "点击目标店铺名称进入店铺详情页面",
+      "expected": "进入目标店铺详情页显示评分和地址信息",
       "action_type": "click",
       "step_order": 7
     },
     {
-      "goal": "点击排序选项以展开排序菜单",
-      "expected": "展开排序菜单，显示不同排序方式供选择",
+      "goal": "点击导航按钮以启动路线规划功能",
+      "expected": "系统显示从当前位置到目标店铺的路线规划",
       "action_type": "click",
       "step_order": 8
     },
     {
-      "goal": "选择排序方式为“离我最近”以优化搜索结果的配送位置",
-      "expected": "筛选出离用户最近的火锅店",
+      "goal": "点击开始导航按钮确认启动实时导航",
+      "expected": "导航界面启动并开始引导用户前往目标店铺",
       "action_type": "click",
       "step_order": 9
-    },
-    {
-      "goal": "点击'目的地'的店铺名称进入详情页",
-      "expected": "进入该店铺的详细页面",
-      "action_type": "click",
-      "step_order": 10
-    },
-    {
-      "goal": "点击餐厅名称进入详情页",
-      "expected": "进入餐厅详细信息页面",
-      "action_type": "click",
-      "step_order": 11
-    },
-    {
-      "goal": "点击'查看更多优惠'按钮",
-      "expected": "进入该餐厅的优惠详情页面",
-      "action_type": "click",
-      "step_order": 12
-    },
-    {
-      "goal": "确认导航开始按钮的点击操作",
-      "expected": "点击导航开始按钮后，系统将启动所选路线的实时导航，引导用户按照规划路径行驶。",
-      "action_type": "click",
-      "step_order": 13
-    },
-    {
-      "goal": "确认点击'开始导航'按钮以启动路线规划",
-      "expected": "点击'开始导航'按钮后，系统将开始按照规划路线引导用户驾驶",
-      "action_type": "click",
-      "step_order": 14
     }
   ]
 }

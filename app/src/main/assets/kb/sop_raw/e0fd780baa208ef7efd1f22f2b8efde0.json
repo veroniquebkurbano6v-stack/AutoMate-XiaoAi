@@ -1,65 +1,56 @@
 {
   "sop_id": "e0fd780baa208ef7",
   "original_task_name": "在大众点评上查找附近评分4星以上的烤鱼店。",
-  "task_name": "在大众点评上查找附近评分4星以上的特定菜品店",
+  "task_name": "在大众点评上查找附近高评分的目标菜品店",
   "app_name": "大众点评",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "生活服务",
   "keywords": [
     "大众点评",
-    "特定菜品",
+    "目标菜品",
     "搜索",
-    "评分"
+    "评分",
+    "附近",
+    "筛选",
+    "高评分"
   ],
   "steps": [
     {
-      "goal": "打开大众点评App",
-      "expected": "屏幕显示大众点评App的主界面",
-      "action_type": "click",
-      "step_order": 1
+      "step_order": 1,
+      "goal": "点击手机桌面上的大众点评App图标打开应用",
+      "expected": "大众点评App启动并显示首页推荐内容界面",
+      "action_type": "click"
     },
     {
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入搜索关键词",
-      "action_type": "click",
-      "step_order": 2
+      "step_order": 2,
+      "goal": "点击首页顶部的搜索栏区域以激活输入状态",
+      "expected": "搜索栏获得焦点并弹出键盘准备输入关键词",
+      "action_type": "click"
     },
     {
-      "goal": "在文本输入框中输入'特定菜品'",
-      "expected": "文本输入框中显示'特定菜品'",
-      "action_type": "type",
-      "step_order": 3
+      "step_order": 3,
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面跳转并展示目标菜品相关商家的搜索结果列表",
+      "action_type": "type"
     },
     {
-      "goal": "执行搜索操作以查看特定菜品店相关结果",
-      "expected": "搜索结果列表显示",
-      "action_type": "click",
-      "step_order": 4
+      "step_order": 4,
+      "goal": "点击搜索结果页顶部的'附近'筛选标签",
+      "expected": "搜索结果范围切换为仅显示附近区域的商家列表",
+      "action_type": "click"
     },
     {
-      "goal": "点击'综合'标签以查看综合排序的特定菜品店列表",
-      "expected": "筛选出按综合排序的特定菜品店列表",
-      "action_type": "click",
-      "step_order": 5
+      "step_order": 5,
+      "goal": "点击筛选栏中的评分筛选按钮展开评分选项",
+      "expected": "弹出评分筛选面板显示不同星级评分选项",
+      "action_type": "click"
     },
     {
-      "goal": "选择附近商家作为搜索范围",
-      "expected": "搜索结果的范围被设置为附近商家",
-      "action_type": "click",
-      "step_order": 6
-    },
-    {
-      "goal": "点击排序按钮展开排序选项",
-      "expected": "展开排序菜单，显示不同排序方式",
-      "action_type": "click",
-      "step_order": 7
-    },
-    {
-      "goal": "选择排序方式为人气优先",
-      "expected": "界面显示排序选项已切换至人气优先",
-      "action_type": "click",
-      "step_order": 8
+      "step_order": 6,
+      "goal": "在评分筛选面板中选择4星及以上的评分条件",
+      "expected": "列表刷新仅展示评分4星以上的目标菜品商家",
+      "action_type": "click"
     }
   ]
 }

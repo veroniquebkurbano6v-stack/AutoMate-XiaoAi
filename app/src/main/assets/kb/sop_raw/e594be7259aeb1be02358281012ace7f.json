@@ -1,7 +1,7 @@
 {
   "sop_id": "e594be7259aeb1be",
   "original_task_name": "给微信群“周末出游计划”发条消息通知大家集合时间和地点。",
-  "task_name": "给微信群组发条消息通知大家集合时间和地点。",
+  "task_name": "给微信群组发送集合时间地点通知消息",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -9,40 +9,42 @@
   "keywords": [
     "微信",
     "群组",
+    "群聊",
     "消息",
-    "集合通知"
+    "发送",
+    "通知",
+    "集合"
   ],
   "steps": [
     {
       "step_order": 1,
       "goal": "点击手机桌面上的微信应用图标",
-      "expected": "进入微信主界面，显示聊天列表",
+      "expected": "进入微信主界面，显示聊天列表页面",
       "action_type": "click"
     },
     {
       "step_order": 2,
-      "goal": "点击微信主界面顶部的搜索框输入'群组或联系人姓名'",
-      "expected": "界面显示匹配的搜索结果条目",
+      "goal": "在微信主界面顶部搜索输入框中输入目标群组名称并进行搜索",
+      "expected": "界面显示与目标群组匹配的搜索结果列表",
       "action_type": "type"
     },
     {
       "step_order": 3,
-      "goal": "点击搜索结果中的目标条目",
-      "expected": "进入与目标对象的聊天界面",
+      "goal": "点击搜索结果列表中的目标群组条目",
+      "expected": "进入目标群组的聊天界面，显示历史消息",
       "action_type": "click"
     },
     {
       "step_order": 4,
-      "goal": "点击聊天界面底部的消息输入框输入消息内容",
-      "expected": "消息输入框中显示要发送的文本",
+      "goal": "点击聊天界面底部的消息输入框并输入通知内容",
+      "expected": "消息输入框中显示已输入的集合通知文本",
       "action_type": "type"
     },
     {
       "step_order": 5,
-      "goal": "点击输入框右侧的'发送'按钮",
-      "expected": "消息已发送给目标对象，任务完成",
+      "goal": "点击消息输入框右侧的发送按钮",
+      "expected": "消息成功发送至群组聊天界面，任务完成",
       "action_type": "click"
     }
-  ],
-  "_file": "e594be7259aeb1be02358281012ace7f.json"
+  ]
 }

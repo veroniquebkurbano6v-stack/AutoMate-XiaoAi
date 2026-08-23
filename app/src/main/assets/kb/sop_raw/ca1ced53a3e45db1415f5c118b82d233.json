@@ -1,41 +1,31 @@
 {
   "sop_id": "ca1ced53a3e45db1",
   "original_task_name": "上京东中寻找耐克的运动鞋。",
-  "task_name": "上京东中寻找特定商品。",
+  "task_name": "在京东中搜索目标商品",
   "app_name": "京东",
   "source": "cagui_auto",
   "difficulty": "L2",
   "domain": "购物",
   "keywords": [
     "京东",
-    "特定商品",
     "搜索",
-    "购物"
+    "商品",
+    "购物",
+    "查找",
+    "选购"
   ],
   "steps": [
     {
       "goal": "点击京东应用图标以打开应用",
-      "expected": "打开京东应用界面",
+      "expected": "成功进入京东首页，显示推荐商品流",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入新的搜索内容",
-      "action_type": "click",
-      "step_order": 2
-    },
-    {
-      "goal": "在文本输入框中输入'特定商品'",
-      "expected": "文本输入框中显示'特定商品'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "页面展示与目标关键词相关的商品搜索结果列表",
       "action_type": "type",
-      "step_order": 3
-    },
-    {
-      "goal": "执行搜索操作",
-      "expected": "搜索按钮被点击，触发搜索功能",
-      "action_type": "click",
-      "step_order": 4
+      "step_order": 2
     }
   ]
 }

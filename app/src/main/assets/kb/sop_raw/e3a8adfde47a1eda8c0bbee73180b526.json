@@ -1,7 +1,7 @@
 {
   "sop_id": "e3a8adfde47a1eda",
   "original_task_name": "迅速在腾讯会议创建快速会议，并打开视频。",
-  "task_name": "迅速在腾讯会议创建快速会议，并打开视频",
+  "task_name": "在腾讯会议创建快速会议并开启视频",
   "app_name": "腾讯会议",
   "source": "cagui_auto",
   "difficulty": "L2",
@@ -10,32 +10,28 @@
     "腾讯会议",
     "快速会议",
     "开启视频",
-    "会议"
+    "创建会议",
+    "视频会议",
+    "打开摄像头"
   ],
   "steps": [
     {
-      "goal": "点击屏幕中央的搜索按钮",
-      "expected": "搜索界面弹出",
+      "goal": "点击首页中央的快速会议按钮",
+      "expected": "进入快速会议设置界面，显示会议选项",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击快速会议按钮",
-      "expected": "进入快速会议功能界面",
+      "goal": "点击底部进入会议按钮确认开始",
+      "expected": "系统启动会议并进入会议主界面",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "确认会议设置并进入会议",
-      "expected": "点击进入会议按钮后，系统将启动会议并进入会议界面",
+      "goal": "点击底部工具栏中央的开启视频按钮",
+      "expected": "摄像头开启，视频画面显示在会议窗口",
       "action_type": "click",
       "step_order": 3
-    },
-    {
-      "goal": "点击底部中央的'开启视频'按钮",
-      "expected": "视频状态从关闭变为开启",
-      "action_type": "click",
-      "step_order": 4
     }
   ]
 }

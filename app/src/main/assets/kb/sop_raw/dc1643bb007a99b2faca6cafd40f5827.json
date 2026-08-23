@@ -1,7 +1,7 @@
 {
   "sop_id": "dc1643bb007a99b2",
   "original_task_name": "给微信群“老同学聚会”发条消息，告诉大家周末聚餐的地点定了。",
-  "task_name": "给微信群组发条消息，告诉大家周末聚餐的地点定了",
+  "task_name": "在微信群组中发送聚餐地点通知消息",
   "app_name": "微信",
   "source": "cagui_auto",
   "difficulty": "L3",
@@ -9,39 +9,54 @@
   "keywords": [
     "微信",
     "群组",
+    "群聊",
     "消息",
-    "聚餐通知"
+    "发送消息",
+    "聚餐通知",
+    "通知"
   ],
   "steps": [
     {
-      "goal": "打开微信应用",
-      "expected": "微信应用图标被选中，准备启动应用",
+      "goal": "点击桌面上的微信应用图标以启动应用",
+      "expected": "微信主界面加载完成，显示聊天列表页面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击顶部搜索图标",
-      "expected": "界面进入搜索模式",
+      "goal": "点击微信主界面右上角的搜索图标按钮",
+      "expected": "页面顶部出现搜索输入框，进入搜索模式",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "进入聊天输入界面",
-      "expected": "底部输入区域变为可输入状态",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标群组名称并进行搜索",
+      "expected": "搜索结果中显示目标群组的聊天条目",
+      "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "在文本输入框中输入'周末聚餐的地点定了'",
-      "expected": "文本输入框中显示'周末聚餐的地点定了'",
-      "action_type": "type",
+      "goal": "点击搜索结果中目标群组的聊天条目进入群聊",
+      "expected": "进入目标群聊界面，底部显示消息输入区域",
+      "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "发送已输入的群聊消息",
-      "expected": "消息被成功发送到群聊",
+      "goal": "点击底部消息输入框使其获得焦点变为可输入状态",
+      "expected": "输入框获得焦点，弹出键盘，可输入文字",
       "action_type": "click",
       "step_order": 5
+    },
+    {
+      "goal": "在底部文本输入框中输入聚餐地点通知内容",
+      "expected": "输入框中显示已输入的聚餐地点通知文本",
+      "action_type": "type",
+      "step_order": 6
+    },
+    {
+      "goal": "点击输入框右侧的发送按钮发送消息",
+      "expected": "消息成功发送，聊天界面显示已发送的消息气泡",
+      "action_type": "click",
+      "step_order": 7
     }
   ]
 }

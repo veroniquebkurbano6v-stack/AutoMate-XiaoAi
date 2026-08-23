@@ -1,57 +1,61 @@
 {
   "sop_id": "dbdce1ea10b0984e",
   "original_task_name": "大众点评看家常菜的必吃榜，查看第2名的商户，导航过去",
-  "task_name": "大众点评查看特定菜品的特定榜单，查看第2名的商户，导航过去",
+  "task_name": "大众点评查看目标菜品的目标榜单并导航至第2名商户",
   "app_name": "大众点评",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "生活服务",
   "keywords": [
     "大众点评",
-    "特定菜品",
-    "特定榜单",
-    "搜索"
+    "菜品",
+    "榜单",
+    "必吃榜",
+    "搜索",
+    "筛选",
+    "导航",
+    "商户"
   ],
   "steps": [
     {
-      "goal": "打开大众点评应用",
-      "expected": "应用图标被选中，进入应用界面",
+      "goal": "点击手机桌面上的大众点评应用图标",
+      "expected": "大众点评应用启动，显示首页界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域以激活输入状态",
-      "expected": "搜索栏获得焦点，准备输入搜索关键词",
-      "action_type": "click",
+      "goal": "在搜索输入框中输入目标菜品名称并进行搜索",
+      "expected": "搜索结果页面加载，显示相关商户列表",
+      "action_type": "type",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定菜品'",
-      "expected": "文本输入框中显示'特定菜品'",
-      "action_type": "type",
+      "goal": "点击搜索结果页顶部的筛选按钮",
+      "expected": "筛选面板展开，显示商户品质等筛选条件",
+      "action_type": "click",
       "step_order": 3
     },
     {
-      "goal": "点击搜索栏右侧的搜索按钮",
-      "expected": "搜索结果页面加载",
+      "goal": "在筛选面板中选择目标榜单标签选项",
+      "expected": "目标榜单选项被选中，显示高亮状态",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击筛选按钮以展开筛选选项",
-      "expected": "筛选选项展开，显示更多筛选条件",
+      "goal": "点击筛选面板底部的确认按钮",
+      "expected": "筛选面板关闭，列表更新为目标榜单商户",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "筛选商户品质为特定榜单",
-      "expected": "筛选后显示特定榜单的商户列表",
+      "goal": "点击榜单列表中排名第2的商户卡片",
+      "expected": "进入该商户详情页面，显示商户信息",
       "action_type": "click",
       "step_order": 6
     },
     {
-      "goal": "确认筛选条件并关闭筛选面板",
-      "expected": "筛选面板关闭，界面返回搜索结果列表",
+      "goal": "点击商户详情页中的导航按钮",
+      "expected": "跳转至地图导航界面，显示路线规划",
       "action_type": "click",
       "step_order": 7
     }

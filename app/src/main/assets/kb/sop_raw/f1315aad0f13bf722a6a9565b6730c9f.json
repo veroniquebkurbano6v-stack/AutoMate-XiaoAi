@@ -1,51 +1,54 @@
 {
   "sop_id": "f1315aad0f13bf72",
   "original_task_name": "打开网易云播放排行榜VIP热歌榜前十的歌，从第一首开始播放",
-  "task_name": "打开网易云播放特定榜单前十的歌，从第一首开始播放",
+  "task_name": "打开网易云音乐播放目标榜单前十歌曲",
   "app_name": "网易云音乐",
   "source": "cagui_auto",
   "difficulty": "L3",
   "domain": "媒体",
   "keywords": [
     "网易云音乐",
-    "特定榜单",
-    "特定歌曲",
-    "播放"
+    "榜单",
+    "排行榜",
+    "热歌榜",
+    "播放",
+    "歌曲",
+    "前十"
   ],
   "steps": [
     {
-      "goal": "打开网易云音乐应用",
-      "expected": "应用图标被选中，进入网易云音乐界面",
+      "goal": "点击桌面上的网易云音乐应用图标启动应用",
+      "expected": "应用启动成功，进入网易云音乐首页界面",
       "action_type": "click",
       "step_order": 1
     },
     {
-      "goal": "点击搜索栏区域",
-      "expected": "搜索栏处于可输入状态",
+      "goal": "点击首页顶部的搜索栏区域进入搜索状态",
+      "expected": "搜索栏获得焦点，弹出键盘处于可输入状态",
       "action_type": "click",
       "step_order": 2
     },
     {
-      "goal": "在文本输入框中输入'特定榜单'",
-      "expected": "文本输入框中显示'特定榜单'",
+      "goal": "在搜索输入框中输入目标关键词并进行搜索",
+      "expected": "搜索完成，界面显示与目标关键词相关的搜索结果列表",
       "action_type": "type",
       "step_order": 3
     },
     {
-      "goal": "执行搜索操作",
-      "expected": "搜索框内显示输入内容，界面下方出现搜索建议列表",
+      "goal": "点击搜索结果页顶部的歌单分类标签选项",
+      "expected": "界面切换至歌单分类，显示目标榜单相关歌单列表",
       "action_type": "click",
       "step_order": 4
     },
     {
-      "goal": "点击分类标签中的'歌单'选项",
-      "expected": "界面切换至歌单分类页面，显示多个热门歌单列表",
+      "goal": "点击目标榜单歌单进入歌单详情页面",
+      "expected": "进入歌单详情页，显示榜单前十首歌曲列表",
       "action_type": "click",
       "step_order": 5
     },
     {
-      "goal": "点击特定歌曲开始播放",
-      "expected": "特定歌曲开始播放，界面显示播放进度条和歌曲信息",
+      "goal": "点击歌单列表中第一首歌曲开始播放",
+      "expected": "第一首歌曲开始播放，底部显示播放进度条和歌曲信息",
       "action_type": "click",
       "step_order": 6
     }
