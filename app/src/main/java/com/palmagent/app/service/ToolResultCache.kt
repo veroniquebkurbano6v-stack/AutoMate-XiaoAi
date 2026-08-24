@@ -5,6 +5,7 @@ import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * 通用工具结果磁盘缓存（统一缓存：决策台账 + 执行模型 web_search 共用）。
@@ -93,11 +94,11 @@ object ToolResultCache {
         return "$tool::" + gson.toJson(normalized)
     }
 
-    /** 稳定短哈希（确定性，跨进程一致），用于生成 fx-ref 与文件名 */
+    /** 稳定短哈希：SHA-256 截断前 8 字节（64 位），确定性、跨进程一致、抗碰撞，用于生成 fx-ref 与文件名 */
     private fun shortHash(s: String): String {
-        val h = s.hashCode()
-        val hex = h.toLong() and 0xffffffffL.toLong()
-        return hex.toString(16).padStart(8, '0')
+        val md = MessageDigest.getInstance("SHA-256")
+        val digest = md.digest(s.toByteArray(Charsets.UTF_8))
+        return digest.copyOfRange(0, 8).joinToString("") { "%02x".format(it) }
     }
 
     /**
@@ -119,27 +120,31 @@ object ToolResultCache {
         return entry
     }
 
-    /** 按 key 读取通用条目（多数用于取回全文；决策侧不以此作为执行去重依据） */
+    /** 按 key 读取通用条目（多数用于取回全文；决策侧不以此作为执行去重依据）。读取时校验存储 key 防碰撞。 */
     fun getByKey(key: String): CachedEntry? {
         val dir = cacheDir ?: return null
         val f = File(dir, "fx_${shortHash(key)}.json")
         if (!f.exists()) return null
         return try {
-            gson.fromJson(f.readText(), CachedEntry::class.java)
+            val entry = gson.fromJson(f.readText(), CachedEntry::class.java)
+            // 防哈希碰撞/错文件串扰：文件内容 key 必须与请求 key 一致
+            if (entry.key == key) entry else null
         } catch (e: Exception) {
             Log.w(TAG, "读通用缓存失败 $key: ${e.message}")
             null
         }
     }
 
-    /** 按 ref 取回完整条目（支持 fx-<hash> 与 ws-<round>-<n>；均在根命名空间） */
+    /** 按 ref 取回完整条目（支持 fx-<hash> 与 ws-<round>-<n>；均在根命名空间）。读取时校验存储 ref 防碰撞。 */
     fun get(ref: String): CachedEntry? {
         if (ref.startsWith("fx-")) {
             val dir = cacheDir ?: return null
             val f = File(dir, "fx_${ref.substring(3)}.json")
             if (!f.exists()) return null
             return try {
-                gson.fromJson(f.readText(), CachedEntry::class.java)
+                val entry = gson.fromJson(f.readText(), CachedEntry::class.java)
+                // 防哈希碰撞/错文件串扰：文件内容 ref 必须与请求 ref 一致
+                if (entry.ref == ref) entry else null
             } catch (e: Exception) {
                 Log.w(TAG, "读通用缓存失败 ref=$ref: ${e.message}")
                 null

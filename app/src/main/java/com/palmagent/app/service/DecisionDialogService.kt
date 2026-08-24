@@ -570,24 +570,26 @@ Plan 示例（预约挂号）：
         messages.add(mapOf("role" to "system", "content" to buildLedgerContent(state)))
     }
 
-    /** 事实台账内容：去重后的工具结果预览；总预览字符超聚合预算时从最旧条目开始淘汰（保护最近条目） */
+    /** 事实台账内容：去重后的工具结果预览（只读，不修改 state.ledger）。
+     *  本轮注入控制在字符预算内的"最近"条目；真正的淘汰只由 evictLedgerIfNeeded（token 预算 + 保护最近 N 条）负责，
+     *  避免字符预算路径无保护地删行破坏"同参数去重/保护最近 N"契约。 */
     internal fun buildLedgerContent(state: SessionDecisionState): String {
         if (state.ledger.isEmpty()) return "【事实台账】\n（暂无）"
-        // 聚合预算：单轮注入的预览字符总上限，超预算从最旧开始淘汰，保证被淘汰条目不再出现
-        val keys = state.ledger.keys.toList()
-        var total = keys.sumOf { state.ledger.getValue(it).preview.length }
-        val toDrop = mutableListOf<String>()
-        for (key in keys) {
-            if (total <= MAX_LEDGER_BLOCK_CHARS) break
-            total -= state.ledger.getValue(key).preview.length
-            toDrop.add(key)
-        }
-        toDrop.forEach { key ->
-            state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
+        // 按插入序取"最近"优先，纳入预算内的条目用于本轮注入（不删除 ledger，去重与 token 计数保留）
+        val rows = state.ledger.values.toList()
+        var used = 0
+        val kept = LinkedHashSet<String>()
+        for (row in rows.asReversed()) {
+            if (used + row.preview.length > MAX_LEDGER_BLOCK_CHARS) break
+            kept.add(row.key)
+            used += row.preview.length
         }
         val sb = StringBuilder("【事实台账】（已去重的工具结果预览，全文可用 fetch_result 取回，勿重调）\n")
-        state.ledger.forEach { (key, row) ->
-            sb.append("- [").append(row.ref).append("] ").append(row.key).append(" = ").append(row.preview).append("\n")
+        // 按插入顺序输出被纳入的条目，保持稳定顺序
+        for ((key, row) in state.ledger) {
+            if (key in kept) {
+                sb.append("- [").append(row.ref).append("] ").append(row.key).append(" = ").append(row.preview).append("\n")
+            }
         }
         return sb.toString()
     }
@@ -617,7 +619,8 @@ Plan 示例（预约挂号）：
     }
 
     /**
-     * 按工具名分派到具体执行器（list_apps / kb_read / amap_* / web_search / fetch_result）
+     * 按工具名分派到具体执行器（list_apps / kb_read / amap_* / web_search）。
+     * 注：fetch_result 在工具循环顶层单独拦截处理（不落盘不登记台账），不进入本分派。
      */
     private suspend fun executeAnyTool(name: String, args: Map<String, Any>): String {
         return when {
@@ -625,8 +628,7 @@ Plan 示例（预约挂号）：
             name == "kb_read" -> executeKbTool(name, args)
             name.startsWith("amap_") -> executeAmapTool(name, args)
             name == "web_search" -> executeWebSearchTool(args)
-            name == "fetch_result" -> executeFetchResultTool(args)
-            else -> "未知工具：$name（仅支持 list_apps / kb_read / amap_* / web_search / fetch_result）"
+            else -> "未知工具：$name（仅支持 list_apps / kb_read / amap_* / web_search）"
         }
     }
 

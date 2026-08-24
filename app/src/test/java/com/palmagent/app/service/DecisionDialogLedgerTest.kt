@@ -27,7 +27,7 @@ class DecisionDialogLedgerTest {
     }
 
     @Test
-    fun buildLedgerContent_聚合超预算_淘汰最旧() {
+    fun buildLedgerContent_聚合超预算_只读不删行_注入最近条目() {
         val state = DecisionDialogService.SessionDecisionState()
         val preview = "x".repeat(1000) // 每条预览 1000 字符
         listOf("a", "b", "c", "d").forEach { k ->
@@ -36,16 +36,15 @@ class DecisionDialogLedgerTest {
         state.ledgerTokens = state.ledger.values.sumOf { service.estimateTokens(it.preview) }
         val beforeTokens = state.ledgerTokens
 
-        service.buildLedgerContent(state)
+        val out = service.buildLedgerContent(state)
 
-        // 4×1000 > 3000 聚合预算 → 最旧 1 条被淘汰，保留最近 3 条
-        assertEquals(3, state.ledger.size)
-        assertFalse(state.ledger.containsKey("a"))
-        assertTrue(state.ledger.containsKey("b"))
-        assertTrue(state.ledger.containsKey("c"))
-        assertTrue(state.ledger.containsKey("d"))
-        // token 预算同步扣减最旧一条
-        assertEquals(beforeTokens - service.estimateTokens(preview), state.ledgerTokens)
+        // 只读：buildLedgerContent 不再删除条目，也不扣减 token（去重与保护不被字符预算破坏）
+        assertEquals(4, state.ledger.size)
+        assertEquals(beforeTokens, state.ledgerTokens)
+        // 注入控制在字符预算内；按"最近"优先，最旧 a 被裁出不展示
+        assertFalse(out.contains("fx-a"))
+        assertTrue(out.contains("fx-b"))
+        assertTrue(out.contains("fx-d"))
     }
 
     @Test
