@@ -21,6 +21,8 @@ class ToolDecisionEngine(
         private const val MAX_SAME_CALL = 3
         /** 方案 B：工具连续失败熔断阈值，达到后停止工具循环（防重试风暴烧 token） */
         private const val MAX_CONSECUTIVE_FAILURES = 3
+        /** fetch_result 单次取回显示上限（字符），通用 fx- 条目按此截断 */
+        private const val FETCH_OUTPUT_MAX_CHARS = 4000
     }
 
     suspend fun executeWithTools(
@@ -190,15 +192,26 @@ class ToolDecisionEngine(
 
                     val cached = ToolResultCache.get(ref)
                     val fetchContent = if (cached != null) {
-                        buildString {
-                            appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
-                            if (cached.url.isNotBlank()) appendLine("URL: ${cached.url}")
-                            if (cached.snippet.isNotBlank()) appendLine("片段: ${cached.snippet}")
-                            if (!cached.summary.isNullOrBlank()) {
-                                val cut = if (cached.summary.length > 800) "${cached.summary.take(800)}…" else cached.summary
-                                appendLine("原文摘要: $cut")
+                        if (cached.ref.startsWith("ws-")) {
+                            // 结构化 web_search 条目：渲染 search 专属字段
+                            buildString {
+                                appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
+                                if (cached.url.isNotBlank()) appendLine("URL: ${cached.url}")
+                                if (cached.snippet.isNotBlank()) appendLine("片段: ${cached.snippet}")
+                                if (!cached.summary.isNullOrBlank()) {
+                                    val cut = if (cached.summary.length > 800) "${cached.summary.take(800)}…" else cached.summary
+                                    appendLine("原文摘要: $cut")
+                                }
+                                appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
                             }
-                            appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
+                        } else {
+                            // 通用 fx- 条目：渲染实际缓存内容（不能只给空的结构化标题）
+                            buildString {
+                                appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）")
+                                append(cached.content.take(FETCH_OUTPUT_MAX_CHARS))
+                                if (cached.content.length > FETCH_OUTPUT_MAX_CHARS) appendLine("\n…（内容过长，已截取）")
+                                appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
+                            }
                         }
                     } else {
                         "【取回失败】ref=$ref 不存在或已清理，请重新搜索"

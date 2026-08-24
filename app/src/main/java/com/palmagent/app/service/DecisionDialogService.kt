@@ -492,12 +492,17 @@ Plan 示例（预约挂号）：
                 val key = ToolResultCache.buildKey(name, args)
                 val existingRow = state.ledger[key]
                 val entry = if (existingRow != null) {
-                    LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
-                    // 取磁盘全文供后续 fetch 使用；文件若被清理则以预览兜底（保证不重执行、结果稳定）
-                    ToolResultCache.getByKey(key) ?: ToolResultCache.CachedEntry(
-                        key = key, ref = existingRow.ref, tool = name,
-                        preview = existingRow.preview, content = existingRow.preview, createdAt = 0
-                    )
+                    val disk = ToolResultCache.getByKey(key)
+                    if (disk != null) {
+                        LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
+                        disk
+                    } else {
+                        // 磁盘缺失（被 clearAll/cleanup 清理或写盘静默失败）：不能用 preview stub 顶替，
+                        // 否则 fetch_result 永远取不回、模型重调又命中 ledger 而死循环。删行后重新执行拿全文。
+                        state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
+                        LiveLogBuffer.append("♻️ [台账失效] $name 磁盘缓存缺失，重新执行获取完整内容")
+                        ToolResultCache.put(name, args, executeAnyTool(name, args))
+                    }
                 } else {
                     val cached = ToolResultCache.getByKey(key)
                     if (cached != null) {

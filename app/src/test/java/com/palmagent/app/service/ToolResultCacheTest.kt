@@ -28,6 +28,21 @@ class ToolResultCacheTest {
     }
 
     @Test
+    fun buildKey_语义不同参数不碰撞_精确序列化() {
+        // 归一化会把 {"keywords":["美团","淘宝"]} 与 {"keywords":["美团淘宝"]} 撞成同一 key，这里必须区分
+        val kwList = mapOf("keywords" to listOf("美团", "淘宝"))
+        val kwJoined = mapOf("keywords" to listOf("美团淘宝"))
+        assertNotEquals(
+            ToolResultCache.buildKey("list_apps", kwList),
+            ToolResultCache.buildKey("list_apps", kwJoined)
+        )
+        // 逗号/空格等轻写差异也必须是不同 key
+        val q1 = mapOf("query" to "医院, 附近", "count" to 5)
+        val q2 = mapOf("query" to "医院附近", "count" to 5)
+        assertNotEquals(ToolResultCache.buildKey("amap_search", q1), ToolResultCache.buildKey("amap_search", q2))
+    }
+
+    @Test
     fun buildPreview_短内容原样返回() {
         val s = "短结果"
         assertEquals(s, ToolResultCache.buildPreview(s))

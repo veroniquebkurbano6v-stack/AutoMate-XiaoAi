@@ -81,6 +81,9 @@ class DefaultAgentService @Inject constructor(
         /** 同时缓存的最大操作历史轮数（超出后删除最旧记录，控制内存）
          *  v9.2: 5→7，避免压缩前丢失早期历史（详见 P2 Running Summary 压缩可靠性提升方案 修复 2） */
         private const val MAX_ACTION_HISTORY = 7
+
+        /** fetch_result 单次取回显示上限（字符），通用 fx- 条目按此截断 */
+        private const val FETCH_RESULT_MAX_CHARS = 4000
     }
 
     private var config: AgentConfig = AgentConfig()
@@ -341,15 +344,26 @@ class DefaultAgentService @Inject constructor(
 
                         val cached = ToolResultCache.get(ref)
                         if (cached != null) {
-                            transientSearchSection = buildString {
-                                appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
-                                if (cached.url.isNotBlank()) appendLine("URL: ${cached.url}")
-                                if (cached.snippet.isNotBlank()) appendLine("片段: ${cached.snippet}")
-                                if (!cached.summary.isNullOrBlank()) {
-                                    val cut = if (cached.summary.length > 800) "${cached.summary.take(800)}…" else cached.summary
-                                    appendLine("原文摘要: $cut")
+                            transientSearchSection = if (cached.ref.startsWith("ws-")) {
+                                // 结构化 web_search 条目
+                                buildString {
+                                    appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
+                                    if (cached.url.isNotBlank()) appendLine("URL: ${cached.url}")
+                                    if (cached.snippet.isNotBlank()) appendLine("片段: ${cached.snippet}")
+                                    if (!cached.summary.isNullOrBlank()) {
+                                        val cut = if (cached.summary.length > 800) "${cached.summary.take(800)}…" else cached.summary
+                                        appendLine("原文摘要: $cut")
+                                    }
+                                    appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
                                 }
-                                appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
+                            } else {
+                                // 通用 fx- 条目：渲染实际缓存内容（不能只给空的结构化标题）
+                                buildString {
+                                    appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）")
+                                    append(cached.content.take(FETCH_RESULT_MAX_CHARS))
+                                    if (cached.content.length > FETCH_RESULT_MAX_CHARS) appendLine("\n…（内容过长，已截取）")
+                                    appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
+                                }
                             }
                             LiveLogBuffer.append("✓ 已取回 ${cached.ref} 原文")
                         } else {

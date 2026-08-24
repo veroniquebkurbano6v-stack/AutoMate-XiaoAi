@@ -71,10 +71,15 @@ object ToolResultCache {
         return halfWidth.replace(Regex("[\\p{P}\\p{S}\\s]+"), "").lowercase().trim()
     }
 
-    /** 通用条目键：`tool::<规范化后的参数 JSON>` */
+    /**
+     * 通用条目键：`tool::<精确序列化的参数 JSON>`（与删除前的 buildLedgerKey 一致）。
+     * 参数用 toSortedMap 保证键序无关；但**不对整个 JSON 做标点/空白归一化**，
+     * 否则像 {"keywords":["美团","淘宝"]} 与 {"keywords":["美团淘宝"]} 会碰撞成同一 key、错误复用结果。
+     * web_search 的查询关键字归一化只在 putSearch/hitRound 内部对 query 值做，不作用到这里的 key。
+     */
     fun buildKey(tool: String, args: Map<String, Any>): String {
         val normalized = args.toSortedMap()
-        return "$tool::" + normalizeText(gson.toJson(normalized))
+        return "$tool::" + gson.toJson(normalized)
     }
 
     /** 稳定短哈希（确定性，跨进程一致），用于生成 fx-ref 与文件名 */
