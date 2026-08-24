@@ -229,6 +229,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@android:color/white"
+            android:clipChildren="false"
             android:elevation="2dp"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -295,19 +296,51 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <!-- 语音输入按钮 -->
-            <ImageButton
-                android:id="@+id/btnVoiceInput"
+            <!-- 语音输入按钮容器（FrameLayout 承载波纹光环 + 按钮） -->
+            <FrameLayout
+                android:id="@+id/micButtonContainer"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/bg_icon_button"
-                android:clickable="true"
-                android:focusable="true"
-                android:padding="8dp"
-                android:scaleType="centerInside"
-                android:src="@drawable/ic_mic"
-                android:contentDescription="语音输入" />
+                android:layout_marginStart="4dp">
+
+                <!-- 第一层水波纹光环：录音时向外扩散+渐变淡出 -->
+                <View
+                    android:id="@+id/micHalo"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_mic_halo"
+                    android:visibility="gone" />
+
+                <!-- 第二层水波纹光环：与第一层错开时序，形成连续水波 -->
+                <View
+                    android:id="@+id/micHalo2"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_mic_halo"
+                    android:visibility="gone" />
+
+                <!-- 麦克风按钮（空闲态显示麦克风图标） -->
+                <ImageButton
+                    android:id="@+id/btnVoiceInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/bg_mic_idle"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:padding="8dp"
+                    android:scaleType="centerInside"
+                    android:src="@drawable/ic_mic"
+                    android:contentDescription="语音输入" />
+
+                <!-- 录音音波可视化：录音时替代麦克风图标显示音波波动 -->
+                <com.palmagent.app.floating.MicWaveformView
+                    android:id="@+id/micWaveform"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="8dp"
+                    android:visibility="gone"
+                    android:clickable="false" />
+            </FrameLayout>
 
             <!-- 发送按钮 -->
             <Button

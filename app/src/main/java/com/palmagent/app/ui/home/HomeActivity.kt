@@ -6,9 +6,6 @@ import android.content.pm.PackageManager
 import android.os.*
 import android.provider.Settings
 import android.util.Log
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
-import android.animation.ValueAnimator
 import android.view.View
 import android.widget.*
 import androidx.activity.ComponentActivity
@@ -38,6 +35,7 @@ import com.palmagent.app.service.DecisionDialogService.DialogResult
 import com.palmagent.app.service.VoiceInputManager
 import com.palmagent.app.service.VoiceConfig
 import com.palmagent.app.floating.FloatingProgressManager
+import com.palmagent.app.floating.MicPulseAnimator
 import com.palmagent.app.TaskOrchestrator
 import com.palmagent.app.ui.chat.ChatAdapter
 import com.palmagent.app.ui.chat.ChatMessage
@@ -68,6 +66,8 @@ class HomeActivity : ComponentActivity() {
     private lateinit var etInput: EditText
     private lateinit var btnSend: Button
     private lateinit var btnVoiceInput: ImageButton
+    /** 录音音波可视化 View（录音时显示音波替代静态麦克风图标） */
+    private var micWaveform: com.palmagent.app.floating.MicWaveformView? = null
     private lateinit var chatAdapter: ChatAdapter
     private var shouldAutoScroll = true
 
@@ -79,7 +79,8 @@ class HomeActivity : ComponentActivity() {
         VoiceInputManager(application, VoiceConfig.load(application))
     }
     private var voiceInputState = VoiceInputManager.RecordingState.IDLE
-    private var micAnimator: AnimatorSet? = null
+    /** 麦克风脉冲动画器（Issue #1：波纹扩散+呼吸+音量反馈） */
+    private var micPulseAnimator: MicPulseAnimator? = null
     /** 语音输入来源：true=悬浮窗麦克风触发（结果写悬浮窗输入框），false=主界面（结果写主界面输入框） */
     @Volatile
     private var voiceInputFromFloating = false
@@ -150,7 +151,11 @@ class HomeActivity : ComponentActivity() {
             }
         }
         override fun onVolumeChanged(volume: Float) {
-            // 可选：更新 UI 音量指示器
+            // Issue #1：音量驱动麦克风按钮缩放反馈 + 音波可视化高度
+            micPulseAnimator?.setVolume(volume)
+            micWaveform?.setVolume(volume)
+            // 同步到悬浮窗的音波可视化
+            FloatingProgressManager.setMicVolume(volume)
         }
     }
 
@@ -472,6 +477,11 @@ class HomeActivity : ComponentActivity() {
         etInput = findViewById(R.id.etInput)
         btnSend = findViewById(R.id.btnSend)
         btnVoiceInput = findViewById(R.id.btnVoiceInput)
+        // Issue #1：初始化水波纹动画器 + 音波可视化
+        val micHalo = findViewById<View>(R.id.micHalo)
+        val micHalo2 = findViewById<View>(R.id.micHalo2)
+        micWaveform = findViewById(R.id.micWaveform)
+        micPulseAnimator = MicPulseAnimator(btnVoiceInput, micHalo, micHalo2)
         btnVoiceInput.setOnClickListener {
             voiceInputFromFloating = false   // 主界面麦克风：结果写主界面输入框
             startVoiceInput()
@@ -705,50 +715,34 @@ class HomeActivity : ComponentActivity() {
     }
 
     /**
-     * 控制主界面麦克风按钮脉冲动画
-     * @param recording true=启动脉冲动画，false=停止
+     * 控制主界面麦克风按钮脉冲动画 + 音波可视化
+     * Issue #1：波纹扩散 + 呼吸缩放 + 音量反馈 + 音波替代静态图标
+     * @param recording true=启动动画，false=停止并复位
      */
     private fun startMicAnimation(recording: Boolean) {
         if (!::btnVoiceInput.isInitialized) return
         if (recording) {
-            if (micAnimator?.isRunning == true) return
-            micAnimator?.cancel()
-            // 激活态：切换为品牌渐变圆形背景 + 白色图标，视觉与发送按钮统一
+            // 激活态：切换为品牌渐变圆形背景
             btnVoiceInput.setBackgroundResource(R.drawable.bg_mic_active)
-            btnVoiceInput.setImageTintList(android.content.res.ColorStateList.valueOf(
-                android.graphics.Color.WHITE
-            ))
-            // 柔和呼吸：两轴同步 1f→1.12f + 透明度 0.9→1.0，避免生硬的大幅缩放
-            val animX = ObjectAnimator.ofFloat(btnVoiceInput, View.SCALE_X, 1f, 1.12f).apply {
-                duration = 700
-                repeatMode = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-            }
-            val animY = ObjectAnimator.ofFloat(btnVoiceInput, View.SCALE_Y, 1f, 1.12f).apply {
-                duration = 700
-                repeatMode = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-            }
-            val animAlpha = ObjectAnimator.ofFloat(btnVoiceInput, View.ALPHA, 0.9f, 1f).apply {
-                duration = 700
-                repeatMode = ValueAnimator.REVERSE
-                repeatCount = ValueAnimator.INFINITE
-            }
-            micAnimator = AnimatorSet().apply {
-                playTogether(animX, animY, animAlpha)
-                start()
-            }
+            // 隐藏静态麦克风图标（src 置空），让音波 View 显示
+            btnVoiceInput.setImageDrawable(null)
+            // 显示音波可视化 View，启动波动动画
+            micWaveform?.visibility = android.view.View.VISIBLE
+            micWaveform?.startWaveform()
+            // 启动波纹 + 呼吸动画（MicPulseAnimator 统一管理）
+            micPulseAnimator?.start()
         } else {
-            micAnimator?.cancel()
-            micAnimator = null
-            // 恢复空闲态：原背景 + 深色图标 + 复位缩放/透明度
-            btnVoiceInput.setBackgroundResource(R.drawable.bg_icon_button)
+            // 停止波纹 + 呼吸动画
+            micPulseAnimator?.stop()
+            // 停止音波可视化，隐藏音波 View
+            micWaveform?.stopWaveform()
+            micWaveform?.visibility = android.view.View.GONE
+            // 恢复空闲态：圆形白底 + 深色麦克风图标
+            btnVoiceInput.setBackgroundResource(R.drawable.bg_mic_idle)
+            btnVoiceInput.setImageResource(R.drawable.ic_mic)
             btnVoiceInput.setImageTintList(android.content.res.ColorStateList.valueOf(
                 android.graphics.Color.parseColor("#1A1A2E")
             ))
-            btnVoiceInput.scaleX = 1f
-            btnVoiceInput.scaleY = 1f
-            btnVoiceInput.alpha = 1f
         }
     }
 

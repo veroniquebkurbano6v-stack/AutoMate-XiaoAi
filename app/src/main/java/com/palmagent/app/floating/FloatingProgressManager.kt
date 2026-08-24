@@ -23,6 +23,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.CheckBox
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -121,28 +122,27 @@ object FloatingProgressManager {
     /** 悬浮窗麦克风按钮（录音动画用） */
     private var micBtn: ImageView? = null
 
-    /** 悬浮窗麦克风脉冲动画（AnimatorSet 统一管理 XY 轴，停止时可一并 cancel） */
-    private var micAnimator: AnimatorSet? = null
+    /** 波纹光环 View（录音时显示在按钮下层） */
+    private var micHaloView: View? = null
 
-    /** 启动麦克风录音脉冲动画 */
+    /** 录音音波可视化 View（录音时显示音波替代静态麦克风图标） */
+    private var micWaveformView: MicWaveformView? = null
+
+    /** 麦克风脉冲动画器（Issue #1：波纹扩散 + 呼吸 + 音量反馈，主界面与悬浮窗统一风格） */
+    private var micPulseAnimator: MicPulseAnimator? = null
+
+    /** 启动麦克风录音脉冲动画 + 音波可视化 */
     fun startMicAnimation() {
         val btn = micBtn ?: return
-        micAnimator?.cancel()
-        val animX = ObjectAnimator.ofFloat(btn, View.SCALE_X, 1f, 1.25f).apply {
-            duration = 600
-            repeatMode = ValueAnimator.REVERSE
-            repeatCount = ValueAnimator.INFINITE
-        }
-        val animY = ObjectAnimator.ofFloat(btn, View.SCALE_Y, 1f, 1.25f).apply {
-            duration = 600
-            repeatMode = ValueAnimator.REVERSE
-            repeatCount = ValueAnimator.INFINITE
-        }
-        // 两轴统一放入 AnimatorSet：停止时一并 cancel，避免 SCALE_Y 动画泄漏导致动画停不掉
-        micAnimator = AnimatorSet().apply {
-            playTogether(animX, animY)
-            start()
-        }
+        // 激活态：切换为品牌渐变圆形背景
+        btn.setBackgroundResource(R.drawable.bg_mic_active)
+        // 隐藏静态麦克风图标，让音波 View 显示
+        btn.setImageDrawable(null)
+        // 显示音波可视化，启动波动动画
+        micWaveformView?.visibility = View.VISIBLE
+        micWaveformView?.startWaveform()
+        // 启动波纹 + 呼吸动画（MicPulseAnimator 统一管理）
+        micPulseAnimator?.start()
     }
 
     /**
@@ -163,14 +163,28 @@ object FloatingProgressManager {
         return true
     }
 
-    /** 停止麦克风录音脉冲动画 */
+    /** 停止麦克风录音脉冲动画 + 音波可视化并复位 */
     fun stopMicAnimation() {
-        micAnimator?.cancel()
-        micAnimator = null
+        micPulseAnimator?.stop()
+        // 停止音波可视化并隐藏
+        micWaveformView?.stopWaveform()
+        micWaveformView?.visibility = View.GONE
         micBtn?.apply {
-            scaleX = 1f
-            scaleY = 1f
+            // 恢复空闲态：圆形白底 + 原色麦克风图标
+            setBackgroundResource(R.drawable.bg_mic_idle)
+            setImageDrawable(ContextCompat.getDrawable(context, R.drawable.ic_mic))
+            val micColor = if (com.palmagent.app.utils.KVUtils.isVoiceInputEnabled())
+                "#22D3EE".toColorInt() else "#CCCCCC".toColorInt()
+            setColorFilter(micColor, android.graphics.PorterDuff.Mode.SRC_ATOP)
         }
+    }
+
+    /**
+     * 同步音量到悬浮窗音波可视化（由 HomeActivity.onVolumeChanged 调用）
+     * @param volume 归一化音量 [0, 1]
+     */
+    fun setMicVolume(volume: Float) {
+        micWaveformView?.setVolume(volume)
     }
 
     fun show(application: Application) {
@@ -687,18 +701,8 @@ object FloatingProgressManager {
         }
         inputRow.addView(sendBtn)
 
-        // 语音输入按钮（麦克风图标）
-        val micBtn = ImageView(appRef!!).apply {
-            // 使用自定义麦克风图标
-            setImageDrawable(ContextCompat.getDrawable(appRef!!, R.drawable.ic_mic))
-            scaleType = ImageView.ScaleType.CENTER
-            val micColor = if (com.palmagent.app.utils.KVUtils.isVoiceInputEnabled())
-                "#22D3EE".toColorInt() else "#CCCCCC".toColorInt()
-            setColorFilter(micColor, PorterDuff.Mode.SRC_ATOP)
-            setOnClickListener {
-                // 触发语音输入（由外部注册的 onVoiceInputClick 回调处理）
-                onVoiceInputClick?.invoke()
-            }
+        // 语音输入按钮容器（FrameLayout 承载波纹光环 + 按钮，Issue #1）
+        val micContainer = FrameLayout(appRef!!).apply {
             layoutParams = LinearLayout.LayoutParams(
                 (30 * density).toInt(),
                 (30 * density).toInt()
@@ -706,9 +710,74 @@ object FloatingProgressManager {
                 marginStart = (4 * density).toInt()
             }
         }
+
+        // 第一层水波纹光环 View（录音时向外扩散+渐变淡出）
+        val micHalo = View(appRef!!).apply {
+            background = ContextCompat.getDrawable(appRef!!, R.drawable.bg_mic_halo)
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        micContainer.addView(micHalo)
+
+        // 第二层水波纹光环（与第一层错开时序，形成连续水波）
+        val micHalo2 = View(appRef!!).apply {
+            background = ContextCompat.getDrawable(appRef!!, R.drawable.bg_mic_halo)
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        micContainer.addView(micHalo2)
+
+        // 麦克风按钮（圆形背景，空闲/录音态形状一致）
+        val micBtn = ImageView(appRef!!).apply {
+            // 使用自定义麦克风图标
+            setImageDrawable(ContextCompat.getDrawable(appRef!!, R.drawable.ic_mic))
+            scaleType = ImageView.ScaleType.CENTER
+            // 空闲态：圆形白底 + 浅灰描边（与主界面 bg_mic_idle 统一）
+            setBackgroundResource(R.drawable.bg_mic_idle)
+            val micColor = if (com.palmagent.app.utils.KVUtils.isVoiceInputEnabled())
+                "#22D3EE".toColorInt() else "#CCCCCC".toColorInt()
+            setColorFilter(micColor, PorterDuff.Mode.SRC_ATOP)
+            setOnClickListener {
+                // 触发语音输入（由外部注册的 onVoiceInputClick 回调处理）
+                onVoiceInputClick?.invoke()
+            }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        micContainer.addView(micBtn)
+
+        // 录音音波可视化 View（录音时替代麦克风图标显示）
+        val micWaveform = MicWaveformView(appRef!!).apply {
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                setMargins(4 * density.toInt(), 4 * density.toInt(), 4 * density.toInt(), 4 * density.toInt())
+            }
+        }
+        micContainer.addView(micWaveform)
+
+        // 允许波纹渲染到容器外（不被裁剪）
+        micContainer.clipChildren = false
+        micContainer.setClipChildren(false)
+        inputRow.clipChildren = false
+        inputRow.addView(micContainer)
+
         // 保存引用以便动画控制
         this@FloatingProgressManager.micBtn = micBtn
-        inputRow.addView(micBtn)
+        this@FloatingProgressManager.micHaloView = micHalo
+        this@FloatingProgressManager.micWaveformView = micWaveform
+        // Issue #1：初始化水波纹动画器（双层波纹 + 与主界面统一风格）
+        this@FloatingProgressManager.micPulseAnimator = MicPulseAnimator(micBtn, micHalo, micHalo2)
 
         root.addView(inputRow)
 

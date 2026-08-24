@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 麦克风水波纹光环：半透明青色渐变描边圆环，模拟水波扩散效果 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <!-- 中心透明，仅描边模拟水波纹 -->
+    <solid android:color="@android:color/transparent" />
+    <!-- 青色描边：较细 + 半透明，柔和如水波 -->
+    <stroke
+        android:width="1.5dp"
+        android:color="#5522D3EE" />
+</shape>
