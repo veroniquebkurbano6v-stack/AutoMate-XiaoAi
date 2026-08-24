@@ -154,7 +154,7 @@ class ToolDecisionEngine(
                         }
                         if (searchResult.success) {
                             appendLine(searchResult.summaryText)
-                            appendLine("请判断哪些搜索结果与任务相关：需要查看某条完整内容时输出 WEB_SEARCH_FETCH(ref)；无关信息不必保留。")
+                            appendLine("请判断哪些搜索结果与任务相关：需要查看某条完整内容时输出 fetch_result(ref)；无关信息不必保留。")
                         } else {
                             appendLine("【联网搜索】搜索失败：${searchResult.error}")
                             appendLine("请根据当前屏幕信息自行判断下一步操作。")
@@ -170,10 +170,10 @@ class ToolDecisionEngine(
                     )
                 }
 
-                ActionType.WEB_SEARCH_FETCH -> {
+                ActionType.FETCH_RESULT, ActionType.WEB_SEARCH_FETCH -> {
                     val ref = action.text?.takeIf { it.isNotBlank() } ?: action.description
                     if (ref.isBlank()) {
-                        log("fetch_result 缺少 ref 参数，跳过")
+                        log("FETCH_RESULT 缺少 ref 参数，跳过")
                         toolResults.add(ToolCallResult(
                             toolName = "fetch_result",
                             success = false,

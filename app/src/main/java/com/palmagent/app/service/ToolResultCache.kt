@@ -65,17 +65,6 @@ object ToolResultCache {
         index.clear()
     }
 
-    /**
-     * 新决策会话开始调用：仅清空通用 fx_ 工具结果，保留 web_search 的 search_ 轮次缓存与去重索引。
-     * 决策侧内存台账按 sessionId 隔离，但磁盘缓存是共享的；若不清空，新会话会误复用上一会话
-     * （查询/取消重启均不触发任务级 clearAll）写下的 amap/kb_read/list_apps 等通用结果。
-     */
-    fun clearGenerics() {
-        val dir = cacheDir ?: return
-        dir.listFiles { f -> f.name.matches(Regex("fx_.*\\.json")) }?.forEach { it.delete() }
-        Log.d(TAG, "新决策会话：清空通用工具结果缓存(fx_)")
-    }
-
     // ==================== 通用条目（任意工具） ====================
 
     /**
@@ -113,9 +102,10 @@ object ToolResultCache {
 
     /**
      * 写入任意工具结果：烧录 preview（head+tail）、全文落盘，返回条目。
-     * 同 key 覆盖旧条目。preview 一旦生成即固化，后续读取绝不再重算。
+     * 同 key 覆盖旧条目。session 非空时按会话命名空间隔离——新会话内存台账为空、磁盘目录独立，
+     * 天然不复用旧会话结果，也互不影响活跃会话（取代全局 clearGenerics）。
      */
-    fun put(tool: String, args: Map<String, Any>, content: String): CachedEntry {
+    fun put(tool: String, args: Map<String, Any>, content: String, session: String = ""): CachedEntry {
         val key = buildKey(tool, args)
         val hash = shortHash(key)
         val entry = CachedEntry(
@@ -126,14 +116,14 @@ object ToolResultCache {
             content = content,
             createdAt = System.currentTimeMillis()
         )
-        writeGenericFile(hash, entry)
+        writeGenericFile(hash, entry, session)
         return entry
     }
 
-    /** 按 key 读取通用条目（决策台账/去重用） */
-    fun getByKey(key: String): CachedEntry? {
+    /** 按 key 读取通用条目（决策台账/去重用；session 用于定位会话命名空间） */
+    fun getByKey(key: String, session: String = ""): CachedEntry? {
         val dir = cacheDir ?: return null
-        val f = File(dir, "fx_${shortHash(key)}.json")
+        val f = File(genericBase(dir, session), "fx_${shortHash(key)}.json")
         if (!f.exists()) return null
         return try {
             gson.fromJson(f.readText(), CachedEntry::class.java)
@@ -143,11 +133,11 @@ object ToolResultCache {
         }
     }
 
-    /** 按 ref 取回完整条目（支持 fx-<hash> 与 ws-<round>-<n> 两种 ref） */
-    fun get(ref: String): CachedEntry? {
+    /** 按 ref 取回完整条目（支持 fx-<hash> 与 ws-<round>-<n>；fx- 按 session 命名空间定位） */
+    fun get(ref: String, session: String = ""): CachedEntry? {
         if (ref.startsWith("fx-")) {
             val dir = cacheDir ?: return null
-            val f = File(dir, "fx_${ref.substring(3)}.json")
+            val f = File(genericBase(dir, session), "fx_${ref.substring(3)}.json")
             if (!f.exists()) return null
             return try {
                 gson.fromJson(f.readText(), CachedEntry::class.java)
@@ -159,6 +149,10 @@ object ToolResultCache {
         // web_search：ws-<round>-<n>
         return getSearchEntry(ref)
     }
+
+    /** 通用条目的会话命名空间基目录（session 空=根目录；用短哈希命名目录，避免非法字符/过长） */
+    private fun genericBase(dir: File, session: String): File =
+        if (session.isBlank()) dir else File(dir, shortHash(session))
 
     /** 生成预览：head 70% + tail 30%，中间占位；短内容（≤头尾合计）原样返回 */
     fun buildPreview(content: String): String {
@@ -175,20 +169,20 @@ object ToolResultCache {
 
     // ==================== web_search 特殊条目（沿用原 round/ref/结构化） ====================
 
-    private fun writeGenericFile(hash: String, entry: CachedEntry) {
+    private fun writeGenericFile(hash: String, entry: CachedEntry, session: String) {
         val dir = cacheDir ?: return
-        val file = File(dir, "fx_$hash.json")
+        val base = genericBase(dir, session).apply { mkdirs() }
+        val file = File(base, "fx_$hash.json")
         try {
             file.writeText(gson.toJson(entry))
-            // 通用条目保留窗口：超出 MAX_GENERIC_FILES 时删除最旧 fx 文件
-            cleanupGeneric()
+            // 通用条目保留窗口：超出 MAX_GENERIC_FILES 时删除本命名空间最旧 fx 文件
+            cleanupGeneric(base)
         } catch (e: Exception) {
             Log.w(TAG, "写通用缓存失败: ${e.message}")
         }
     }
 
-    private fun cleanupGeneric() {
-        val dir = cacheDir ?: return
+    private fun cleanupGeneric(dir: File) {
         val files = dir.listFiles { f -> f.name.matches(Regex("fx_.*\\.json")) }
             ?.sortedByDescending { it.lastModified() }
             ?: return
@@ -295,11 +289,16 @@ object ToolResultCache {
         index.entries.removeAll { (_, round) -> kept.none { it == "search_$round.json" } }
     }
 
-    /** 任务结束清理：清空文件与索引 */
+    /** 任务结束清理：递归清空所有文件与会话命名空间子目录 */
     fun clearAll() {
         val dir = cacheDir ?: return
-        dir.listFiles()?.forEach { it.delete() }
+        deleteRecursively(dir)
         index.clear()
         Log.d(TAG, "任务结束，清空工具结果缓存")
+    }
+
+    private fun deleteRecursively(f: File) {
+        if (f.isDirectory) f.listFiles()?.forEach { deleteRecursively(it) }
+        f.delete()
     }
 }

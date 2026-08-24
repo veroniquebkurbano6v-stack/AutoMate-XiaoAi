@@ -336,8 +336,9 @@ class DefaultAgentService @Inject constructor(
                         continue  // 跳过本轮执行，进入下一轮
                     }
 
-                    // VL 模式：WEB_SEARCH_FETCH 处理（按 ref 取回缓存原文，仅本轮临时注入）
-                    if (finalAction.type == ActionType.WEB_SEARCH_FETCH) {
+                    // VL 模式：WEB_SEARCH_FETCH / FETCH_RESULT 处理（按 ref 取回缓存原文，仅本轮临时注入）
+                    if (finalAction.type == ActionType.WEB_SEARCH_FETCH ||
+                        finalAction.type == ActionType.FETCH_RESULT) {
                         val ref = finalAction.text?.trim().orEmpty()
                         Log.d(TAG, "VL请求取回搜索结果: $ref")
                         LiveLogBuffer.append("📄 VL取回搜索结果: ${ref.take(40)}")
@@ -373,7 +374,7 @@ class DefaultAgentService @Inject constructor(
 
                         actionHistory.add(ActionRecord(
                             round = round,
-                            actionType = "WEB_SEARCH_FETCH",
+                            actionType = "FETCH_RESULT",
                             params = mapOf("ref" to ref),
                             description = "取回搜索结果: $ref",
                             screenPackage = screenInfo?.currentPackage,
@@ -495,7 +496,9 @@ class DefaultAgentService @Inject constructor(
 
                 // 摘要/取回原文"即看即弃"：模型本轮看到临时搜索结果并输出非搜索动作
                 // （说明已判断完毕），下一轮不再注入；WEB_SEARCH/FETCH 分支已 continue 自行更新
-                if (finalAction!!.type != ActionType.WEB_SEARCH && finalAction.type != ActionType.WEB_SEARCH_FETCH) {
+                if (finalAction!!.type != ActionType.WEB_SEARCH &&
+                    finalAction.type != ActionType.WEB_SEARCH_FETCH &&
+                    finalAction.type != ActionType.FETCH_RESULT) {
                     transientSearchSection = null
                 }
 

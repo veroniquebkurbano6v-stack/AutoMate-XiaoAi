@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -67,27 +68,24 @@ class ToolResultCacheTest {
     }
 
     @Test
-    fun clearGenerics_只清通用fx_保留webSearch轮次_跨会话隔离() {
-        // P2 #1 回归：新决策会话通过 clearGenerics 清空共享磁盘上的通用工具结果，
-        // 避免跨会话复用上一对话的 amap/kb_read/list_apps 等结果，同时保留 web_search 轮次去重。
+    fun 会话命名空间隔离_同key不同会话不碰撞() {
+        // P2 #2 回归：决策侧工具结果按会话命名空间隔离（取代全局 clearGenerics）——
+        // 会话 A 写下的 fx_ 不会被会话 B 命中复用，也不影响其他活跃会话。
         val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
         try {
             ToolResultCache.initForTest(dir)
             try {
-                ToolResultCache.put("amap_weather", emptyMap(), "晴天 25°C")
-                assertTrue("应生成 fx_ 通用条目", dir.listFiles { it.name.startsWith("fx_") }?.isNotEmpty() ?: false)
-                ToolResultCache.putSearch(
-                    1, "北京天气",
-                    listOf(WebSearchService.SearchItem(title = "北京天气", url = "u", snippet = "晴"))
-                )
-                assertTrue("应生成 search_ 轮次文件", File(dir, "search_1.json").exists())
+                val args = mapOf("query" to "医院")
+                val key = ToolResultCache.buildKey("amap_search", args)
+                val ea = ToolResultCache.put("amap_search", args, "会话A结果", "session-a")
 
-                ToolResultCache.clearGenerics()
-
-                assertFalse("fx_ 通用条目应被清空", dir.listFiles { it.name.startsWith("fx_") }?.isNotEmpty() ?: false)
-                assertTrue("web_search search_ 应保留", File(dir, "search_1.json").exists())
-                // 通用条目已无法取回，跨会话隔离生效
-                assertNull(ToolResultCache.getByKey(ToolResultCache.buildKey("amap_weather", emptyMap())))
+                // 会话 A 同 key 命中
+                assertNotNull(ToolResultCache.getByKey(key, "session-a"))
+                // 会话 B 同 key 独立空间 → miss（不复用旧会话结果）
+                assertNull(ToolResultCache.getByKey(key, "session-b"))
+                // fetch 按会话定位：A 会话取回 A 的全文，B 会话取不到
+                assertNotNull(ToolResultCache.get(ea.ref, "session-a"))
+                assertNull(ToolResultCache.get(ea.ref, "session-b"))
             } finally {
                 ToolResultCache.resetForTest()
             }
@@ -97,17 +95,34 @@ class ToolResultCacheTest {
     }
 
     @Test
-    fun put_preview固化_同参数两次一致() {
-        val args = mapOf("query" to "测试")
-        val content = "结果".repeat(1500)
-        val e1 = ToolResultCache.put("web_search", args, content)
-        val e2 = ToolResultCache.put("web_search", args, content)
-        assertEquals(ToolResultCache.buildKey("web_search", args), e1.key)
-        assertEquals("fx-", e1.ref.take(3))
-        assertEquals(ToolResultCache.buildPreview(content), e1.preview)
-        // 同参数二次 put → key / preview 逐字节一致（轮间 prompt cache 稳定）
-        assertEquals(e1.key, e2.key)
-        assertEquals(e1.preview, e2.preview)
-        assertFalse(e1.preview.contains(content)) // 长内容已截断，未整段保留到预览
+    fun put_preview固化_同参数两次一致_and磁盘可读回() {
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            try {
+                val args = mapOf("query" to "测试")
+                val content = "结果".repeat(1500)
+                val e1 = ToolResultCache.put("web_search", args, content)
+                val e2 = ToolResultCache.put("web_search", args, content)
+                assertEquals(ToolResultCache.buildKey("web_search", args), e1.key)
+                assertEquals("fx-", e1.ref.take(3))
+                assertEquals(ToolResultCache.buildPreview(content), e1.preview)
+                // 同参数二次 put → key / preview 逐字节一致（轮间 prompt cache 稳定）
+                assertEquals(e1.key, e2.key)
+                assertEquals(e1.preview, e2.preview)
+                assertFalse(e1.preview.contains(content)) // 长内容已截断，未整段保留到预览
+
+                // 关键：磁盘回读路径必须真实工作（put 落盘、getByKey 读回一致）
+                val back = ToolResultCache.getByKey(e1.key)
+                assertNotNull("put 后应能按 key 从磁盘读回", back)
+                assertEquals(e1.ref, back!!.ref)
+                assertEquals(e1.preview, back.preview)
+                assertEquals(content, back.content)
+            } finally {
+                ToolResultCache.resetForTest()
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 }
