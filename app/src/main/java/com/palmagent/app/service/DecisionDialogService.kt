@@ -68,8 +68,14 @@ class DecisionDialogService {
         // 工具真实结果由「事实台账」承载（同参数去重、跨请求持久化），不随轮次线性堆积，
         // 从源头控制决策上下文膨胀。
         private const val MASK_KEEP_ROUNDS = 1
-        // 事实台账单条结果截断上限（字符）：防止台账自身膨胀
-        private const val LEDGER_ENTRY_MAX_CHARS = 400
+        // 台账聚合注入预算（字符/轮）：防"单条不超但并发多条"撑爆上下文，超预算最旧条目直接淘汰
+        private const val MAX_LEDGER_BLOCK_CHARS = 3000
+        // 台账历史 token 预算：台账注入系统提示词，取上下文窗口 ~10-20%（保守）
+        private const val LEDGER_MAX_BUDGET_TOKENS = 8000
+        // 保护最近 N 条：即使超预算也不淘汰（参考 Claude Code MicroCompact keep_recent）
+        private const val LEDGER_PROTECTED_RECENT = 5
+        // fetch_result 单次取回显示上限（字符）：防止撑爆本轮上下文，需要更多可多次调用
+        private const val FETCH_OUTPUT_MAX_CHARS = 4000
         // 被观察掩码替换的占位文本
         private const val OBSERVATION_MASK_PLACEHOLDER = "[工具结果已掩码，见下方『事实台账』]"
         // 工作区最大字符数（约 800 token 上限的兜底）：防止模型超长写入导致工作区自身膨胀
@@ -105,7 +111,7 @@ class DecisionDialogService {
 ### 任务工作区与事实台账
 两个跨请求记忆块：system 的「任务工作区」「事实台账」。
 1. 每轮工具调用后调 workspace_update，把关键结论精简写入工作区（覆盖式）：已确认 App+包名、kb_read 的 SOP 要点（UI 变体/异常处理）、list_apps/amap 中要记住的目标实体、待办。
-2. 工具结果自动写入「事实台账」（同参数去重、只执行一次）；更早轮次结果被框架掩码。生成 Plan 优先读工作区与台账，勿重调同参数工具、勿依赖已掩码的历史结果。
+2. 工具结果自动写入「事实台账」（同参数去重、只执行一次，只展示预览）；更早轮次结果被框架掩码。生成 Plan 优先读工作区与台账，勿重调同参数工具、勿依赖已掩码的历史结果。台账预览不足以决策时，可用 fetch_result 按 ref（见台账每行 [ref] 前缀）取回完整结果。
 3. 工作区精简（≤800 token）：只写结论，不复制工具原始输出。
 
 ### 工具调用与决策工作流（信息收集管道）
@@ -156,13 +162,21 @@ Plan 示例（预约挂号）：
 """
     }
 
+    /** 台账单行：key（去重）+ ref（取回用）+ 固化预览（唯一预览来源，全文落盘） */
+    internal data class LedgerRow(
+        val key: String,
+        val ref: String,
+        val preview: String
+    )
+
     /**
-     * 会话级决策状态：工作记忆（workspace）+ 事实台账（ledger），随 sessionId 跨 chat 请求持久化。
-     * 解决"同一任务多轮请求重复调用同一工具 / 工作区归零 / 上下文线性膨胀"的根因。
+     * 会话级决策状态：工作记忆（workspace）+ 事实台账（ledger）+ 台账 token 预算。
+     * ledger 统一只存预览（key → LedgerRow），全文在 ToolResultCache 磁盘缓存。
      */
-    private data class SessionDecisionState(
+    internal data class SessionDecisionState(
         var workspace: String = "",
-        val ledger: LinkedHashMap<String, String> = LinkedHashMap()
+        val ledger: LinkedHashMap<String, LedgerRow> = LinkedHashMap(),
+        var ledgerTokens: Int = 0
     )
 
     // 按 sessionId 隔离的会话级决策状态。DecisionDialogService 是长生命周期实例（HomeActivity 字段），
@@ -275,7 +289,7 @@ Plan 示例（预约挂号）：
             )
 
             // 注入事实台账（去重后的工具结果）到消息流末尾，供模型读取而非重复调用
-            injectLedger(messages, state.ledger)
+            injectLedger(messages, state)
 
             Log.d(TAG, "上下文视图: workspace=${state.workspace.length}字符, 台账=${state.ledger.size}条, 掩码保留最近${MASK_KEEP_ROUNDS}轮, messages=${messages.size}条")
 
@@ -465,24 +479,29 @@ Plan 示例（预约挂号）：
                     continue
                 }
 
-                // 事实台账去重：相同参数的同一工具调用只执行一次，命中直接复用缓存结果，
-                // 避免"同一轮工具结果返回两遍 / 跨请求重复调用"导致上下文膨胀。
-                val ledgerKey = buildLedgerKey(name, args)
-                val cached = state.ledger[ledgerKey]
-                val result = if (cached != null) {
-                    LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
+                // 统一缓存 + 台账预览：相同 (tool,args) 命中磁盘缓存则跳过执行；预览由缓存烧录值提供，
+                // 全文落盘可 fetch_result 取回。state.ledger 统一只存预览，token 预算统计与淘汰见下。
+                val key = ToolResultCache.buildKey(name, args)
+                val cached = ToolResultCache.getByKey(key)
+                val entry = if (cached != null) {
+                    LiveLogBuffer.append("🔁 [磁盘缓存命中] $name 已存在结果，跳过执行")
                     cached
                 } else {
-                    val executed = executeAnyTool(name, args)
-                    state.ledger[ledgerKey] = executed
-                    executed
+                    ToolResultCache.put(name, args, executeAnyTool(name, args))
                 }
-                LiveLogBuffer.append("📦 [决策] 工具结果: $name → ${result.take(80)}")
+                val row = LedgerRow(key = entry.key, ref = entry.ref, preview = entry.preview)
+                // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算
+                val old = state.ledger.put(key, row)
+                state.ledgerTokens += estimateTokens(row.preview) - (old?.let { estimateTokens(it.preview) } ?: 0)
+                evictLedgerIfNeeded(state)
+                LiveLogBuffer.append("📦 [决策] 工具结果: $name → ${row.preview.take(80)}")
+                // fetch_result 返回的是"取回全文"，必须整段展示给模型，不能再用预览截断
+                val toolMsgContent = if (name == "fetch_result") entry.content else row.preview
                 messages.add(
                     mapOf(
                         "role" to "tool",
                         "tool_call_id" to id,
-                        "content" to result
+                        "content" to toolMsgContent
                     )
                 )
             }
@@ -532,29 +551,50 @@ Plan 示例（预约挂号）：
         }
     }
 
-    /** 事实台账键：工具名 + 参数稳定序列化（key 排序），相同调用产出相同键 */
-    private fun buildLedgerKey(name: String, args: Map<String, Any>): String {
-        val normalized = args.toSortedMap()
-        return "$name::" + gson.toJson(normalized)
-    }
-
     /** 把事实台账注入消息流末尾（每轮刷新，保持末尾只有一份台账） */
-    private fun injectLedger(messages: MutableList<Map<String, Any>>, ledger: Map<String, String>) {
+    private fun injectLedger(messages: MutableList<Map<String, Any>>, state: SessionDecisionState) {
         val ledgerIndex = messages.indexOfLast {
             it["role"] == "system" && (it["content"] as? String)?.startsWith("【事实台账】") == true
         }
         if (ledgerIndex >= 0) messages.removeAt(ledgerIndex)
-        messages.add(mapOf("role" to "system", "content" to buildLedgerContent(ledger)))
+        messages.add(mapOf("role" to "system", "content" to buildLedgerContent(state)))
     }
 
-    /** 事实台账内容：去重后的工具结果，供模型读取而非重复调用 */
-    private fun buildLedgerContent(ledger: Map<String, String>): String {
-        if (ledger.isEmpty()) return "【事实台账】\n（暂无）"
-        val sb = StringBuilder("【事实台账】（已去重的工具结果，重复调用请直接读取此处，勿重调）\n")
-        ledger.forEach { (key, value) ->
-            sb.append("- ").append(key).append(" = ").append(value.take(LEDGER_ENTRY_MAX_CHARS)).append("\n")
+    /** 事实台账内容：去重后的工具结果预览；总预览字符超聚合预算时从最旧条目开始淘汰（保护最近条目） */
+    internal fun buildLedgerContent(state: SessionDecisionState): String {
+        if (state.ledger.isEmpty()) return "【事实台账】\n（暂无）"
+        // 聚合预算：单轮注入的预览字符总上限，超预算从最旧开始淘汰，保证被淘汰条目不再出现
+        val keys = state.ledger.keys.toList()
+        var total = keys.sumOf { state.ledger.getValue(it).preview.length }
+        val toDrop = mutableListOf<String>()
+        for (key in keys) {
+            if (total <= MAX_LEDGER_BLOCK_CHARS) break
+            total -= state.ledger.getValue(key).preview.length
+            toDrop.add(key)
+        }
+        toDrop.forEach { key ->
+            state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
+        }
+        val sb = StringBuilder("【事实台账】（已去重的工具结果预览，全文可用 fetch_result 取回，勿重调）\n")
+        state.ledger.forEach { (key, row) ->
+            sb.append("- [").append(row.ref).append("] ").append(row.key).append(" = ").append(row.preview).append("\n")
         }
         return sb.toString()
+    }
+
+    /** 字符 → token 估算（中文 ~1.5 字/token），供台账预算统计 */
+    internal fun estimateTokens(s: String): Int = (s.length * 2 + 1) / 3
+
+    /** MicroCompact 淘汰：FIFO + 保护最近 N 条 + token 预算，只作用于 per-session 台账 */
+    internal fun evictLedgerIfNeeded(state: SessionDecisionState) {
+        if (state.ledgerTokens <= LEDGER_MAX_BUDGET_TOKENS) return
+        // 最旧在前，保护最近 N 条（按插入顺序 keys 的 List 快照），
+        // 逐个淘汰直到回到预算内
+        val evictable = state.ledger.keys.toList().dropLast(LEDGER_PROTECTED_RECENT)
+        for (key in evictable) {
+            if (state.ledgerTokens <= LEDGER_MAX_BUDGET_TOKENS) break
+            state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
+        }
     }
 
     /** 决策模型回复摘要（供日志界面展示） */
@@ -567,7 +607,7 @@ Plan 示例（预约挂号）：
     }
 
     /**
-     * 按工具名分派到具体执行器（list_apps / kb_read / amap_* / web_search）
+     * 按工具名分派到具体执行器（list_apps / kb_read / amap_* / web_search / fetch_result）
      */
     private suspend fun executeAnyTool(name: String, args: Map<String, Any>): String {
         return when {
@@ -575,7 +615,40 @@ Plan 示例（预约挂号）：
             name == "kb_read" -> executeKbTool(name, args)
             name.startsWith("amap_") -> executeAmapTool(name, args)
             name == "web_search" -> executeWebSearchTool(args)
-            else -> "未知工具：$name（仅支持 list_apps / kb_read / amap_* / web_search）"
+            name == "fetch_result" -> executeFetchResultTool(args)
+            else -> "未知工具：$name（仅支持 list_apps / kb_read / amap_* / web_search / fetch_result）"
+        }
+    }
+
+    /**
+     * 执行 fetch_result 工具调用：按 ref 取回磁盘缓存的完整结果。
+     * web_search 条目结构化格式化；其余工具返回全文（裁剪到 FETCH_OUTPUT_MAX_CHARS）。
+     */
+    private suspend fun executeFetchResultTool(args: Map<String, Any>): String {
+        val ref = args["ref"]?.toString()?.trim() ?: ""
+        if (ref.isEmpty()) return "错误：ref 参数不能为空"
+        val cached = ToolResultCache.get(ref)
+        if (cached == null) {
+            return "取回失败：ref=$ref 不存在或已清理，请重新调用原工具"
+        }
+        return if (cached.ref.startsWith("ws-")) {
+            // 结构化 web_search 条目（putSearch 写入的 ws-<round>-<n>）
+            buildString {
+                appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
+                if (cached.url.isNotBlank()) appendLine("URL: ${cached.url}")
+                if (cached.snippet.isNotBlank()) appendLine("片段: ${cached.snippet}")
+                if (!cached.summary.isNullOrBlank()) {
+                    val cut = if (cached.summary.length > 800) "${cached.summary.take(800)}…" else cached.summary
+                    appendLine("原文摘要: $cut")
+                }
+                appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
+            }
+        } else {
+            buildString {
+                appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）")
+                append(cached.content.take(FETCH_OUTPUT_MAX_CHARS))
+                if (cached.content.length > FETCH_OUTPUT_MAX_CHARS) appendLine("\n…（内容过长，已截取）")
+            }
         }
     }
 
@@ -931,6 +1004,9 @@ Plan 示例（预约挂号）：
             // workspace_update 工具（始终注入）：模型把关键信息写入任务工作区（会话级持久化）
             append(",")
             append(buildWorkspaceToolJson())
+            // fetch_result 工具（始终注入）：按 ref 取回磁盘缓存的完整工具结果（台账只展示预览）
+            append(",")
+            append(buildFetchResultToolJson())
             if (KVUtils.isLocalKbEnabled()) {
                 append(",")
                 append(buildKbToolsJson())
@@ -961,6 +1037,29 @@ Plan 示例（预约挂号）：
                         )
                     ),
                     "required" to listOf("content")
+                )
+            )
+        )
+        return gson.toJson(tool)
+    }
+
+    /** 构建 fetch_result 工具的 OpenAI function calling schema（按 ref 取回磁盘缓存的完整工具结果） */
+    private fun buildFetchResultToolJson(): String {
+        val tool = mapOf(
+            "type" to "function",
+            "function" to mapOf(
+                "name" to "fetch_result",
+                "description" to "按 ref 取回已缓存工具结果的完整内容（list_apps/kb_read/amap_*/web_search 等）。" +
+                    "事实台账只展示预览，需要完整结果时用本工具取回。单次取回有上限（约4000字符），需要更多可多次调用。",
+                "parameters" to mapOf(
+                    "type" to "object",
+                    "properties" to mapOf(
+                        "ref" to mapOf(
+                            "type" to "string",
+                            "description" to "缓存条目 ref（如 ws-3-2 / fx-12345678），见台账中每行 [ref] 前缀"
+                        )
+                    ),
+                    "required" to listOf("ref")
                 )
             )
         )

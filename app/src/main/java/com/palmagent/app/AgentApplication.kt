@@ -68,7 +68,7 @@ class AgentApplication : Application() {
             })
         }
         KVUtils.init(this)
-        com.palmagent.app.service.SearchResultCache.init(this)
+        com.palmagent.app.service.ToolResultCache.init(this)
 
         // 注册 Activity 生命周期回调，追踪前台 Activity 供键盘检测使用
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {

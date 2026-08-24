@@ -62,7 +62,7 @@ object WebSearchService {
     /**
      * 带缓存的搜索结果（主链路使用）：
      * 1. 去重检查：同 query（规范化）在最近 KEEP_ROUNDS 内已搜过 → 命中缓存，不重复调博查
-     * 2. 未命中 → 正常搜索 → 完整结果写 SearchResultCache → 生成摘要视图
+     * 2. 未命中 → 正常搜索 → 完整结果写 ToolResultCache → 生成摘要视图
      *
      * @param round 当前轮次（用于 ref 命名 ws-<round>-<n>）
      */
@@ -116,8 +116,8 @@ object WebSearchService {
     /**
      * 主链路搜索入口：去重 → 搜索 → 完整缓存 → 摘要视图。
      * 1. 同 query（规范化）在最近 KEEP_ROUNDS 内已缓存 → 直接复用缓存摘要，不重复调博查
-     * 2. 未命中 → 调搜索引擎 → 完整结果写 SearchResultCache（全字段不截断）
-     * 3. 返回摘要视图（仅本轮注入，不入工作区），模型可按 ref 调 WEB_SEARCH_FETCH 取回原文
+     * 2. 未命中 → 调搜索引擎 → 完整结果写 ToolResultCache（全字段不截断）
+     * 3. 返回摘要视图（仅本轮注入，不入工作区），模型可按 ref 调 fetch_result 取回原文
      *
      * @param round 当前轮次（ref 命名 ws-<round>-<n>）
      */
@@ -131,7 +131,7 @@ object WebSearchService {
             }
 
             // 1. 去重检查：规范化 query 命中缓存则直接复用
-            val hit = SearchResultCache.hitRound(query)
+            val hit = ToolResultCache.hitRound(query)
             if (hit != null) {
                 Log.d(TAG, "搜索缓存命中 round=$hit: query=${query.take(60)}")
                 val entries = readEntries(hit)
@@ -139,7 +139,7 @@ object WebSearchService {
                     return@withContext CachedSearchResult(
                         success = true,
                         summaryText = buildCachedSummaryHeader(query, hit) + "\n" +
-                            SearchResultCache.buildSummary(query, entries),
+                            ToolResultCache.buildSummary(query, entries),
                         hitCache = true,
                         hitRound = hit,
                         refs = entries.map { it.ref }
@@ -162,7 +162,7 @@ object WebSearchService {
             }
 
             // 3. 完整结果写缓存（全字段），再生成摘要视图
-            val cached = SearchResultCache.putSearch(round, query, outcome.result!!.results)
+            val cached = ToolResultCache.putSearch(round, query, outcome.result!!.results)
             if (cached.isEmpty()) {
                 // 缓存写失败：回退旧逻辑（格式化全文），保证不破坏主流程
                 return@withContext CachedSearchResult(
@@ -174,7 +174,7 @@ object WebSearchService {
             }
             CachedSearchResult(
                 success = true,
-                summaryText = SearchResultCache.buildSummary(query, cached),
+                summaryText = ToolResultCache.buildSummary(query, cached),
                 hitCache = false,
                 hitRound = null,
                 refs = cached.map { it.ref },
@@ -183,8 +183,8 @@ object WebSearchService {
         }
 
     /** 读取某轮缓存条目（供命中后复用摘要） */
-    private fun readEntries(round: Int): List<SearchResultCache.CachedEntry> =
-        SearchResultCache.readEntries(round) ?: emptyList()
+    private fun readEntries(round: Int): List<ToolResultCache.CachedEntry> =
+        ToolResultCache.readEntries(round) ?: emptyList()
 
     private fun buildCachedSummaryHeader(query: String, round: Int): String =
         "【搜索结果摘要】查询: $query | 缓存命中 round $round（如需最新结果可用新关键词重搜）"

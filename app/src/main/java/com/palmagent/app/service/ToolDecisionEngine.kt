@@ -152,7 +152,7 @@ class ToolDecisionEngine(
                         }
                         if (searchResult.success) {
                             appendLine(searchResult.summaryText)
-                            appendLine("请判断哪些搜索结果与任务相关：需要查看某条完整内容时输出 WEB_SEARCH_FETCH(ref)；无关信息不必保留。")
+                            appendLine("请判断哪些搜索结果与任务相关：需要查看某条完整内容时输出 fetch_result(ref)；无关信息不必保留。")
                         } else {
                             appendLine("【联网搜索】搜索失败：${searchResult.error}")
                             appendLine("请根据当前屏幕信息自行判断下一步操作。")
@@ -171,9 +171,9 @@ class ToolDecisionEngine(
                 ActionType.WEB_SEARCH_FETCH -> {
                     val ref = action.text?.takeIf { it.isNotBlank() } ?: action.description
                     if (ref.isBlank()) {
-                        log("WEB_SEARCH_FETCH 缺少 ref 参数，跳过")
+                        log("fetch_result 缺少 ref 参数，跳过")
                         toolResults.add(ToolCallResult(
-                            toolName = "web_search_fetch",
+                            toolName = "fetch_result",
                             success = false,
                             error = "ref 参数为空"
                         ))
@@ -185,10 +185,10 @@ class ToolDecisionEngine(
                         )
                     }
 
-                    log("AI请求取回搜索结果: $ref")
-                    LiveLogBuffer.append("📄 模型取回搜索结果: ${ref.take(40)}")
+                    log("AI请求取回缓存工具结果: $ref")
+                    LiveLogBuffer.append("📄 模型取回缓存工具结果: ${ref.take(40)}")
 
-                    val cached = SearchResultCache.get(ref)
+                    val cached = ToolResultCache.get(ref)
                     val fetchContent = if (cached != null) {
                         buildString {
                             appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
@@ -205,7 +205,7 @@ class ToolDecisionEngine(
                     }
 
                     toolResults.add(ToolCallResult(
-                        toolName = "web_search_fetch",
+                        toolName = "fetch_result",
                         success = cached != null,
                         content = fetchContent,
                         error = if (cached != null) null else "取回失败: $ref",
@@ -218,7 +218,7 @@ class ToolDecisionEngine(
                     } else {
                         log("取回失败: $ref")
                         LiveLogBuffer.append("❌ 取回失败: $ref")
-                        if (recordToolFailure("web_search_fetch: $ref")) break
+                        if (recordToolFailure("fetch_result: $ref")) break
                     }
 
                     // 取回原文仅本轮注入，不写工作区

@@ -22,7 +22,7 @@ import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.service.GuiOwlActionAdapter
 import com.palmagent.app.service.GuiOwlService
 import com.palmagent.app.service.PromptBuilder
-import com.palmagent.app.service.SearchResultCache
+import com.palmagent.app.service.ToolResultCache
 import com.palmagent.app.service.ToolDecisionEngine
 import com.palmagent.app.service.WebSearchService
 import com.palmagent.app.tool.ToolRegistry
@@ -136,8 +136,8 @@ class DefaultAgentService @Inject constructor(
         llmProgress = null
         scratchpad.clear()
         transientSearchSection = null
-        // 任务开始清理上一任务的搜索缓存（文件 + 去重索引）
-        SearchResultCache.clearAll()
+        // 任务开始清理上一任务的工具结果缓存（文件 + 去重索引）
+        ToolResultCache.clearAll()
         screenDescriptor.reset()
         progressTracker.reset()
         ContextManager.reset()
@@ -339,7 +339,7 @@ class DefaultAgentService @Inject constructor(
                         Log.d(TAG, "VL请求取回搜索结果: $ref")
                         LiveLogBuffer.append("📄 VL取回搜索结果: ${ref.take(40)}")
 
-                        val cached = SearchResultCache.get(ref)
+                        val cached = ToolResultCache.get(ref)
                         if (cached != null) {
                             transientSearchSection = buildString {
                                 appendLine("【取回搜索结果 ${cached.ref}】${cached.title}")
