@@ -64,8 +64,8 @@ object PromptBuilder {
   示例：{"type":"ASK_USER","questions":[{"question":"需要发短信给哪个联系人？","header":"联系人","options":[{"label":"张三","description":"最近联系人","recommended":true},{"label":"李四"}],"multiSelect":false,"allowFreeInput":true}],"progress":{"current_step":"确认联系人","completed_steps":[],"remaining_steps":["发短信"],"status":"in_progress"}}
   规则：① 每问 2-6 个选项（UI 自动追加"其他"，勿生成）② multiSelect=true 可叠加，false 互斥单选 ③ recommended 最多 1 个 ④ label 与问题用任务同语言
   红线：① 已确认信息（联系人/App名/地点/内容）禁重复追问 ② 屏幕信息/搜索能推断的不问 ③ 主观偏好用中等默认值 ④ 已问问题不重复问
-- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- FETCH_RESULT: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
+- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 WEB_SEARCH_FETCH 取回原文并提炼要点进工作记忆
+- WEB_SEARCH_FETCH: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
 - FORGET: text(必填,条目ID如"sp-3-1") — 删除不再需要的工作记忆条目
 - VISUAL_DESCRIBE: text(问题) — 向视觉模型提问（限约束3场景），别自己瞎猜
 - SELECT_SPEC: specs(必填,需选取的规格数组如["大份","微辣","去冰"]), confirm_text(选填,确认按钮文本,默认"选好了") — 规格自动选取（外卖/购物等规格表单）：无障碍树检查每个规格是否已选中，未选则节点直点；表单过长未显示时自动小步慢速下滑后继续检查，直到全部选好，最后点击确认按钮。适合份量/辣度/口味等规格选择，无需坐标
@@ -138,8 +138,8 @@ finish示例（完全完成型）：{"type":"FINISH","description":"已成功打
 - WAIT: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载/动画
 - REQUEST_USER_ACTION: text(必填,标题), description(选填) — 不可逆操作交用户（见约束4）
 - FINISH: description(必填,已完成摘要), text(必填,用户接下来做什么) — 结束任务
-- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- FETCH_RESULT: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
+- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 WEB_SEARCH_FETCH 取回原文并提炼要点进工作记忆
+- WEB_SEARCH_FETCH: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
 - FORGET: text(必填,条目ID如"sp-3-1") — 删除不再需要的工作记忆条目
 - VISUAL_DESCRIBE: text(问题) — 向视觉模型提问（限约束3场景），别自己瞎猜
 - SELECT_SPEC: specs(必填,需选取的规格数组如["大份","微辣","去冰"]), confirm_text(选填,确认按钮文本,默认"选好了") — 规格自动选取（外卖/购物等规格表单）：无障碍树检查每个规格是否已选中，未选则节点直点；表单过长未显示时自动小步慢速下滑后继续检查，直到全部选好，最后点击确认按钮。适合份量/辣度/口味等规格选择，无需坐标
@@ -207,8 +207,8 @@ finish示例（完全完成型）：{"type":"FINISH","description":"已成功打
 ### 任务控制
 - REQUEST_USER_ACTION: text(必填,标题), description(选填,步骤说明) — 请求用户手动操作
 - FINISH: description(必填,已完成操作摘要), text(必填,用户接下来做什么) — 结束任务
-- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- FETCH_RESULT: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
+- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 WEB_SEARCH_FETCH 取回原文并提炼要点进工作记忆
+- WEB_SEARCH_FETCH: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
 - ASK_USER: 仅缺少必要信息时批量追问，一次问完所有问题（1-4个）。⚠️ 仅接受以下 JSON 格式，缺 questions 字段或误用 text/options 旧字段一律降级为 WAIT：
   示例：{"type":"ASK_USER","questions":[{"question":"需要发短信给哪个联系人？","header":"联系人","options":[{"label":"张三","description":"最近联系人","recommended":true},{"label":"李四"}],"multiSelect":false,"allowFreeInput":true}],"progress":{"current_step":"确认联系人","completed_steps":[],"remaining_steps":["发短信"],"status":"in_progress"}}
   规则：① 每问 2-6 个选项（UI 自动追加"其他"，勿生成）② multiSelect=true 可叠加，false 互斥单选 ③ recommended 最多 1 个 ④ label 与问题用任务同语言
@@ -283,8 +283,8 @@ progress字段必填：current_step, completed_steps, remaining_steps, status
 ### 任务控制
 - REQUEST_USER_ACTION: text(必填,标题), description(选填,步骤说明) — 请求用户手动操作
 - FINISH: description(必填,已完成操作摘要), text(必填,用户接下来做什么) — 结束任务
-- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- FETCH_RESULT: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
+- WEB_SEARCH: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 WEB_SEARCH_FETCH 取回原文并提炼要点进工作记忆
+- WEB_SEARCH_FETCH: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
 - FORGET: text(必填,条目ID如"sp-3-1"或关键词), description(选填,删除原因) — 删除不再需要的工作记忆条目
 
 ## 输出格式

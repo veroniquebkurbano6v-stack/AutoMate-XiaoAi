@@ -479,15 +479,33 @@ Plan 示例（预约挂号）：
                     continue
                 }
 
-                // 统一缓存 + 台账预览：相同 (tool,args) 命中磁盘缓存则跳过执行；预览由缓存烧录值提供，
-                // 全文落盘可 fetch_result 取回。state.ledger 统一只存预览，token 预算统计与淘汰见下。
+                // fetch_result：按 ref 取回全文，仅本轮注入，不落盘、不登记台账（符合"仅供本轮参考"契约）
+                if (name == "fetch_result") {
+                    val fetched = executeAnyTool(name, args)
+                    LiveLogBuffer.append("📦 [决策] 取回结果: $name → ${fetched.take(80)}")
+                    messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to fetched))
+                    continue
+                }
+
+                // 统一缓存 + 台账预览：去重优先查会话内存台账（不随磁盘清理丢失），
+                // 内存 miss 才回退磁盘缓存；预览由缓存烧录值提供，全文落盘可 fetch_result 取回。
                 val key = ToolResultCache.buildKey(name, args)
-                val cached = ToolResultCache.getByKey(key)
-                val entry = if (cached != null) {
-                    LiveLogBuffer.append("🔁 [磁盘缓存命中] $name 已存在结果，跳过执行")
-                    cached
+                val existingRow = state.ledger[key]
+                val entry = if (existingRow != null) {
+                    LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
+                    // 取磁盘全文供后续 fetch 使用；文件若被清理则以预览兜底（保证不重执行、结果稳定）
+                    ToolResultCache.getByKey(key) ?: ToolResultCache.CachedEntry(
+                        key = key, ref = existingRow.ref, tool = name,
+                        preview = existingRow.preview, content = existingRow.preview, createdAt = 0
+                    )
                 } else {
-                    ToolResultCache.put(name, args, executeAnyTool(name, args))
+                    val cached = ToolResultCache.getByKey(key)
+                    if (cached != null) {
+                        LiveLogBuffer.append("🔁 [磁盘缓存命中] $name 已存在结果，跳过执行")
+                        cached
+                    } else {
+                        ToolResultCache.put(name, args, executeAnyTool(name, args))
+                    }
                 }
                 val row = LedgerRow(key = entry.key, ref = entry.ref, preview = entry.preview)
                 // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算
@@ -495,15 +513,7 @@ Plan 示例（预约挂号）：
                 state.ledgerTokens += estimateTokens(row.preview) - (old?.let { estimateTokens(it.preview) } ?: 0)
                 evictLedgerIfNeeded(state)
                 LiveLogBuffer.append("📦 [决策] 工具结果: $name → ${row.preview.take(80)}")
-                // fetch_result 返回的是"取回全文"，必须整段展示给模型，不能再用预览截断
-                val toolMsgContent = if (name == "fetch_result") entry.content else row.preview
-                messages.add(
-                    mapOf(
-                        "role" to "tool",
-                        "tool_call_id" to id,
-                        "content" to toolMsgContent
-                    )
-                )
+                messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to row.preview))
             }
             // 继续循环：模型基于工具结果继续推理
         }
