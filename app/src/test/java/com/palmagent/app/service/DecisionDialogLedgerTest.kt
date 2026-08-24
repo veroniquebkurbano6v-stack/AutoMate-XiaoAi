@@ -41,10 +41,13 @@ class DecisionDialogLedgerTest {
         // 只读：buildLedgerContent 不再删除条目，也不扣减 token（去重与保护不被字符预算破坏）
         assertEquals(4, state.ledger.size)
         assertEquals(beforeTokens, state.ledgerTokens)
-        // 注入控制在字符预算内；按"最近"优先，最旧 a 被裁出不展示
-        assertFalse(out.contains("fx-a"))
+        // 所有行 ref 恒输出（fetch_result 对所有台账行可达），正文按预算截断
+        assertTrue(out.contains("fx-a"))
         assertTrue(out.contains("fx-b"))
+        assertTrue(out.contains("fx-c"))
         assertTrue(out.contains("fx-d"))
+        // 超预算行保留 ref、正文省略（不再整行丢弃）
+        assertTrue(out.contains("内容超预算"))
     }
 
     @Test

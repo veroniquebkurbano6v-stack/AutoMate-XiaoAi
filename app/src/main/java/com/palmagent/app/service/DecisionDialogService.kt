@@ -513,7 +513,10 @@ Plan 示例（预约挂号）：
                 state.ledgerTokens += estimateTokens(row.preview) - (old?.let { estimateTokens(it.preview) } ?: 0)
                 evictLedgerIfNeeded(state)
                 LiveLogBuffer.append("📦 [决策] 工具结果: $name → ${row.preview.take(80)}")
-                messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to row.preview))
+                // 工具消息注入完整结果（entry.content 是全文，limit 到展示上限），
+                // 避免长结果任务里重调同工具只拿到截断预览、又提示 fetch 却无从下手。
+                val toolResultMsg = entry.content.take(FETCH_OUTPUT_MAX_CHARS)
+                messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to toolResultMsg))
             }
             // 继续循环：模型基于工具结果继续推理
         }
@@ -571,24 +574,21 @@ Plan 示例（预约挂号）：
     }
 
     /** 事实台账内容：去重后的工具结果预览（只读，不修改 state.ledger）。
-     *  本轮注入控制在字符预算内的"最近"条目；真正的淘汰只由 evictLedgerIfNeeded（token 预算 + 保护最近 N 条）负责，
-     *  避免字符预算路径无保护地删行破坏"同参数去重/保护最近 N"契约。 */
+     *  每行恒输出 [ref]+key（保证 fetch_result 对所有行可达）；预览正文只在字符预算内展示，
+     *  超预算行的正文省略但保留 ref。真正的淘汰只由 evictLedgerIfNeeded（token 预算 + 保护最近 N 条）负责。 */
     internal fun buildLedgerContent(state: SessionDecisionState): String {
         if (state.ledger.isEmpty()) return "【事实台账】\n（暂无）"
-        // 按插入序取"最近"优先，纳入预算内的条目用于本轮注入（不删除 ledger，去重与 token 计数保留）
-        val rows = state.ledger.values.toList()
-        var used = 0
-        val kept = LinkedHashSet<String>()
-        for (row in rows.asReversed()) {
-            if (used + row.preview.length > MAX_LEDGER_BLOCK_CHARS) break
-            kept.add(row.key)
-            used += row.preview.length
-        }
         val sb = StringBuilder("【事实台账】（已去重的工具结果预览，全文可用 fetch_result 取回，勿重调）\n")
-        // 按插入顺序输出被纳入的条目，保持稳定顺序
+        var used = 0
         for ((key, row) in state.ledger) {
-            if (key in kept) {
-                sb.append("- [").append(row.ref).append("] ").append(row.key).append(" = ").append(row.preview).append("\n")
+            val head = "- [${row.ref}] ${row.key}"
+            if (used + head.length + row.preview.length > MAX_LEDGER_BLOCK_CHARS) {
+                // 超预算行：保留 ref 行（fetch 可达），正文省略省 token
+                sb.append(head).append("（内容超预算，可用 fetch_result 取回全文）\n")
+                used += head.length
+            } else {
+                sb.append(head).append(" = ").append(row.preview).append("\n")
+                used += head.length + 3 + row.preview.length
             }
         }
         return sb.toString()

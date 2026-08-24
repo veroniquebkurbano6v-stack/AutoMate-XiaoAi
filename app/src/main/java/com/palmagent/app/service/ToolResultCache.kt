@@ -6,6 +6,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import java.io.File
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 通用工具结果磁盘缓存（统一缓存：决策台账 + 执行模型 web_search 共用）。
@@ -47,8 +48,9 @@ object ToolResultCache {
     private val listType = object : TypeToken<List<CachedEntry>>() {}.type
     private var cacheDir: File? = null
 
-    // web_search：规范化 query → 轮次（会话内去重索引，同 round 文件）
-    private val index = mutableMapOf<String, Int>()
+    // web_search：规范化 query → 轮次（去重索引，同 round 文件）。用 ConcurrentHashMap 防
+    // 决策流(put/getByKey) 与执行代理(searchWithCache→putSearch/hitRound/clearAll) 并发越界操作导致 CME。
+    private val index = ConcurrentHashMap<String, Int>()
 
     fun init(context: Context) {
         if (cacheDir != null) return
