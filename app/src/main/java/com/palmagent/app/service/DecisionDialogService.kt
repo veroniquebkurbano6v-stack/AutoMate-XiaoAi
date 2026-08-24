@@ -494,7 +494,7 @@ Plan 示例（预约挂号）：
                 val key = ToolResultCache.buildKey(name, args)
                 val existingRow = state.ledger[key]
                 val entry = if (existingRow != null) {
-                    val disk = ToolResultCache.getByKey(key)
+                    val disk = ToolResultCache.getByKey(key, sessionId)
                     if (disk != null) {
                         LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
                         disk
@@ -502,10 +502,10 @@ Plan 示例（预约挂号）：
                         // 磁盘全文缺失（被挤出/写盘失败）：删行后重新执行拿全文，避免 fetch 失败死循环
                         state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
                         LiveLogBuffer.append("♻️ [台账失效] $name 磁盘全文缺失，重新执行获取完整内容")
-                        ToolResultCache.put(name, args, executeAnyTool(name, args))
+                        ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
                     }
                 } else {
-                    ToolResultCache.put(name, args, executeAnyTool(name, args))
+                    ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
                 }
                 val row = LedgerRow(key = entry.key, ref = entry.ref, preview = entry.preview)
                 // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算
@@ -660,6 +660,7 @@ Plan 示例（预约挂号）：
                 appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）")
                 append(cached.content.take(FETCH_OUTPUT_MAX_CHARS))
                 if (cached.content.length > FETCH_OUTPUT_MAX_CHARS) appendLine("\n…（内容过长，已截取）")
+                appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
             }
         }
     }

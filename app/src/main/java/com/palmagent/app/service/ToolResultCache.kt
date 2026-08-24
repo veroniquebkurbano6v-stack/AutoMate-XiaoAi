@@ -102,12 +102,20 @@ object ToolResultCache {
     }
 
     /**
-     * 写入任意工具结果：烧录 preview（head+tail）、全文落盘（根命名空间，供决策/执行两侧 fetch_result 读回）。
-     * 同 key 覆盖旧条目。决策侧去重由内存台账按会话隔离负责，磁盘不承担"去重命中"职责（避免跨会话复用旧结果）。
+     * 通用条目的会话作用域文件哈希：把会话分量并入哈希输入，使不同会话对同一 (tool,args)
+     * 生成互不相同的文件/ref，避免一个会话覆盖另一个会话的全文、串扰到对方决策上下文。
+     * 文件仍写在根目录（执行侧 fetch_result 无会话参数也能按 ref 定位）。
      */
-    fun put(tool: String, args: Map<String, Any>, content: String): CachedEntry {
+    private fun fxHash(key: String, session: String): String =
+        shortHash(if (session.isBlank()) key else "$session::$key")
+
+    /**
+     * 写入任意工具结果：烧录 preview（head+tail）、全文落盘（根目录，文件名/ref 含会话分量）。
+     * 同 key 覆盖旧条目。决策侧去重由内存台账按会话隔离负责，磁盘只负责按 ref 保存/取回全文。
+     */
+    fun put(tool: String, args: Map<String, Any>, content: String, session: String = ""): CachedEntry {
         val key = buildKey(tool, args)
-        val hash = shortHash(key)
+        val hash = fxHash(key, session)
         val entry = CachedEntry(
             key = key,
             ref = "fx-$hash",
@@ -120,10 +128,10 @@ object ToolResultCache {
         return entry
     }
 
-    /** 按 key 读取通用条目（多数用于取回全文；决策侧不以此作为执行去重依据）。读取时校验存储 key 防碰撞。 */
-    fun getByKey(key: String): CachedEntry? {
+    /** 按 key 读取通用条目（决策侧取回全文用；session 决定会话作用域文件）。读取时校验存储 key 防碰撞。 */
+    fun getByKey(key: String, session: String = ""): CachedEntry? {
         val dir = cacheDir ?: return null
-        val f = File(dir, "fx_${shortHash(key)}.json")
+        val f = File(dir, "fx_${fxHash(key, session)}.json")
         if (!f.exists()) return null
         return try {
             val entry = gson.fromJson(f.readText(), CachedEntry::class.java)

@@ -130,4 +130,33 @@ class ToolResultCacheTest {
             dir.deleteRecursively()
         }
     }
+
+    @Test
+    fun 会话隔离_两会话同参数不覆盖_各自取回() {
+        // #7 #1 回归：fx 文件名/ref 含会话分量，两会话对同一 (tool,args) 各自写入互不覆盖，
+        // 会话 A 的 fetch_result 应返回 A 自己的内容，不会串扰成 B 的结果。
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            try {
+                val args = mapOf("query" to "医院")
+                val key = ToolResultCache.buildKey("amap_search", args)
+                val eA = ToolResultCache.put("amap_search", args, "会话A医院", "sessA")
+                val eB = ToolResultCache.put("amap_search", args, "会话B医院", "sessB")
+
+                // 不同会话 → 不同 ref/文件（不互相覆盖）
+                assertNotEquals("两会话同参数应产生不同 ref", eA.ref, eB.ref)
+                // 各自按会话取回各自的全文
+                assertEquals("会话A医院", ToolResultCache.get(eA.ref)?.content)
+                assertEquals("会话B医院", ToolResultCache.get(eB.ref)?.content)
+                // 按 key + session 定位各自全文
+                assertEquals("会话A医院", ToolResultCache.getByKey(key, "sessA")?.content)
+                assertEquals("会话B医院", ToolResultCache.getByKey(key, "sessB")?.content)
+            } finally {
+                ToolResultCache.resetForTest()
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
 }
