@@ -54,6 +54,28 @@ object ToolResultCache {
         cacheDir = File(context.filesDir, DIR_NAME).apply { mkdirs() }
     }
 
+    /** 测试专用：指定缓存目录（生产由 init(context) 设置）。 */
+    internal fun initForTest(dir: File) {
+        cacheDir = dir.apply { mkdirs() }
+    }
+
+    /** 测试专用：重置目录与索引，避免污染其他测试。 */
+    internal fun resetForTest() {
+        cacheDir = null
+        index.clear()
+    }
+
+    /**
+     * 新决策会话开始调用：仅清空通用 fx_ 工具结果，保留 web_search 的 search_ 轮次缓存与去重索引。
+     * 决策侧内存台账按 sessionId 隔离，但磁盘缓存是共享的；若不清空，新会话会误复用上一会话
+     * （查询/取消重启均不触发任务级 clearAll）写下的 amap/kb_read/list_apps 等通用结果。
+     */
+    fun clearGenerics() {
+        val dir = cacheDir ?: return
+        dir.listFiles { f -> f.name.matches(Regex("fx_.*\\.json")) }?.forEach { it.delete() }
+        Log.d(TAG, "新决策会话：清空通用工具结果缓存(fx_)")
+    }
+
     // ==================== 通用条目（任意工具） ====================
 
     /**

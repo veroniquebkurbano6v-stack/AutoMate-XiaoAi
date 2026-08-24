@@ -273,7 +273,12 @@ Plan 示例（预约挂号）：
         // 续写轮提升输出预算（MAX_TOKENS * 1.5），避免同参数重发导致同一位置二次截断
         var nextMaxTokens = MAX_TOKENS
         // 会话级决策状态：工作记忆 + 事实台账，随 sessionId 跨 chat 请求持久化（按会话隔离）
-        val state = sessionStates.getOrPut(sessionId) { SessionDecisionState() }
+        // 首次创建新会话时清空共享磁盘上的通用工具结果(fx_)，避免跨会话复用上一对话的
+        // amap/kb_read/list_apps 等结果（查询/重启不触发任务级 full clearAll）；会话内复用不受影响
+        val state = sessionStates.getOrPut(sessionId) {
+            ToolResultCache.clearGenerics()
+            SessionDecisionState()
+        }
         while (round < MAX_TOOL_ROUNDS) {
             round++
 

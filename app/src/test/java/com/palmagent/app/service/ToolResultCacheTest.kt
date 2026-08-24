@@ -3,8 +3,10 @@ package com.palmagent.app.service
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 
 /**
  * ToolResultCache 通用磁盘缓存的纯 JVM 单元测试（不依赖 Context/磁盘，只测纯逻辑）
@@ -62,6 +64,36 @@ class ToolResultCacheTest {
     fun buildPreview_确定性_相同输入相同输出() {
         val long = "内容".repeat(600)
         assertEquals(ToolResultCache.buildPreview(long), ToolResultCache.buildPreview(long))
+    }
+
+    @Test
+    fun clearGenerics_只清通用fx_保留webSearch轮次_跨会话隔离() {
+        // P2 #1 回归：新决策会话通过 clearGenerics 清空共享磁盘上的通用工具结果，
+        // 避免跨会话复用上一对话的 amap/kb_read/list_apps 等结果，同时保留 web_search 轮次去重。
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            try {
+                ToolResultCache.put("amap_weather", emptyMap(), "晴天 25°C")
+                assertTrue("应生成 fx_ 通用条目", dir.listFiles { it.name.startsWith("fx_") }?.isNotEmpty() ?: false)
+                ToolResultCache.putSearch(
+                    1, "北京天气",
+                    listOf(WebSearchService.SearchItem(title = "北京天气", url = "u", snippet = "晴"))
+                )
+                assertTrue("应生成 search_ 轮次文件", File(dir, "search_1.json").exists())
+
+                ToolResultCache.clearGenerics()
+
+                assertFalse("fx_ 通用条目应被清空", dir.listFiles { it.name.startsWith("fx_") }?.isNotEmpty() ?: false)
+                assertTrue("web_search search_ 应保留", File(dir, "search_1.json").exists())
+                // 通用条目已无法取回，跨会话隔离生效
+                assertNull(ToolResultCache.getByKey(ToolResultCache.buildKey("amap_weather", emptyMap())))
+            } finally {
+                ToolResultCache.resetForTest()
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
     }
 
     @Test
