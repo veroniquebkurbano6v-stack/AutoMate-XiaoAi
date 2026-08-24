@@ -101,11 +101,10 @@ object ToolResultCache {
     }
 
     /**
-     * 写入任意工具结果：烧录 preview（head+tail）、全文落盘，返回条目。
-     * 同 key 覆盖旧条目。session 非空时按会话命名空间隔离——新会话内存台账为空、磁盘目录独立，
-     * 天然不复用旧会话结果，也互不影响活跃会话（取代全局 clearGenerics）。
+     * 写入任意工具结果：烧录 preview（head+tail）、全文落盘（根命名空间，供决策/执行两侧 fetch_result 读回）。
+     * 同 key 覆盖旧条目。决策侧去重由内存台账按会话隔离负责，磁盘不承担"去重命中"职责（避免跨会话复用旧结果）。
      */
-    fun put(tool: String, args: Map<String, Any>, content: String, session: String = ""): CachedEntry {
+    fun put(tool: String, args: Map<String, Any>, content: String): CachedEntry {
         val key = buildKey(tool, args)
         val hash = shortHash(key)
         val entry = CachedEntry(
@@ -116,14 +115,14 @@ object ToolResultCache {
             content = content,
             createdAt = System.currentTimeMillis()
         )
-        writeGenericFile(hash, entry, session)
+        writeGenericFile(hash, entry)
         return entry
     }
 
-    /** 按 key 读取通用条目（决策台账/去重用；session 用于定位会话命名空间） */
-    fun getByKey(key: String, session: String = ""): CachedEntry? {
+    /** 按 key 读取通用条目（多数用于取回全文；决策侧不以此作为执行去重依据） */
+    fun getByKey(key: String): CachedEntry? {
         val dir = cacheDir ?: return null
-        val f = File(genericBase(dir, session), "fx_${shortHash(key)}.json")
+        val f = File(dir, "fx_${shortHash(key)}.json")
         if (!f.exists()) return null
         return try {
             gson.fromJson(f.readText(), CachedEntry::class.java)
@@ -133,11 +132,11 @@ object ToolResultCache {
         }
     }
 
-    /** 按 ref 取回完整条目（支持 fx-<hash> 与 ws-<round>-<n>；fx- 按 session 命名空间定位） */
-    fun get(ref: String, session: String = ""): CachedEntry? {
+    /** 按 ref 取回完整条目（支持 fx-<hash> 与 ws-<round>-<n>；均在根命名空间） */
+    fun get(ref: String): CachedEntry? {
         if (ref.startsWith("fx-")) {
             val dir = cacheDir ?: return null
-            val f = File(genericBase(dir, session), "fx_${ref.substring(3)}.json")
+            val f = File(dir, "fx_${ref.substring(3)}.json")
             if (!f.exists()) return null
             return try {
                 gson.fromJson(f.readText(), CachedEntry::class.java)
@@ -149,10 +148,6 @@ object ToolResultCache {
         // web_search：ws-<round>-<n>
         return getSearchEntry(ref)
     }
-
-    /** 通用条目的会话命名空间基目录（session 空=根目录；用短哈希命名目录，避免非法字符/过长） */
-    private fun genericBase(dir: File, session: String): File =
-        if (session.isBlank()) dir else File(dir, shortHash(session))
 
     /** 生成预览：head 70% + tail 30%，中间占位；短内容（≤头尾合计）原样返回 */
     fun buildPreview(content: String): String {
@@ -169,14 +164,13 @@ object ToolResultCache {
 
     // ==================== web_search 特殊条目（沿用原 round/ref/结构化） ====================
 
-    private fun writeGenericFile(hash: String, entry: CachedEntry, session: String) {
+    private fun writeGenericFile(hash: String, entry: CachedEntry) {
         val dir = cacheDir ?: return
-        val base = genericBase(dir, session).apply { mkdirs() }
-        val file = File(base, "fx_$hash.json")
+        val file = File(dir, "fx_$hash.json")
         try {
             file.writeText(gson.toJson(entry))
-            // 通用条目保留窗口：超出 MAX_GENERIC_FILES 时删除本命名空间最旧 fx 文件
-            cleanupGeneric(base)
+            // 通用条目保留窗口：超出 MAX_GENERIC_FILES 时删除最旧 fx 文件
+            cleanupGeneric(dir)
         } catch (e: Exception) {
             Log.w(TAG, "写通用缓存失败: ${e.message}")
         }
@@ -289,16 +283,11 @@ object ToolResultCache {
         index.entries.removeAll { (_, round) -> kept.none { it == "search_$round.json" } }
     }
 
-    /** 任务结束清理：递归清空所有文件与会话命名空间子目录 */
+    /** 任务开始清理：仅清 web_search 轮次（search_*.json）与去重索引，保留通用 fx_（决策取回正文仍在生效） */
     fun clearAll() {
         val dir = cacheDir ?: return
-        deleteRecursively(dir)
+        dir.listFiles { f -> f.name.matches(Regex("search_\\d+\\.json")) }?.forEach { it.delete() }
         index.clear()
-        Log.d(TAG, "任务结束，清空工具结果缓存")
-    }
-
-    private fun deleteRecursively(f: File) {
-        if (f.isDirectory) f.listFiles()?.forEach { deleteRecursively(it) }
-        f.delete()
+        Log.d(TAG, "任务开始，清理 web_search 轮次缓存")
     }
 }

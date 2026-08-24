@@ -273,8 +273,8 @@ Plan 示例（预约挂号）：
         // 续写轮提升输出预算（MAX_TOKENS * 1.5），避免同参数重发导致同一位置二次截断
         var nextMaxTokens = MAX_TOKENS
         // 会话级决策状态：工作记忆 + 事实台账，随 sessionId 跨 chat 请求持久化（按会话隔离）
-        // 磁盘通用条目按会话命名空间隔离（put/getByKey 均带 sessionId）：新会话内存台账为空、
-        // 命名空间目录独立，天然不复用旧会话结果，也不影响其他活跃会话；computeIfAbsent 保证原子创建
+        // 工具去重只由内存台账按 sessionId 隔离承担；磁盘仅存全文供 fetch_result 取回，
+        // 不作为去重命中依据（避免跨会话复用旧结果）。computeIfAbsent 保证原子创建。
         val state = sessionStates.computeIfAbsent(sessionId) { SessionDecisionState() }
         while (round < MAX_TOOL_ROUNDS) {
             round++
@@ -483,35 +483,29 @@ Plan 示例（预约挂号）：
 
                 // fetch_result：按 ref 取回全文，仅本轮注入，不落盘、不登记台账（符合"仅供本轮参考"契约）
                 if (name == "fetch_result") {
-                    val fetched = executeFetchResultTool(args, sessionId)
+                    val fetched = executeFetchResultTool(args)
                     LiveLogBuffer.append("📦 [决策] 取回结果: $name → ${fetched.take(80)}")
                     messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to fetched))
                     continue
                 }
 
-                // 统一缓存 + 台账预览：去重优先查会话内存台账（不随磁盘清理丢失），
-                // 内存 miss 才回退到会话命名空间的磁盘缓存；预览由缓存烧录值提供，全文落盘可 fetch_result 取回。
+                // 去重只看会话内存台账（按 sessionId 隔离）：磁盘仅存全文供 fetch_result 取回，
+                // 不作为"去重命中"依据，避免跨会话复用旧会话写下的 fx_。内存命中取磁盘全文；缺失则删行重执行。
                 val key = ToolResultCache.buildKey(name, args)
                 val existingRow = state.ledger[key]
                 val entry = if (existingRow != null) {
-                    val disk = ToolResultCache.getByKey(key, sessionId)
+                    val disk = ToolResultCache.getByKey(key)
                     if (disk != null) {
                         LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
                         disk
                     } else {
-                        // 本会话命名空间磁盘缺失（被清理/写盘失败）：删行后重新执行拿全文，避免 stub 死循环
+                        // 磁盘全文缺失（被挤出/写盘失败）：删行后重新执行拿全文，避免 fetch 失败死循环
                         state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
-                        LiveLogBuffer.append("♻️ [台账失效] $name 磁盘缓存缺失，重新执行获取完整内容")
-                        ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
+                        LiveLogBuffer.append("♻️ [台账失效] $name 磁盘全文缺失，重新执行获取完整内容")
+                        ToolResultCache.put(name, args, executeAnyTool(name, args))
                     }
                 } else {
-                    val cached = ToolResultCache.getByKey(key, sessionId)
-                    if (cached != null) {
-                        LiveLogBuffer.append("🔁 [磁盘缓存命中] $name 已存在结果，跳过执行")
-                        cached
-                    } else {
-                        ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
-                    }
+                    ToolResultCache.put(name, args, executeAnyTool(name, args))
                 }
                 val row = LedgerRow(key = entry.key, ref = entry.ref, preview = entry.preview)
                 // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算
@@ -640,10 +634,10 @@ Plan 示例（预约挂号）：
      * 执行 fetch_result 工具调用：按 ref 取回磁盘缓存的完整结果。
      * web_search 条目结构化格式化；其余工具返回全文（裁剪到 FETCH_OUTPUT_MAX_CHARS）。
      */
-    private suspend fun executeFetchResultTool(args: Map<String, Any>, session: String = ""): String {
+    private suspend fun executeFetchResultTool(args: Map<String, Any>): String {
         val ref = args["ref"]?.toString()?.trim() ?: ""
         if (ref.isEmpty()) return "错误：ref 参数不能为空"
-        val cached = ToolResultCache.get(ref, session)
+        val cached = ToolResultCache.get(ref)
         if (cached == null) {
             return "取回失败：ref=$ref 不存在或已清理，请重新调用原工具"
         }

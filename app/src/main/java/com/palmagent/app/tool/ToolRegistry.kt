@@ -35,9 +35,7 @@ object ToolRegistry {
         "amap_directions" to ::AmapDirectionsTool,
         "amap_weather" to ::AmapWeatherTool,
         // 联网搜索工具（执行模型 + 决策模型共用 WebSearchService 后端）
-        "web_search" to ::WebSearchTool,
-        // 取回缓存工具结果的完整内容（执行模型 + 决策模型共用，仅本轮参考，不写入工作记忆）
-        "fetch_result" to ::FetchResultTool
+        "web_search" to ::WebSearchTool
     )
 
     fun initAllTools() {

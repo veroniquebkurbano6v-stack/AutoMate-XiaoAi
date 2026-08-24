@@ -3,7 +3,6 @@ package com.palmagent.app.service
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -68,24 +67,30 @@ class ToolResultCacheTest {
     }
 
     @Test
-    fun 会话命名空间隔离_同key不同会话不碰撞() {
-        // P2 #2 回归：决策侧工具结果按会话命名空间隔离（取代全局 clearGenerics）——
-        // 会话 A 写下的 fx_ 不会被会话 B 命中复用，也不影响其他活跃会话。
+    fun clearAll_只清webSearch轮次_保留通用fx_() {
+        // #5 #1/#2 修复：任务开始 clearAll 只清 web_search 轮次，保留通用 fx_（决策取回正文），
+        // 且通用条目写读均在根命名空间（决策/执行两侧 fetch_result 读同一位置，杜绝读写不对称）。
         val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
         try {
             ToolResultCache.initForTest(dir)
             try {
                 val args = mapOf("query" to "医院")
                 val key = ToolResultCache.buildKey("amap_search", args)
-                val ea = ToolResultCache.put("amap_search", args, "会话A结果", "session-a")
+                ToolResultCache.put("amap_search", args, "根命名空间结果")
+                ToolResultCache.putSearch(
+                    1, "北京天气",
+                    listOf(WebSearchService.SearchItem(title = "北京天气", url = "u", snippet = "晴"))
+                )
+                // 写读对称（根）：put 后按 key 可取回
+                assertNotNull(ToolResultCache.getByKey(key))
+                assertTrue("应生成 search_ 轮次文件", File(dir, "search_1.json").exists())
 
-                // 会话 A 同 key 命中
-                assertNotNull(ToolResultCache.getByKey(key, "session-a"))
-                // 会话 B 同 key 独立空间 → miss（不复用旧会话结果）
-                assertNull(ToolResultCache.getByKey(key, "session-b"))
-                // fetch 按会话定位：A 会话取回 A 的全文，B 会话取不到
-                assertNotNull(ToolResultCache.get(ea.ref, "session-a"))
-                assertNull(ToolResultCache.get(ea.ref, "session-b"))
+                ToolResultCache.clearAll()
+
+                // 任务开始只清 web_search 轮次
+                assertFalse("web_search search_ 应被清理", File(dir, "search_1.json").exists())
+                // 通用 fx_ 保留，fetch_result 取回仍可用
+                assertNotNull("通用 fx_ 应保留", ToolResultCache.getByKey(key))
             } finally {
                 ToolResultCache.resetForTest()
             }
