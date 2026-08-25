@@ -364,6 +364,15 @@ Plan 示例（预约挂号）：
                 Log.d(TAG, "决策工具调用: $name ${args.toList().take(3).toMap()}")
             }
 
+            // workspace_update 提前落库：避免与 ask_questions 同轮时被下方追问拦截逻辑吞掉，
+            // 导致工作区（任务工作区）跨对话丢失；tool 消息由后续（普通 for / 拦截分支）负责配对输出。
+            toolCalls.forEach { tc ->
+                if (tc["name"] == "workspace_update") {
+                    val wsArgs = (tc["arguments"] as? Map<String, Any>)
+                    if (wsArgs != null) state.workspace = wsArgs["content"]?.toString() ?: ""
+                }
+            }
+
             // 检测 ask_questions 工具调用（追问信号）：拦截后追加自检对话，确认完整后再展示
             val askQuestionsCall = toolCalls.firstOrNull { it["name"] == "ask_questions" }
             if (askQuestionsCall != null) {
@@ -376,23 +385,47 @@ Plan 示例（预约挂号）：
                 LiveLogBuffer.append("❓ [决策] 模型追问 ${questions.size} 个问题，进行自检")
                 Log.d(TAG, "决策模型调用 ask_questions 工具：${questions.size} 个问题，即将自检是否有遗漏")
 
-                // 把 assistant 的 tool_calls 消息加入历史
+                // 把 assistant 的 tool_calls 消息加入历史（同轮 workspace_update 一并列入，与其 tool 消息配对，避免协议错）
+                val wsCall = toolCalls.firstOrNull { it["name"] == "workspace_update" }
+                val assistantCalls = mutableListOf<Map<String, Any>>(
+                    mapOf(
+                        "id" to (askQuestionsCall["id"] ?: "call_ask"),
+                        "type" to "function",
+                        "function" to mapOf(
+                            "name" to "ask_questions",
+                            "arguments" to gson.toJson(args)
+                        )
+                    )
+                )
+                if (wsCall != null) {
+                    assistantCalls.add(
+                        mapOf(
+                            "id" to (wsCall["id"] ?: "call_ws"),
+                            "type" to "function",
+                            "function" to mapOf(
+                                "name" to "workspace_update",
+                                "arguments" to gson.toJson(wsCall["arguments"])
+                            )
+                        )
+                    )
+                }
                 messages.add(
                     mapOf(
                         "role" to "assistant",
                         "content" to content,
-                        "tool_calls" to listOf(
-                            mapOf(
-                                "id" to (askQuestionsCall["id"] ?: "call_ask"),
-                                "type" to "function",
-                                "function" to mapOf(
-                                    "name" to "ask_questions",
-                                    "arguments" to gson.toJson(args)
-                                )
-                            )
-                        )
+                        "tool_calls" to assistantCalls
                     )
                 )
+                // workspace_update 的 tool 结果（配对；落库已在拦截前提前完成）
+                if (wsCall != null) {
+                    messages.add(
+                        mapOf(
+                            "role" to "tool",
+                            "tool_call_id" to (wsCall["id"] ?: "call_ws"),
+                            "content" to "工作区已更新（${state.workspace.length} 字符）"
+                        )
+                    )
+                }
                 // 追加 tool 结果（空结果，表示"已拦截，待自检"）
                 messages.add(
                     mapOf(

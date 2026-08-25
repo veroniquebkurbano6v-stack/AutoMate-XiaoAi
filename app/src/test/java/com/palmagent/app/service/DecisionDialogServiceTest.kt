@@ -425,6 +425,46 @@ class DecisionDialogServiceTest {
         }
     }
 
+    // ===== Case 11: workspace_update 与 ask_questions 同轮时工作区跨对话保留（回归） =====
+
+    @Test
+    fun `workspace_update与ask_questions同轮 工作区跨对话保留`() = runBlocking {
+        val wsContent = "任务：美团点蜜雪冰城奶茶；已装App：美团(com.sankuai.meituan)"
+        // chat1：同一轮 tool_calls 里同时有 workspace_update 与 ask_questions
+        testInterceptor.responses.add(
+            mockOpenAiToolCallsResponse(
+                Triple("workspace_update", """{"content":"$wsContent"}""", "call_ws"),
+                Triple(
+                    "ask_questions",
+                    """{"questions":[{"question":"奶茶怎么取？","header":"配送方式","options":[{"label":"外卖配送","recommended":true},{"label":"到店自提"}]},{"question":"点哪款？","header":"奶茶品种","options":[{"label":"珍珠奶茶","recommended":true},{"label":"椰果奶茶"}]}]}""",
+                    "call_ask"
+                )
+            )
+        )
+        // 自检（第 2 次 LLM）：无补充问题 → 返回原始追问
+        testInterceptor.responses.add(mockOpenAiResponse("""{"status":"need_more_info","message":"请回答以下问题"}"""))
+        val r1 = dialogService.chat("帮我点蜜雪冰城奶茶", emptyList(), "sessWs")
+        assertTrue("chat1 应返回追问", r1 is DecisionDialogService.DialogResult.NeedMoreInfo)
+
+        // chat2（同 session）：直接 ready，验证工作区已跨对话保留（回归点）
+        testInterceptor.responses.add(mockOpenAiResponse(readyPlanJson))
+        val r2 = dialogService.chat("外卖配送，珍珠奶茶", emptyList(), "sessWs")
+        assertTrue("chat2 应返回 Ready: $r2", r2 is DecisionDialogService.DialogResult.Ready)
+
+        // chat1 两次请求 + chat2 一次请求
+        assertEquals(3, testInterceptor.capturedBodies.size)
+        // chat2 请求（capturedBodies[2]）的工作区 system 应含 chat1 写入的 workspace 内容（不再为 0 字符）
+        val third = gson.fromJson(testInterceptor.capturedBodies[2], JsonObject::class.java)
+        var found = false
+        third.getAsJsonArray("messages").forEach { el ->
+            val obj = el.asJsonObject
+            if (obj.get("role").asString == "system" && obj.get("content").asString.contains("美团点蜜雪冰城奶茶")) {
+                found = true
+            }
+        }
+        assertTrue("跨对话应保留 workspace 内容", found)
+    }
+
     // ============================ Mock HTTP 工具 ============================
 
     private fun mockOpenAiResponse(content: String): String {
@@ -462,6 +502,27 @@ class DecisionDialogServiceTest {
                         "function":{"name":"$toolName","arguments":${gson.toJson(toolArgs)}}
                     }]
                 },
+                "finish_reason":"tool_calls"
+            }],
+            "usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}
+        }
+        """.trimIndent()
+    }
+
+    /** 生成含多个 tool_calls 的响应（每个 Triple = (name, args, id)） */
+    private fun mockOpenAiToolCallsResponse(vararg calls: Triple<String, String, String>): String {
+        val callsJson = calls.joinToString(",") { (name, args, id) ->
+            """{"id":"$id","type":"function","function":{"name":"$name","arguments":${gson.toJson(args)}}}"""
+        }
+        return """
+        {
+            "id":"chatcmpl-1",
+            "object":"chat.completion",
+            "created":1234567890,
+            "model":"mock-model",
+            "choices":[{
+                "index":0,
+                "message":{"role":"assistant","content":"","tool_calls":[$callsJson]},
                 "finish_reason":"tool_calls"
             }],
             "usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}
