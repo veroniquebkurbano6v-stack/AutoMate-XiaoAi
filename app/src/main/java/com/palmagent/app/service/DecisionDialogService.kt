@@ -486,6 +486,7 @@ Plan 示例（预约挂号）：
                 // 按台账行 key 重新执行原工具自愈并返回全文，兑现"台账 ref 恒可 fetch"承诺。
                 if (name == "fetch_result") {
                     val ref = args["ref"]?.toString()?.trim().orEmpty()
+                    val offset = (args["offset"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
                     var fetched: String? = null
                     if (ref.isNotEmpty()) {
                         val disk = ToolResultCache.get(ref)
@@ -497,11 +498,15 @@ Plan 示例（预约挂号）：
                                 val content = executeAnyTool(t, a)
                                 val entry2 = ToolResultCache.put(t, a, content, sessionId)
                                 val newRow = LedgerRow(entry2.key, entry2.ref, entry2.preview)
-                                val oldRow = state.ledger.put(entry2.key, newRow)
+                                // 删旧行（按原 row.key，避免 json 往返导致 key 漂移而旧行残留），插入新行并净结算
+                                val oldRow = state.ledger.remove(row.key)
+                                state.ledger[entry2.key] = newRow
                                 state.ledgerTokens += estimateTokens(newRow.key + newRow.preview) -
                                     (oldRow?.let { estimateTokens(it.key + it.preview) } ?: 0)
-                                fetched = entry2.content.take(FETCH_OUTPUT_MAX_CHARS)
-                                LiveLogBuffer.append("♻️ [取回自愈] ref=$ref 磁盘全文缺失，重执行 $t 恢复")
+                                evictLedgerIfNeeded(state)
+                                // 尊重请求的 offset 分页，渲染与 executeFetchResultTool 一致的段内容
+                                fetched = buildFxSegment(ref, entry2.tool, entry2.content, offset)
+                                LiveLogBuffer.append("♻️ [取回自愈] ref=$ref 磁盘全文缺失，重执行 $t 恢复（offset=$offset）")
                             }
                         }
                     }
@@ -703,17 +708,22 @@ Plan 示例（预约挂号）：
             }
         } else {
             // 通用 fx- 条目：按 offset 分页返回，重复调用可取完 4000 字符之后的内容
-            val full = cached.content
-            val segment = full.drop(offset).take(FETCH_OUTPUT_MAX_CHARS)
-            val segEnd = offset + segment.length
-            buildString {
-                appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）｜第 $offset..$segEnd 段（全长 ${full.length}）")
-                append(segment)
-                if (segEnd < full.length) {
-                    appendLine("\n…（还有 ${full.length - segEnd} 字符未返回，可继续 fetch_result ref=$ref offset=$segEnd）")
-                }
-                appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
+            buildFxSegment(cached.ref, cached.tool, cached.content, offset)
+        }
+    }
+
+    /** 通用 fx- 条目分页渲染：带段头（第 offset..end 段/全长）与"还有 N 字符"续取提示，供取回与自愈路径共用 */
+    private fun buildFxSegment(ref: String, tool: String, content: String, offset: Int): String {
+        val full = content
+        val segment = full.drop(offset).take(FETCH_OUTPUT_MAX_CHARS)
+        val segEnd = offset + segment.length
+        return buildString {
+            appendLine("【取回工具结果 $ref】（$tool）｜第 $offset..$segEnd 段（全长 ${full.length}）")
+            append(segment)
+            if (segEnd < full.length) {
+                appendLine("\n…（还有 ${full.length - segEnd} 字符未返回，可继续 fetch_result ref=$ref offset=$segEnd）")
             }
+            appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
         }
     }
 
