@@ -481,9 +481,10 @@ Plan 示例（预约挂号）：
                     continue
                 }
 
-                // fetch_result：按 ref 取回全文，仅本轮注入，不落盘、不登记台账（符合"仅供本轮参考"契约）。
-                // 磁盘全文若被 cleanupGeneric（60 文件上限）挤出/写盘失败，但该 ref 仍在会话台账中，
-                // 按台账行 key 重新执行原工具自愈并返回全文，兑现"台账 ref 恒可 fetch"承诺。
+                // fetch_result：按 ref 取回全文，仅本轮注入（常规命中不落盘、不登记台账，符合"仅供本轮参考"契约）。
+                // 例外：磁盘全文被 cleanupGeneric（60 文件上限）挤出/写盘失败但该 ref 仍在会话台账中时，
+                // 按台账行 key 重新执行原工具自愈——此时落盘并重登记台账行是有意行为（恢复 ref 可取回），
+                // token 记账/淘汰随行在净结算后执行，避免取回链路永久失效。
                 if (name == "fetch_result") {
                     val ref = args["ref"]?.toString()?.trim().orEmpty()
                     val offset = (args["offset"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
@@ -729,13 +730,18 @@ Plan 示例（预约挂号）：
         }
     }
 
-    /** 通用 fx- 条目分页渲染：带段头（第 offset..end 段/全长）与"还有 N 字符"续取提示，供取回与自愈路径共用 */
-    private fun buildFxSegment(ref: String, tool: String, content: String, offset: Int): String {
+    /** 通用 fx- 条目分页渲染：带段头（第 offset..end 段/全长）与"还有 N 字符"续取提示，供取回与自愈路径共用。
+     *  offset 超长会 clamp 到内容末尾并输出纠错提示（内容可能已被重执行更新/变短），避免空段矛盾头。 */
+    internal fun buildFxSegment(ref: String, tool: String, content: String, offset: Int): String {
         val full = content
-        val segment = full.drop(offset).take(FETCH_OUTPUT_MAX_CHARS)
-        val segEnd = offset + segment.length
+        val start = offset.coerceIn(0, full.length)
+        val segment = full.drop(start).take(FETCH_OUTPUT_MAX_CHARS)
+        val segEnd = start + segment.length
         return buildString {
-            appendLine("【取回工具结果 $ref】（$tool）｜第 $offset..$segEnd 段（全长 ${full.length}）")
+            appendLine("【取回工具结果 $ref】（$tool）｜第 $start..$segEnd 段（全长 ${full.length}）")
+            if (offset > full.length) {
+                appendLine("⚠️ offset=$offset 超出当前内容全长（${full.length}）：内容可能已被更新/变短，请重新调用原工具获取最新结果。")
+            }
             append(segment)
             if (segEnd < full.length) {
                 appendLine("\n…（还有 ${full.length - segEnd} 字符未返回，可继续 fetch_result ref=$ref offset=$segEnd）")

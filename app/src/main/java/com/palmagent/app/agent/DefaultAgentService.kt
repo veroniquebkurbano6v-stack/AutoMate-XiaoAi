@@ -358,11 +358,13 @@ class DefaultAgentService @Inject constructor(
                                     appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
                                 }
                             } else {
-                                // 通用 fx- 条目：渲染实际缓存内容（不能只给空的结构化标题）
+                                // 通用 fx- 条目：渲染实际缓存内容（含截断提示，VL 执行流无 offset 续取，引导重调原工具获取完整内容）
                                 buildString {
                                     appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）")
                                     append(cached.content.take(FETCH_RESULT_MAX_CHARS))
-                                    if (cached.content.length > FETCH_RESULT_MAX_CHARS) appendLine("\n…（内容过长，已截取）")
+                                    if (cached.content.length > FETCH_RESULT_MAX_CHARS) {
+                                        appendLine("\n…（执行流仅展示前 ${FETCH_RESULT_MAX_CHARS} 字符，完整内容请重新调用原工具/重新搜索获取）")
+                                    }
                                     appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
                                 }
                             }

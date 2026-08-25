@@ -38,6 +38,22 @@ class DecisionDialogLedgerTest {
     }
 
     @Test
+    fun buildFxSegment_offset越界_clamp并给纠错提示() {
+        // #13 #2：offset 超过内容全长（如自愈重执行后内容变短）时不返回空段矛盾头
+        val out = service.buildFxSegment("fx-12345678", "amap_search", "短内容", 5000)
+        assertTrue("应给出越界纠错提示", out.contains("offset=5000 超出当前内容全长"))
+        assertTrue("段头应 clamp 到全长（第 3..3 段）", out.contains("第 3..3 段"))
+    }
+
+    @Test
+    fun buildFxSegment_正常分页_段头与续取提示() {
+        val out = service.buildFxSegment("fx-abc", "web_search", "x".repeat(9000), 4000)
+        assertTrue(out.contains("第 4000..8000 段"))
+        assertTrue(out.contains("还有 1000 字符未返回"))
+        assertTrue(out.contains("offset=8000"))
+    }
+
+    @Test
     fun buildLedgerContent_空台账返回暂无() {
         val state = DecisionDialogService.SessionDecisionState()
         assertTrue(service.buildLedgerContent(state).contains("暂无"))
