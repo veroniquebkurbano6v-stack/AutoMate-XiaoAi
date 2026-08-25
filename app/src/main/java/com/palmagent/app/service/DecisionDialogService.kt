@@ -111,7 +111,7 @@ class DecisionDialogService {
 ### 任务工作区与事实台账
 两个跨请求记忆块：system 的「任务工作区」「事实台账」。
 1. 每轮工具调用后调 workspace_update，把关键结论精简写入工作区（覆盖式）：已确认 App+包名、kb_read 的 SOP 要点（UI 变体/异常处理）、list_apps/amap 中要记住的目标实体、待办。
-2. 工具结果自动写入「事实台账」（同参数去重、只执行一次，只展示预览）；更早轮次结果被框架掩码。生成 Plan 优先读工作区与台账，勿重调同参数工具、勿依赖已掩码的历史结果。台账预览不足以决策时，可用 fetch_result 按 ref（见台账每行 [ref] 前缀）取回完整结果。
+2. 工具结果自动写入「事实台账」（同参数去重、只执行一次，只展示预览）；更早轮次结果被框架掩码。生成 Plan 优先读工作区与台账，勿重调同参数工具、勿依赖已掩码的历史结果。台账预览不足以决策时，可用 fetch_result 按 ref（见台账每行 [ref] 前缀）取回完整结果，超长内容用 offset 分页取回。
 3. 工作区精简（≤800 token）：只写结论，不复制工具原始输出。
 
 ### 工具调用与决策工作流（信息收集管道）
@@ -508,9 +508,11 @@ Plan 示例（预约挂号）：
                     ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
                 }
                 val row = LedgerRow(key = entry.key, ref = entry.ref, preview = entry.preview)
-                // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算
+                // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算。
+                // token 统计计入 key+preview（行注入成本含 [ref]+key 头部，与 buildLedgerContent 输出一致）
                 val old = state.ledger.put(key, row)
-                state.ledgerTokens += estimateTokens(row.preview) - (old?.let { estimateTokens(it.preview) } ?: 0)
+                state.ledgerTokens += estimateTokens(row.key + row.preview) -
+                    (old?.let { estimateTokens(it.key + it.preview) } ?: 0)
                 evictLedgerIfNeeded(state)
                 LiveLogBuffer.append("📦 [决策] 工具结果: $name → ${row.preview.take(80)}")
                 // 工具消息注入完整结果（entry.content 是全文，limit 到展示上限），
@@ -601,11 +603,14 @@ Plan 示例（预约挂号）：
     internal fun evictLedgerIfNeeded(state: SessionDecisionState) {
         if (state.ledgerTokens <= LEDGER_MAX_BUDGET_TOKENS) return
         // 最旧在前，保护最近 N 条（按插入顺序 keys 的 List 快照），
-        // 逐个淘汰直到回到预算内
+        // 逐个淘汰直到回到预算内；token 口径与注入成本一致（key+preview）
         val evictable = state.ledger.keys.toList().dropLast(LEDGER_PROTECTED_RECENT)
         for (key in evictable) {
             if (state.ledgerTokens <= LEDGER_MAX_BUDGET_TOKENS) break
-            state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
+            state.ledger.remove(key)?.let {
+                state.ledgerTokens -= estimateTokens(it.key + it.preview)
+                LiveLogBuffer.append("🗑️ [台账淘汰] $key（token 预算内保护最近 ${LEDGER_PROTECTED_RECENT} 条）")
+            }
         }
     }
 
@@ -638,6 +643,7 @@ Plan 示例（预约挂号）：
      */
     private suspend fun executeFetchResultTool(args: Map<String, Any>): String {
         val ref = args["ref"]?.toString()?.trim() ?: ""
+        val offset = (args["offset"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
         if (ref.isEmpty()) return "错误：ref 参数不能为空"
         val cached = ToolResultCache.get(ref)
         if (cached == null) {
@@ -656,10 +662,16 @@ Plan 示例（预约挂号）：
                 appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
             }
         } else {
+            // 通用 fx- 条目：按 offset 分页返回，重复调用可取完 4000 字符之后的内容
+            val full = cached.content
+            val segment = full.drop(offset).take(FETCH_OUTPUT_MAX_CHARS)
+            val segEnd = offset + segment.length
             buildString {
-                appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）")
-                append(cached.content.take(FETCH_OUTPUT_MAX_CHARS))
-                if (cached.content.length > FETCH_OUTPUT_MAX_CHARS) appendLine("\n…（内容过长，已截取）")
+                appendLine("【取回工具结果 ${cached.ref}】（${cached.tool}）｜第 $offset..$segEnd 段（全长 ${full.length}）")
+                append(segment)
+                if (segEnd < full.length) {
+                    appendLine("\n…（还有 ${full.length - segEnd} 字符未返回，可继续 fetch_result ref=$ref offset=$segEnd）")
+                }
                 appendLine("（本内容仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼）")
             }
         }
@@ -1063,13 +1075,18 @@ Plan 示例（预约挂号）：
             "function" to mapOf(
                 "name" to "fetch_result",
                 "description" to "按 ref 取回已缓存工具结果的完整内容（list_apps/kb_read/amap_*/web_search 等）。" +
-                    "事实台账只展示预览，需要完整结果时用本工具取回。单次取回有上限（约4000字符），需要更多可多次调用。",
+                    "事实台账只展示预览，需要完整结果时用本工具分页取回：每次返回约4000字符，超过时用 offset 继续取下一段。",
                 "parameters" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
                         "ref" to mapOf(
                             "type" to "string",
-                            "description" to "缓存条目 ref（如 ws-3-2 / fx-12345678），见台账中每行 [ref] 前缀"
+                            "description" to "缓存条目 ref（如 ws-3-2 / fx-12345678...），见台账中每行 [ref] 前缀"
+                        ),
+                        "offset" to mapOf(
+                            "type" to "integer",
+                            "description" to "分段取回偏移（字符），默认0；上次返回标记「还有N字符未返回」时用 offset=上次 end 继续",
+                            "default" to 0
                         )
                     ),
                     "required" to listOf("ref")

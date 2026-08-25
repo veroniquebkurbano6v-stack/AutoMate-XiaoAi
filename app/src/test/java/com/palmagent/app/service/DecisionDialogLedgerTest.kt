@@ -53,22 +53,22 @@ class DecisionDialogLedgerTest {
     @Test
     fun evictLedgerIfNeeded_预算超限_FIFO淘汰_保护最近N条() {
         val state = DecisionDialogService.SessionDecisionState()
-        val preview = "y".repeat(2000) // estimateTokens = (4000+1)/3 = 1333
+        val preview = "y".repeat(2000)
         repeat(10) { i ->
             state.ledger["k$i"] = DecisionDialogService.LedgerRow("k$i", "fx-$i", preview)
         }
-        state.ledgerTokens = 10 * service.estimateTokens(preview) // 13330 > 8000 预算
+        // token 口径与注入成本一致（key+preview）
+        val tokenPerRow = service.estimateTokens("k0" + preview)
+        state.ledgerTokens = 10 * tokenPerRow // > 8000 预算
 
         service.evictLedgerIfNeeded(state)
 
-        // k0..k3 被淘汰，k4、k5..k9 保留（k4 是第 6 旧，保护圈外但淘汰到预算即停）
-        assertEquals(6, state.ledger.size)
+        // 最旧被淘汰、最近 5 条（k5..k9）保护保留
         assertFalse(state.ledger.containsKey("k0"))
-        assertFalse(state.ledger.containsKey("k3"))
-        assertTrue(state.ledger.containsKey("k4"))
         assertTrue(state.ledger.containsKey("k9"))
-        // 每次淘汰删 1333，4 次后回到预算内
-        assertEquals(13330 - 4 * service.estimateTokens(preview), state.ledgerTokens)
+        assertTrue("淘汰后至少保留保护圈 5 条", state.ledger.size >= 5)
+        // token 与剩余行一致（每行 key+preview），且回到预算内
+        assertEquals(state.ledger.size * tokenPerRow, state.ledgerTokens)
         assertTrue(state.ledgerTokens <= 8000)
     }
 
