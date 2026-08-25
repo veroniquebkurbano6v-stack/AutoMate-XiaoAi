@@ -487,7 +487,7 @@ Plan 示例（预约挂号）：
                 // token 记账/淘汰随行在净结算后执行，避免取回链路永久失效。
                 if (name == "fetch_result") {
                     val ref = args["ref"]?.toString()?.trim().orEmpty()
-                    val offset = (args["offset"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
+                    val offset = parseOffset(args)
                     var fetched: String? = null
                     if (ref.isNotEmpty()) {
                         val disk = ToolResultCache.get(ref)
@@ -562,8 +562,14 @@ Plan 示例（预约挂号）：
                 evictLedgerIfNeeded(state)
                 LiveLogBuffer.append("📦 [决策] 工具结果: $name → ${row.preview.take(80)}")
                 // 工具消息注入完整结果（entry.content 是全文，limit 到展示上限），
-                // 避免长结果任务里重调同工具只拿到截断预览、又提示 fetch 却无从下手。
-                val toolResultMsg = entry.content.take(FETCH_OUTPUT_MAX_CHARS)
+                // 避免长结果任务里重调同工具只拿到截断预览、又提示 fetch 却无从下手；
+                // 截断时明确告知可 fetch_result 续取，防止模型把截断结果当作完整结果使用。
+                val toolResultMsg = buildString {
+                    append(entry.content.take(FETCH_OUTPUT_MAX_CHARS))
+                    if (entry.content.length > FETCH_OUTPUT_MAX_CHARS) {
+                        append("\n…（结果仅展示前 ${FETCH_OUTPUT_MAX_CHARS} 字符，可 fetch_result ref=${entry.ref} offset=$FETCH_OUTPUT_MAX_CHARS 继续取回）")
+                    }
+                }
                 messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to toolResultMsg))
             }
             // 继续循环：模型基于工具结果继续推理
@@ -700,13 +706,19 @@ Plan 示例（预约挂号）：
         return if (tool.isNotBlank() && args != null) tool to args else null
     }
 
+    /** 宽松解析 fetch_result 的 offset：兼容数字与字符串数字（部分模型输出 `"offset":"4000"`，避免分页静默回退第一段） */
+    private fun parseOffset(args: Map<String, Any>): Int {
+        val raw = args["offset"]
+        return ((raw as? Number)?.toInt() ?: raw?.toString()?.toIntOrNull() ?: 0).coerceAtLeast(0)
+    }
+
     /**
      * 执行 fetch_result 工具调用：按 ref 取回磁盘缓存的完整结果。
      * web_search 条目结构化格式化；其余工具返回全文（裁剪到 FETCH_OUTPUT_MAX_CHARS）。
      */
     private suspend fun executeFetchResultTool(args: Map<String, Any>): String {
         val ref = args["ref"]?.toString()?.trim() ?: ""
-        val offset = (args["offset"] as? Number)?.toInt()?.coerceAtLeast(0) ?: 0
+        val offset = parseOffset(args)
         if (ref.isEmpty()) return "错误：ref 参数不能为空"
         val cached = ToolResultCache.get(ref)
         if (cached == null) {

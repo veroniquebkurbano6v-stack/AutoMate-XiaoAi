@@ -18,6 +18,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertFalse
 import org.junit.Before
@@ -334,6 +335,90 @@ class DecisionDialogServiceTest {
                 ) found = true
             }
             assertTrue("应取回第 4000..8000 段内容", found)
+        } finally {
+            ToolResultCache.resetForTest()
+            dir.deleteRecursively()
+        }
+    }
+
+    // ===== Case 10: 台账失效/自愈重执行路径（第 14 轮补充集成测试） =====
+
+    private val readyPlanJson =
+        """{"status":"ready","plan":{"requirement":"r","goal":"g","steps":[{"order":1,"goal":"g","success_criteria":"c","supervised":false}]}}"""
+
+    @Test
+    fun `fetch_result 磁盘失效 自愈重执行原工具并恢复`() = runBlocking {
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            // chat1：list_apps 执行并登记（内存台账行 + 磁盘 fx 文件）
+            testInterceptor.responses.add(
+                mockOpenAiToolCallResponse("list_apps", """{"keywords":["微信"]}""", "call_1")
+            )
+            testInterceptor.responses.add(mockOpenAiResponse(readyPlanJson))
+            val r1 = dialogService.chat("查一下微信", emptyList(), "sess")
+            assertTrue("chat1 应返回 Ready: $r1", r1 is DecisionDialogService.DialogResult.Ready)
+
+            // 删除磁盘 fx 文件（模拟被 cleanupGeneric 挤出），内存台账行仍在
+            val fx = dir.listFiles { it.name.startsWith("fx_") }
+            assertNotNull("chat1 后应已写入 fx 文件", fx?.firstOrNull())
+            val ref = "fx-" + fx!![0].name.removePrefix("fx_").removeSuffix(".json")
+            fx[0].delete()
+            assertNull("删文件后取回应 miss", ToolResultCache.get(ref))
+
+            // chat2：fetch_result(ref) → 磁盘缺失 → 自愈重执行原工具并恢复
+            testInterceptor.responses.add(
+                mockOpenAiToolCallResponse("fetch_result", """{"ref":"$ref"}""", "call_2")
+            )
+            testInterceptor.responses.add(mockOpenAiResponse(readyPlanJson))
+            val r2 = dialogService.chat("取回该结果", emptyList(), "sess")
+            assertTrue("chat2 应返回 Ready: $r2", r2 is DecisionDialogService.DialogResult.Ready)
+
+            // 自愈后磁盘恢复、ref 可取回
+            assertNotNull("自愈后磁盘应恢复", ToolResultCache.get(ref))
+            // 共 4 次 LLM 请求（chat1×2 + chat2×2）；第 4 次请求的工具消息应含取回结果
+            assertEquals(4, testInterceptor.capturedBodies.size)
+            val fourth = gson.fromJson(testInterceptor.capturedBodies[3], JsonObject::class.java)
+            var found = false
+            fourth.getAsJsonArray("messages").forEach { el ->
+                val obj = el.asJsonObject
+                if (obj.get("role").asString == "tool" && obj.get("content").asString.contains("【取回工具结果")) found = true
+            }
+            assertTrue("第4次请求应含自愈取回结果", found)
+        } finally {
+            ToolResultCache.resetForTest()
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `台账失效 内存行在磁盘缺失 重执行恢复`() = runBlocking {
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            // chat1：list_apps 执行并登记
+            testInterceptor.responses.add(
+                mockOpenAiToolCallResponse("list_apps", """{"keywords":["微信"]}""", "call_1")
+            )
+            testInterceptor.responses.add(mockOpenAiResponse(readyPlanJson))
+            val r1 = dialogService.chat("查一下微信", emptyList(), "sess2")
+            assertTrue("chat1 应返回 Ready: $r1", r1 is DecisionDialogService.DialogResult.Ready)
+
+            // 删除磁盘 fx 文件（台账行仍在）
+            val fx = dir.listFiles { it.name.startsWith("fx_") }
+            assertNotNull("chat1 后应已写入 fx 文件", fx?.firstOrNull())
+            fx!![0].delete()
+
+            // chat2：同参数再调 list_apps → 该参数内存行命中但磁盘缺失 → 删行重执行并恢复
+            testInterceptor.responses.add(
+                mockOpenAiToolCallResponse("list_apps", """{"keywords":["微信"]}""", "call_2")
+            )
+            testInterceptor.responses.add(mockOpenAiResponse(readyPlanJson))
+            val r2 = dialogService.chat("再查微信", emptyList(), "sess2")
+            assertTrue("chat2 应返回 Ready: $r2", r2 is DecisionDialogService.DialogResult.Ready)
+
+            // 台账失效重执行后磁盘文件恢复
+            assertNotNull("台账失效重执行后磁盘应恢复", dir.listFiles { it.name.startsWith("fx_") }?.firstOrNull())
         } finally {
             ToolResultCache.resetForTest()
             dir.deleteRecursively()
