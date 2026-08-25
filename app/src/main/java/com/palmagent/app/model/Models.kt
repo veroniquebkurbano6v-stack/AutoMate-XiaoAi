@@ -78,6 +78,10 @@ data class AgentAction(
     // 批量重复执行字段：repeat=连续执行同一动作的次数（默认1=单次），intervalMs=每次间隔毫秒（默认800）
     val repeat: Int = 1,
     val intervalMs: Long? = null,
+    // 滑动方向（仅 SWIPE 类型使用）：up/down/left/right/custom
+    val direction: String? = null,
+    // 方向模式滑动距离（像素，SWIPE 选填）
+    val distance: Int? = null,
     // 下一轮自动屏幕描述想额外确认的问题（GUI 模型按需回答，如"当前界面是美团App吗？"；空则仅结构描述）
     val visualQuestion: String? = null,
     // 规格自动选取字段（仅 SELECT_SPEC 类型使用）：specs=需选取的规格列表，confirmText=确认按钮文本（默认"选好了"）

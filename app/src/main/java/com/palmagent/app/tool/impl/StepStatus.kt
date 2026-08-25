@@ -61,13 +61,13 @@ enum class FailureStrategy {
          *
          * 策略矩阵：
          * - open_app / wait → FAIL_FAST：失败意味着后续操作失去前提
-         * - swipe / scroll_* → CONTINUE_ON_FAILURE：滑动失败不阻塞后续
+         * - swipe → CONTINUE_ON_FAILURE：滑动失败不阻塞后续
          * - locate → RETRY_THEN_REPLAN：定位失败需 LLM 重新规划
          * - tap / long_press / type → RETRY_THEN_SKIP：偶发失败可跳过
          */
         fun defaultFor(toolName: String): FailureStrategy = when (toolName) {
             "open_app", "wait" -> FAIL_FAST
-            "swipe", "scroll_down", "scroll_up", "scroll_left", "scroll_right" -> CONTINUE_ON_FAILURE
+            "swipe" -> CONTINUE_ON_FAILURE
             "locate" -> RETRY_THEN_REPLAN
             "tap", "long_press", "type", "auto_input" -> RETRY_THEN_SKIP
             "back", "home" -> CONTINUE_ON_FAILURE

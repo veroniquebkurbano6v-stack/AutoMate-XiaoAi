@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.palmagent.app.LiveLogBuffer
 import com.palmagent.app.model.AgentAction
+import com.palmagent.app.model.Coordinate
 import com.palmagent.app.model.QuestionAnswer
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.service.GUIAccessibilityService
@@ -50,11 +51,9 @@ class ActionExecutor @Inject constructor(
         private const val DEFAULT_REPEAT_INTERVAL_MS = 800L
         private const val MIN_REPEAT_INTERVAL_MS = 500L
         private const val MAX_REPEAT_INTERVAL_MS = 2000L
-        // 支持批量重复的动作类型（点击/长按/滚动），其余类型忽略 repeat 强制单次
+        // 支持批量重复的动作类型（点击/长按/滑动），其余类型忽略 repeat 强制单次
         private val repeatableTypes = setOf(
-            "tap", "long_press",
-            "scroll_down", "scroll_up",
-            "scroll_left", "scroll_right"
+            "tap", "long_press", "swipe"
         )
     }
 
@@ -231,8 +230,8 @@ class ActionExecutor @Inject constructor(
             val delayMs = when (actionType) {
                 "home" -> 500L
                 "back" -> 500L
-                "scroll_up", "scroll_down",
-                "scroll_left", "scroll_right" -> 600L
+                // swipe 常用于滚动，滑动后需稍长等待界面稳定/惯性动画完成
+                "swipe" -> 600L
                 else -> POST_ACTION_DELAY_MS
             }
             delay(delayMs)
@@ -388,49 +387,58 @@ class ActionExecutor @Inject constructor(
         return "Click the $target"
     }
 
-    private fun isSwipeLike(type: String): Boolean =
-        type in listOf("swipe", "scroll_up", "scroll_down", "scroll_left", "scroll_right")
+    private fun isSwipeLike(type: String): Boolean = type == "swipe"
 
     private fun buildSwipeParams(action: AgentAction): Map<String, Any> {
-        return when (action.type) {
-            "scroll_down", "scroll_up",
-            "scroll_left", "scroll_right" -> {
-                mapOf("duration_ms" to 300)
-            }
-            else -> {
-                val screenSize = getScreenSize()
-                val screenW = screenSize.width
-                val screenH = screenSize.height
-                val startX = action.coordinate?.x ?: screenW / 2
-                val startY = action.coordinate?.y ?: (screenH * 0.6).toInt()
+        val screenSize = getScreenSize()
+        val screenW = screenSize.width
+        val screenH = screenSize.height
 
-                // 优先使用 AI 返回的 coordinate_end
-                if (action.coordinateEnd != null) {
-                    mapOf(
-                        "start_x" to startX, "start_y" to startY,
-                        "end_x" to action.coordinateEnd.x, "end_y" to action.coordinateEnd.y,
-                        "duration_ms" to 300
-                    )
-                } else {
-                    // 回退：根据方向文本和屏幕尺寸推算终点
-                    val swipeDistance = (screenH * 0.4).toInt()
-                    val direction = action.text?.lowercase() ?: ""
-                    val (endX, endY) = when {
-                        direction.contains("down") || direction.contains("下") -> Pair(startX, startY + swipeDistance)
-                        direction.contains("up") || direction.contains("上") -> Pair(startX, startY - swipeDistance)
-                        direction.contains("left") || direction.contains("左") -> Pair(startX - swipeDistance, startY)
-                        direction.contains("right") || direction.contains("右") -> Pair(startX + swipeDistance, startY)
-                        else -> Pair(startX, startY - swipeDistance)
-                    }
+        // 起点默认：有 coordinate 用之，否则屏幕中部（滚动惯例）
+        val startX = action.coordinate?.x ?: (screenW / 2)
+        val startY = action.coordinate?.y ?: (screenH / 2)
 
-                    mapOf(
-                        "start_x" to startX, "start_y" to startY,
-                        "end_x" to endX, "end_y" to endY,
-                        "duration_ms" to 300
-                    )
-                }
-            }
+        val params = mutableMapOf<String, Any>()
+        action.durationMs?.let { params["duration_ms"] = it }
+
+        // 显式 direction（模型/ActionParser 提供）→ 优先方向滚动模式（direction 传给 SwipeTool 计算起终点）
+        val direction = action.direction?.lowercase()
+            ?.takeIf { it in setOf("up", "down", "left", "right", "custom") }
+        if (direction != null && direction != "custom") {
+            params["direction"] = direction
+            params["start_x"] = startX
+            params["start_y"] = startY
+            action.distance?.let { params["distance"] = it }
+            return params
         }
+
+        // direction=custom 或旧坐标模式：优先使用 AI 返回的 coordinate_end / coordinate 精确滑动
+        if (direction == "custom" || action.coordinateEnd != null) {
+            params["direction"] = "custom"
+            params["start_x"] = startX
+            params["start_y"] = startY
+            val end = action.coordinateEnd ?: Coordinate(startX, startY - (screenH * 0.4).toInt())
+            params["end_x"] = end.x
+            params["end_y"] = end.y
+            return params
+        }
+
+        // 历史兼容回退：仅有 coordinate 无终点时，根据方向文本推算终点
+        val swipeDistance = (screenH * 0.4).toInt()
+        val directionText = action.text?.lowercase() ?: ""
+        val (endX, endY) = when {
+            directionText.contains("down") || directionText.contains("下") -> Pair(startX, startY + swipeDistance)
+            directionText.contains("up") || directionText.contains("上") -> Pair(startX, startY - swipeDistance)
+            directionText.contains("left") || directionText.contains("左") -> Pair(startX - swipeDistance, startY)
+            directionText.contains("right") || directionText.contains("右") -> Pair(startX + swipeDistance, startY)
+            else -> Pair(startX, startY - swipeDistance)
+        }
+        params["direction"] = "custom"
+        params["start_x"] = startX
+        params["start_y"] = startY
+        params["end_x"] = endX
+        params["end_y"] = endY
+        return params
     }
 
     private fun buildActionParams(action: AgentAction): Map<String, Any?> {

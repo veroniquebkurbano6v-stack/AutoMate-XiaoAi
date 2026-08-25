@@ -2,6 +2,7 @@ package com.palmagent.app.agent
 
 import com.palmagent.app.AgentApplication
 import com.palmagent.app.model.AgentAction
+import com.palmagent.app.model.Coordinate
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -210,5 +211,78 @@ class ActionExecutorParamMappingTest {
         val params = buildParamsMethod.invoke(executor, action) as Map<String, Any?>
         assertEquals("搜索框", params["instruction"])
         assertEquals("测试文本", params["text"])
+    }
+
+    // ==================== SWIPE 参数映射（方向滚动合并，5 个）====================
+
+    /** 反射调用 private buildSwipeParams(action: AgentAction) */
+    private fun buildSwipeParams(action: AgentAction): Map<String, Any> {
+        val method = ActionExecutor::class.java.getDeclaredMethod("buildSwipeParams", AgentAction::class.java)
+        method.isAccessible = true
+        return method.invoke(executor, action) as Map<String, Any>
+    }
+
+    @Test
+    fun `SWIPE direction_down_forwards_direction_and_start`() {
+        val action = AgentAction(
+            type = "swipe",
+            direction = "down",
+            description = "向下滚动",
+            confidence = 0.9f
+        )
+        val params = buildSwipeParams(action)
+        assertEquals("down", params["direction"])
+        assertEquals(0, params["start_x"]) // mock 屏幕 0x0 + 无 coordinate → 默认中部
+        assertEquals(0, params["start_y"])
+    }
+
+    @Test
+    fun `SWIPE direction_mode_forwards_distance`() {
+        val action = AgentAction(
+            type = "swipe",
+            direction = "up",
+            distance = 400,
+            description = "向上滚动",
+            confidence = 0.9f
+        )
+        val params = buildSwipeParams(action)
+        assertEquals("up", params["direction"])
+        assertEquals(400, params["distance"])
+    }
+
+    @Test
+    fun `SWIPE custom_coordinate_end_forwards_end_points`() {
+        val action = AgentAction(
+            type = "swipe",
+            direction = "custom",
+            coordinate = Coordinate(100, 200),
+            coordinateEnd = Coordinate(540, 800),
+            description = "精确滑动",
+            confidence = 0.9f
+        )
+        val params = buildSwipeParams(action)
+        assertEquals("custom", params["direction"])
+        assertEquals(100, params["start_x"])
+        assertEquals(200, params["start_y"])
+        assertEquals(540, params["end_x"])
+        assertEquals(800, params["end_y"])
+    }
+
+    /** 旧坐标格式（无 direction，仅 coordinate_end）→ 仍走 custom 精确滑动 */
+    @Test
+    fun `SWIPE legacy_coordinate_end_still_custom`() {
+        val action = AgentAction(
+            type = "swipe",
+            coordinate = Coordinate(540, 1200),
+            coordinateEnd = Coordinate(540, 400),
+            description = "向上滑动",
+            confidence = 0.9f
+        )
+        val params = buildSwipeParams(action)
+        assertEquals("custom", params["direction"])
+        assertEquals(540, params["start_x"])
+        assertEquals(1200, params["start_y"])
+        assertEquals(540, params["end_x"])
+        assertEquals(400, params["end_y"])
     }
 }

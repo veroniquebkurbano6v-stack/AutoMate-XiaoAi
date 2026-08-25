@@ -34,7 +34,7 @@ class PromptBuilderTest {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
             "OPEN_APP 应在操作工具列表中说明 text 参数为应用中文名或包名: \n$prompt",
-            prompt.contains("OPEN_APP") &&
+            prompt.contains("open_app") &&
                 prompt.contains("text(必填,应用中文名或包名)")
         )
     }
@@ -44,7 +44,7 @@ class PromptBuilderTest {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
             "LOCATE 应在操作工具列表中: \n$prompt",
-            prompt.contains("LOCATE") &&
+            prompt.contains("locate") &&
                 prompt.contains("视觉定位并自动点击")
         )
     }
@@ -54,7 +54,7 @@ class PromptBuilderTest {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
             "REQUEST_USER_ACTION 应说明 text 为标题: \n$prompt",
-            prompt.contains("REQUEST_USER_ACTION") &&
+            prompt.contains("request_user_action") &&
                 prompt.contains("text(必填,标题)")
         )
     }
@@ -92,7 +92,7 @@ class PromptBuilderTest {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
             "操作工具列表应包含 WEB_SEARCH 工具说明: \n$prompt",
-            prompt.contains("WEB_SEARCH: text(必填,搜索关键词)")
+            prompt.contains("web_search: text(必填,搜索关键词)")
         )
     }
 

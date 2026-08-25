@@ -38,9 +38,15 @@ class PromptBuilderVLTest {
         val prompt = PromptBuilder.getVisionSystemPrompt()
         assertTrue(
             "VL 系统提示词应包含 LOCATE 失败处理章节:\n$prompt",
-            prompt.contains("LOCATE 失败处理") &&
-                prompt.contains("服务不可用") &&
-                prompt.contains("连续2次失败必须切换策略")
+            prompt.contains("locate 失败处理")
+        )
+        assertTrue(
+            "VL 系统提示词应包含'服务不可用'指引:\n$prompt",
+            prompt.contains("服务不可用")
+        )
+        assertTrue(
+            "VL 系统提示词应包含'连续2次失败必须切换策略':\n$prompt",
+            prompt.contains("连续2次失败必须切换策略")
         )
     }
 
@@ -77,7 +83,7 @@ class PromptBuilderVLTest {
         val prompt = PromptBuilder.getVisionSystemPrompt()
         assertTrue(
             "VL 系统提示词应包含 FORGET 动作说明:\n$prompt",
-            prompt.contains("FORGET") &&
+            prompt.contains("forget") &&
                 prompt.contains("工作记忆")
         )
     }
@@ -97,7 +103,7 @@ class PromptBuilderVLTest {
         val prompt = PromptBuilder.getVisionSystemPrompt()
         assertTrue(
             "VL 系统提示词应包含 LOCATE 工具:\n$prompt",
-            prompt.contains("LOCATE")
+            prompt.contains("locate")
         )
     }
 
@@ -106,7 +112,7 @@ class PromptBuilderVLTest {
         val prompt = PromptBuilder.getVisionSystemPrompt()
         assertTrue(
             "VL 系统提示词应包含 WEB_SEARCH 工具:\n$prompt",
-            prompt.contains("WEB_SEARCH")
+            prompt.contains("web_search")
         )
     }
 }

@@ -51,6 +51,10 @@ object ActionParser {
         // 批量重复执行字段：repeat=连续执行同一动作的次数，interval_ms=每次间隔毫秒
         val repeat: Int? = null,
         val interval_ms: Long? = null,
+        // 滑动方向（SWIPE 使用）：up/down/left/right/custom
+        val direction: String? = null,
+        // 方向模式滑动距离（像素，SWIPE 选填）
+        val distance: JsonElement? = null,
         // 下一轮屏幕描述想额外确认的问题（透传给 GUI 模型按需回答）
         val visual_question: String? = null,
         // 批量提问结构化字段（ASK_USER 必填，对齐 GitHub Copilot ask_questions）
@@ -153,12 +157,14 @@ object ActionParser {
                 val actionJson = gson.fromJson(jsonStr, ActionJson::class.java)
 
                 val actionType = actionJson.type?.lowercase() ?: "tap"
+                // 动作名归一化：模型/历史数据可能输出 click，动作集已统一为 tap（与 GuiOwlService.normalizeAction 一致）
+                val normalizedType = if (actionType == "click") "tap" else actionType
 
                 // 复杂模式兜底，ASK_USER 降级为 WAIT（复杂模式下执行模型不准追问）
-                val finalActionType = if (actionType == "ask_user" && KVUtils.isComplexModeEnabled()) {
+                val finalActionType = if (normalizedType == "ask_user" && KVUtils.isComplexModeEnabled()) {
                     android.util.Log.w("ActionParser", "复杂模式不支持 ASK_USER，降级为 WAIT")
                     "wait"
-                } else actionType
+                } else normalizedType
 
                 var targetElement: UIElement? = null
                 if (actionJson.target != null && screenInfo != null) {
@@ -225,6 +231,9 @@ object ActionParser {
                     questions = parsedQuestions,
                     repeat = actionJson.repeat?.coerceIn(1, MAX_REPEAT) ?: 1,
                     intervalMs = actionJson.interval_ms?.coerceIn(MIN_REPEAT_INTERVAL_MS, MAX_REPEAT_INTERVAL_MS),
+                    direction = actionJson.direction?.lowercase()
+                        ?.takeIf { it in setOf("up", "down", "left", "right", "custom") },
+                    distance = parseDistance(actionJson.distance),
                     visualQuestion = actionJson.visual_question?.takeIf { it.isNotBlank() },
                     specs = parseSpecsField(actionJson.specs),
                     confirmText = actionJson.confirm_text?.takeIf { it.isNotBlank() }
@@ -234,6 +243,19 @@ object ActionParser {
             }
         } catch (e: Exception) {
             extractActionFromText(response, screenInfo)
+        }
+    }
+
+    /**
+     * 解析 SWIPE 的 distance 字段：兼容 JSON 数字与数字字符串，非法/非正数返回 null。
+     * 模型可能输出 300 / "300" / 300.0。
+     */
+    private fun parseDistance(raw: JsonElement?): Int? {
+        if (raw == null || !raw.isJsonPrimitive) return null
+        return try {
+            raw.asJsonPrimitive.asFloat.toInt().takeIf { it > 0 }
+        } catch (_: Exception) {
+            null
         }
     }
 
