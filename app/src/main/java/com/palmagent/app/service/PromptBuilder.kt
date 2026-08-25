@@ -77,11 +77,11 @@ object PromptBuilder {
 - coordinate/coordinate_end(坐标): 一律用数组 [x, y]（先x后y），如 tap 示例 {"type":"tap","coordinate":[976,2376],"description":"点击去结算按钮"}
 - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
 - visual_question(必填): 本轮动作后想从下轮屏幕描述确认的问题（如"当前界面是美团App吗？"）；确实无需确认时写""
-- repeat/interval_ms(可选): 重复点击 N 次（1-10，间隔500-2000ms，仅tap/CLICK/long_press/SCROLL_*）
+- repeat/interval_ms(可选): 重复点击 N 次（1-10，间隔500-2000ms，仅tap/long_press/scroll_*）
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
-- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"或"工具提示：select_spec"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"；select_spec 自动选规格并确认），不要拆成多次 locate/CLICK；工具提示中的输入文本优先使用，界面特征仅作参考。
+- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"或"工具提示：select_spec"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"；select_spec 自动选规格并确认），不要拆成多次 locate/tap；工具提示中的输入文本优先使用，界面特征仅作参考。
 - 收尾：finish 前把 remaining_steps 全部并入 completed_steps 并清空、status="completed"。
 
 ## wait 规范
@@ -151,11 +151,11 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 - coordinate/coordinate_end(坐标): 一律用数组 [x, y]（先x后y），如 tap 示例 {"type":"tap","coordinate":[976,2376],"description":"点击去结算按钮"}
 - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
 - visual_question(必填): 本轮动作后想从下轮屏幕描述确认的问题（如"当前界面是美团App吗？"）；确实无需确认时写""
-- repeat/interval_ms(可选): 重复点击 N 次（1-10，间隔500-2000ms，仅tap/CLICK/long_press/SCROLL_*）
+- repeat/interval_ms(可选): 重复点击 N 次（1-10，间隔500-2000ms，仅tap/long_press/scroll_*）
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
-- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"或"工具提示：select_spec"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"；select_spec 自动选规格并确认），不要拆成多次 locate/CLICK；工具提示中的输入文本优先使用，界面特征仅作参考。
+- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"或"工具提示：select_spec"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"；select_spec 自动选规格并确认），不要拆成多次 locate/tap；工具提示中的输入文本优先使用，界面特征仅作参考。
 - 收尾：finish 前把 remaining_steps 全部并入 completed_steps 并清空、status="completed"。
 
 ## wait 规范

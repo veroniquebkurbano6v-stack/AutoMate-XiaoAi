@@ -503,7 +503,7 @@ class DefaultAgentService @Inject constructor(
                     transientSearchSection = null
                 }
 
-                val actionSig = actionTrackingUseCase.actionSignature(finalAction!!.type.name, buildActionParams(finalAction), screenInfo?.currentPackage)
+                val actionSig = actionTrackingUseCase.actionSignature(finalAction!!.type, buildActionParams(finalAction), screenInfo?.currentPackage)
                 actionTrackingUseCase.track(actionSig)
 
                 

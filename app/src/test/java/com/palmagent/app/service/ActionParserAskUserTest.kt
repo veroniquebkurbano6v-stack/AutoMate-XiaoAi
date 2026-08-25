@@ -68,7 +68,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         assertEquals("追问联系人", action.description)
         assertNotNull(action.questions)
         assertEquals(1, action.questions!!.size)
@@ -102,7 +102,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         val q = action.questions!![0]
         assertEquals(3, q.options.size)
         assertTrue(q.options[0].recommended)
@@ -122,7 +122,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         assertTrue(action.questions!![0].multiSelect)
     }
 
@@ -138,7 +138,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         assertFalse(action.questions!![0].allowFreeInput)
     }
 
@@ -155,7 +155,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         val q = action.questions!![0]
         assertEquals(longQuestion.take(12), q.header)
     }
@@ -173,7 +173,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         val q = action.questions!![0]
         assertEquals("不可编辑但排版稳定", q.options[0].description)
         assertEquals("可编辑但可能错版", q.options[1].description)
@@ -191,7 +191,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals("缺少 questions 必须降级为 WAIT", WAIT, action.type)
+        assertEquals("缺少 questions 必须降级为 WAIT", "wait", action.type)
         assertNull(action.questions)
     }
 
@@ -207,7 +207,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals("旧格式必须降级为 WAIT", WAIT, action.type)
+        assertEquals("旧格式必须降级为 WAIT", "wait", action.type)
         assertNull(action.questions)
     }
 
@@ -225,7 +225,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals("全部问题被过滤后必须降级为 WAIT", WAIT, action.type)
+        assertEquals("全部问题被过滤后必须降级为 WAIT", "wait", action.type)
         assertNull(action.questions)
     }
 
@@ -243,7 +243,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         assertEquals(1, action.questions!!.size)
         assertEquals("合法问题", action.questions!![0].question)
     }
@@ -257,7 +257,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(WAIT, action.type)
+        assertEquals("wait", action.type)
         assertNull(action.questions)
     }
 
@@ -275,7 +275,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ASK_USER, action.type)
+        assertEquals("ask_user", action.type)
         assertEquals(2, action.questions!!.size)
         assertEquals("问题一", action.questions!![0].question)
         assertEquals("h1", action.questions!![0].header)
@@ -304,8 +304,8 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals("复杂模式必须降级 ASK_USER 为 WAIT", WAIT, action.type)
-        assertFalse("降级后 type 不应为 ASK_USER", action.type == ASK_USER)
+        assertEquals("复杂模式必须降级 ASK_USER 为 WAIT", "wait", action.type)
+        assertFalse("降级后 type 不应为 ASK_USER", action.type == "ask_user")
         // 复杂模式降级后 questions 不应被填充
         assertNull(action.questions)
     }
@@ -319,7 +319,7 @@ class ActionParserAskUserTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(WAIT, action.type)
+        assertEquals("wait", action.type)
         assertNotNull(action.description)
     }
 }

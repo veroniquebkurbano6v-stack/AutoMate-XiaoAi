@@ -240,7 +240,7 @@ object ActionParser {
                 if (jsonStart >= 0 && jsonEnd > jsonStart) {
                     val jsonStr = response.substring(jsonStart, jsonEnd)
                     val actionJson = gson.fromJson(jsonStr, ActionJson::class.java)
-                    val unknownType = actionJson.type?.uppercase() ?: ""
+                    val unknownType = actionJson.type?.lowercase() ?: ""
                     if (unknownType.isNotBlank() && unknownType != "操作类型") {
                         android.util.Log.w("ActionParser", "未知动作类型 '$unknownType'，尝试降级处理")
                         val fallbackAction = tryMapUnknownType(unknownType, actionJson)
@@ -353,7 +353,7 @@ object ActionParser {
                     description = text.take(200),
                     confidence = 0.8f
                 )
-            textLower.contains("tap") || textLower.contains("click") || textLower.contains("点击") ->
+            textLower.contains("tap") || textLower.contains("点击") ->
                 AgentAction(
                     type = "wait",
                     description = "点击操作解析失败，等待下轮重试",
