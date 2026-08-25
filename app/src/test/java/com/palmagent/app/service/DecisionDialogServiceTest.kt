@@ -23,6 +23,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import org.mockito.Mockito
+import java.io.File
 import java.io.IOException
 
 /**
@@ -289,6 +290,54 @@ class DecisionDialogServiceTest {
         assertNotNull("第2次请求 system 应含工作区内容", workspaceSystem)
         assertTrue("工作区应含模型写入的 App 信息: $workspaceSystem",
             workspaceSystem!!.contains("微信"))
+    }
+
+    // ===== Case 9: fetch_result 命中磁盘且按 offset 分页返回（# 第 12 轮补充集成测试） =====
+
+    @Test
+    fun `fetch_result 命中磁盘 按offset分页返回后段内容`() = runBlocking {
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            // 预置磁盘缓存条目（>8000 字符，足够分两页）
+            ToolResultCache.initForTest(dir)
+            val args = mapOf("query" to "长内容")
+            val longContent = "段".repeat(9000)
+            val e = ToolResultCache.put("amap_search", args, longContent, "test-session")!!
+            val ref = e.ref
+
+            // LLM：第1次调 fetch_result(ref, offset=4000)，第2次返回 ready
+            testInterceptor.responses.add(
+                mockOpenAiToolCallResponse(
+                    toolName = "fetch_result",
+                    toolArgs = """{"ref":"$ref","offset":4000}""",
+                    toolCallId = "call_f1"
+                )
+            )
+            testInterceptor.responses.add(
+                mockOpenAiResponse(
+                    """{"status":"ready","plan":{"requirement":"r","goal":"g","steps":[{"order":1,"goal":"g","success_criteria":"c","supervised":false}]}}"""
+                )
+            )
+
+            val result = dialogService.chat("请取回分页内容", emptyList(), "test-session")
+
+            assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
+            // 第1次调工具 + 第2次 ready，共 2 次 LLM
+            assertEquals(2, testInterceptor.capturedBodies.size)
+            // 第2次请求里应含带分页段头的工具结果（第 4000..8000 段）
+            val second = gson.fromJson(testInterceptor.capturedBodies[1], JsonObject::class.java)
+            var found = false
+            second.getAsJsonArray("messages").forEach { el ->
+                val obj = el.asJsonObject
+                if (obj.get("role").asString == "tool" &&
+                    obj.get("content").asString.contains("第 4000..8000 段")
+                ) found = true
+            }
+            assertTrue("应取回第 4000..8000 段内容", found)
+        } finally {
+            ToolResultCache.resetForTest()
+            dir.deleteRecursively()
+        }
     }
 
     // ============================ Mock HTTP 工具 ============================

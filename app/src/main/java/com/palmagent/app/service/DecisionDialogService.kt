@@ -497,16 +497,20 @@ Plan 示例（预约挂号）：
                                 val (t, a) = parsed
                                 val content = executeAnyTool(t, a)
                                 val entry2 = ToolResultCache.put(t, a, content, sessionId)
-                                val newRow = LedgerRow(entry2.key, entry2.ref, entry2.preview)
-                                // 删旧行（按原 row.key，避免 json 往返导致 key 漂移而旧行残留），插入新行并净结算
-                                val oldRow = state.ledger.remove(row.key)
-                                state.ledger[entry2.key] = newRow
-                                state.ledgerTokens += estimateTokens(newRow.key + newRow.preview) -
-                                    (oldRow?.let { estimateTokens(it.key + it.preview) } ?: 0)
-                                evictLedgerIfNeeded(state)
-                                // 尊重请求的 offset 分页，渲染与 executeFetchResultTool 一致的段内容
-                                fetched = buildFxSegment(ref, entry2.tool, entry2.content, offset)
-                                LiveLogBuffer.append("♻️ [取回自愈] ref=$ref 磁盘全文缺失，重执行 $t 恢复（offset=$offset）")
+                                if (entry2 != null) {
+                                    val newRow = LedgerRow(entry2.key, entry2.ref, entry2.preview)
+                                    // 删旧行（按原 row.key，避免 json 往返导致 key 漂移而旧行残留），插入新行并净结算
+                                    val oldRow = state.ledger.remove(row.key)
+                                    state.ledger[entry2.key] = newRow
+                                    state.ledgerTokens += estimateTokens(newRow.key + newRow.preview) -
+                                        (oldRow?.let { estimateTokens(it.key + it.preview) } ?: 0)
+                                    evictLedgerIfNeeded(state)
+                                    // 尊重请求的 offset 分页，渲染与 executeFetchResultTool 一致的段内容
+                                    fetched = buildFxSegment(ref, entry2.tool, entry2.content, offset)
+                                    LiveLogBuffer.append("♻️ [取回自愈] ref=$ref 磁盘全文缺失，重执行 $t 恢复（offset=$offset）")
+                                } else {
+                                    LiveLogBuffer.append("⚠️ [取回自愈] 缓存写失败，无法恢复 ref=$ref")
+                                }
                             }
                         }
                     }
@@ -519,21 +523,34 @@ Plan 示例（预约挂号）：
                 // 去重只看会话内存台账（按 sessionId 隔离）：磁盘仅存全文供 fetch_result 取回，
                 // 不作为"去重命中"依据，避免跨会话复用旧会话写下的 fx_。内存命中取磁盘全文；缺失则删行重执行。
                 val key = ToolResultCache.buildKey(name, args)
+                var entry: ToolResultCache.CachedEntry? = null
+                var rawResult: String? = null
                 val existingRow = state.ledger[key]
-                val entry = if (existingRow != null) {
+                if (existingRow != null) {
                     val disk = ToolResultCache.getByKey(key, sessionId)
                     if (disk != null) {
                         LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
-                        disk
+                        entry = disk
                     } else {
                         // 磁盘全文缺失（被挤出/写盘失败）：删行后重新执行拿全文，避免 fetch 失败死循环；
                         // 扣减口径与记账/淘汰一致（key+preview），避免缺失重执行路径虚增 token
                         state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.key + it.preview) }
                         LiveLogBuffer.append("♻️ [台账失效] $name 磁盘全文缺失，重新执行获取完整内容")
-                        ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
+                        rawResult = executeAnyTool(name, args)
                     }
                 } else {
-                    ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
+                    rawResult = executeAnyTool(name, args)
+                }
+                if (entry == null && rawResult != null) {
+                    // 写盘成功才登记台账；写失败（磁盘满/IO 错误）返回 null，不登记假缓存避免后续错误命中
+                    entry = ToolResultCache.put(name, args, rawResult, sessionId)
+                }
+                if (entry == null) {
+                    // 执行了但写盘失败：结果仍本轮展示，跳过台账登记（下次会重新执行）
+                    LiveLogBuffer.append("⚠️ [决策] $name 缓存写失败，结果仅本轮展示，未登记台账")
+                    val fallbackMsg = rawResult?.take(FETCH_OUTPUT_MAX_CHARS) ?: "错误：$name 执行结果为空"
+                    messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to fallbackMsg))
+                    continue
                 }
                 val row = LedgerRow(key = entry.key, ref = entry.ref, preview = entry.preview)
                 // 覆盖写前先扣减旧 entry 的 token，避免同 key 在多轮内重复累加预算。

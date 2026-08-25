@@ -113,9 +113,10 @@ object ToolResultCache {
 
     /**
      * 写入任意工具结果：烧录 preview（head+tail）、全文落盘（根目录，文件名/ref 含会话分量）。
+     * 写盘失败返回 null——调用方不得登记台账行/宣称"已缓存"，避免持续写失败时台账假装缓存导致重复执行。
      * 同 key 覆盖旧条目。决策侧去重由内存台账按会话隔离负责，磁盘只负责按 ref 保存/取回全文。
      */
-    fun put(tool: String, args: Map<String, Any>, content: String, session: String = ""): CachedEntry {
+    fun put(tool: String, args: Map<String, Any>, content: String, session: String = ""): CachedEntry? {
         val key = buildKey(tool, args)
         val hash = fxHash(key, session)
         val entry = CachedEntry(
@@ -126,8 +127,7 @@ object ToolResultCache {
             content = content,
             createdAt = System.currentTimeMillis()
         )
-        writeGenericFile(hash, entry)
-        return entry
+        return if (writeGenericFile(hash, entry)) entry else null
     }
 
     /** 按 key 读取通用条目（决策侧取回全文用；session 决定会话作用域文件）。读取时校验存储 key 防碰撞。 */
@@ -179,15 +179,17 @@ object ToolResultCache {
 
     // ==================== web_search 特殊条目（沿用原 round/ref/结构化） ====================
 
-    private fun writeGenericFile(hash: String, entry: CachedEntry) {
-        val dir = cacheDir ?: return
+    private fun writeGenericFile(hash: String, entry: CachedEntry): Boolean {
+        val dir = cacheDir ?: return false
         val file = File(dir, "fx_$hash.json")
-        try {
+        return try {
             file.writeText(gson.toJson(entry))
             // 通用条目保留窗口：超出 MAX_GENERIC_FILES 时删除最旧 fx 文件
             cleanupGeneric(dir)
+            true
         } catch (e: Exception) {
             Log.w(TAG, "写通用缓存失败: ${e.message}")
+            false
         }
     }
 

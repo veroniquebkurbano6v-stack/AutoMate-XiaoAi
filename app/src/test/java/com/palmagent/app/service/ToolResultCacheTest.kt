@@ -107,8 +107,8 @@ class ToolResultCacheTest {
             try {
                 val args = mapOf("query" to "测试")
                 val content = "结果".repeat(1500)
-                val e1 = ToolResultCache.put("web_search", args, content)
-                val e2 = ToolResultCache.put("web_search", args, content)
+                val e1 = ToolResultCache.put("web_search", args, content)!!
+                val e2 = ToolResultCache.put("web_search", args, content)!!
                 assertEquals(ToolResultCache.buildKey("web_search", args), e1.key)
                 assertEquals("fx-", e1.ref.take(3))
                 assertEquals(ToolResultCache.buildPreview(content), e1.preview)
@@ -141,8 +141,8 @@ class ToolResultCacheTest {
             try {
                 val args = mapOf("query" to "医院")
                 val key = ToolResultCache.buildKey("amap_search", args)
-                val eA = ToolResultCache.put("amap_search", args, "会话A医院", "sessA")
-                val eB = ToolResultCache.put("amap_search", args, "会话B医院", "sessB")
+                val eA = ToolResultCache.put("amap_search", args, "会话A医院", "sessA")!!
+                val eB = ToolResultCache.put("amap_search", args, "会话B医院", "sessB")!!
 
                 // 不同会话 → 不同 ref/文件（不互相覆盖）
                 assertNotEquals("两会话同参数应产生不同 ref", eA.ref, eB.ref)
