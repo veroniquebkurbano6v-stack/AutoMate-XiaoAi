@@ -301,7 +301,8 @@
                 android:id="@+id/micButtonContainer"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:layout_marginStart="4dp">
+                android:layout_marginStart="4dp"
+                android:clipChildren="false">
 
                 <!-- 第一层水波纹光环：录音时向外扩散+渐变淡出 -->
                 <View

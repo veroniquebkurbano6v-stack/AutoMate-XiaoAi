@@ -1,0 +1,16 @@
+#!/bin/sh
+# Git LFS 自动拉取钩子（post-checkout）
+# 作用：clone/checkout 后自动拉取 LFS 模型文件；未安装 git-lfs 时打印警告（不阻断操作）
+# 依赖：需先配置 core.hooksPath=.githooks（见 scripts/setup.sh）
+
+if ! command -v git-lfs >/dev/null 2>&1; then
+    echo "⚠️ 警告：未安装 Git LFS，模型文件将无法拉取！"
+    echo "   请安装后执行：git lfs install && git lfs pull"
+    echo "   下载地址：https://git-lfs.com"
+    exit 0
+fi
+
+if git lfs ls-files 2>/dev/null | grep -q .; then
+    echo "⬇️ 正在拉取 Git LFS 模型文件..."
+    git lfs pull
+fi

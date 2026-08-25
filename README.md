@@ -107,6 +107,20 @@ https://github.com/user-attachments/assets/4da8022d-3aba-47f9-92cf-db198f330f7f
 
 > **想直接体验？** 可在 [GitHub Releases](https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi/releases) 下载**预编译 APK**（不含任何 API Key，安全合规；安装后需在 App 内「设置」页自行填写 Key）。作者为学生个人开发者，暂无力承担大规模 API 消费。
 
+### 0. 克隆与模型拉取（Git LFS）
+
+仓库中的 ONNX 语音/知识库模型通过 **Git LFS** 管理。首次克隆后执行一次：
+
+```bash
+bash scripts/setup.sh
+```
+
+脚本会：检查/初始化 git-lfs → 配置 `core.hooksPath=.githooks` → 立即拉取模型文件。
+配置后，后续 `git pull` / `git checkout` 会自动拉取更新的模型。
+
+> ⚠️ 若未安装 Git LFS，`setup.sh` 与钩子会打印警告并提示安装（https://git-lfs.com）；
+> 未拉取模型时，App 的端侧知识库/语音功能将不可用。
+
 ### 1. 环境准备
 - Android Studio + JDK 17
 - Android SDK Platform 36（`compileSdk`/`targetSdk` = 36；打开项目时 Android Studio 会自动提示下载缺失组件）
