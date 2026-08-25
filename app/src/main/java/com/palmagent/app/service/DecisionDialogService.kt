@@ -481,11 +481,33 @@ Plan 示例（预约挂号）：
                     continue
                 }
 
-                // fetch_result：按 ref 取回全文，仅本轮注入，不落盘、不登记台账（符合"仅供本轮参考"契约）
+                // fetch_result：按 ref 取回全文，仅本轮注入，不落盘、不登记台账（符合"仅供本轮参考"契约）。
+                // 磁盘全文若被 cleanupGeneric（60 文件上限）挤出/写盘失败，但该 ref 仍在会话台账中，
+                // 按台账行 key 重新执行原工具自愈并返回全文，兑现"台账 ref 恒可 fetch"承诺。
                 if (name == "fetch_result") {
-                    val fetched = executeFetchResultTool(args)
-                    LiveLogBuffer.append("📦 [决策] 取回结果: $name → ${fetched.take(80)}")
-                    messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to fetched))
+                    val ref = args["ref"]?.toString()?.trim().orEmpty()
+                    var fetched: String? = null
+                    if (ref.isNotEmpty()) {
+                        val disk = ToolResultCache.get(ref)
+                        if (disk == null) {
+                            val row = state.ledger.values.firstOrNull { it.ref == ref }
+                            val parsed = row?.let { parseLedgerKey(it.key) }
+                            if (parsed != null) {
+                                val (t, a) = parsed
+                                val content = executeAnyTool(t, a)
+                                val entry2 = ToolResultCache.put(t, a, content, sessionId)
+                                val newRow = LedgerRow(entry2.key, entry2.ref, entry2.preview)
+                                val oldRow = state.ledger.put(entry2.key, newRow)
+                                state.ledgerTokens += estimateTokens(newRow.key + newRow.preview) -
+                                    (oldRow?.let { estimateTokens(it.key + it.preview) } ?: 0)
+                                fetched = entry2.content.take(FETCH_OUTPUT_MAX_CHARS)
+                                LiveLogBuffer.append("♻️ [取回自愈] ref=$ref 磁盘全文缺失，重执行 $t 恢复")
+                            }
+                        }
+                    }
+                    val finalContent = fetched ?: executeFetchResultTool(args)
+                    LiveLogBuffer.append("📦 [决策] 取回结果: $name → ${finalContent.take(80)}")
+                    messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to finalContent))
                     continue
                 }
 
@@ -499,8 +521,9 @@ Plan 示例（预约挂号）：
                         LiveLogBuffer.append("🔁 [台账命中] $name 已存在结果，跳过执行")
                         disk
                     } else {
-                        // 磁盘全文缺失（被挤出/写盘失败）：删行后重新执行拿全文，避免 fetch 失败死循环
-                        state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.preview) }
+                        // 磁盘全文缺失（被挤出/写盘失败）：删行后重新执行拿全文，避免 fetch 失败死循环；
+                        // 扣减口径与记账/淘汰一致（key+preview），避免缺失重执行路径虚增 token
+                        state.ledger.remove(key)?.let { state.ledgerTokens -= estimateTokens(it.key + it.preview) }
                         LiveLogBuffer.append("♻️ [台账失效] $name 磁盘全文缺失，重新执行获取完整内容")
                         ToolResultCache.put(name, args, executeAnyTool(name, args), sessionId)
                     }
@@ -635,6 +658,23 @@ Plan 示例（预约挂号）：
             name == "web_search" -> executeWebSearchTool(args)
             else -> "未知工具：$name（仅支持 list_apps / kb_read / amap_* / web_search）"
         }
+    }
+
+    /**
+     * 从台账行 key（"tool::<args JSON>"）解析出 (tool, args)，供 fetch_result 磁盘全文缺失时自愈重执行原工具。
+     */
+    internal fun parseLedgerKey(key: String): Pair<String, Map<String, Any>>? {
+        val sep = key.indexOf("::")
+        if (sep <= 0 || sep == key.length - 2) return null
+        val tool = key.substring(0, sep)
+        val argsJson = key.substring(sep + 2)
+        val args: Map<String, Any>? = try {
+            @Suppress("UNCHECKED_CAST")
+            gson.fromJson(argsJson, Map::class.java) as? Map<String, Any>
+        } catch (e: Exception) {
+            null
+        }
+        return if (tool.isNotBlank() && args != null) tool to args else null
     }
 
     /**

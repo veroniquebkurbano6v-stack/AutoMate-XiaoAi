@@ -2,6 +2,8 @@ package com.palmagent.app.service
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,6 +20,21 @@ class DecisionDialogLedgerTest {
     fun estimateTokens_按约15字符10token估算() {
         assertEquals((3 * 2 + 1) / 3, service.estimateTokens("abc"))        // 2
         assertEquals((4 * 2 + 1) / 3, service.estimateTokens("你好世界"))    // 3
+    }
+
+    @Test
+    fun parseLedgerKey_解析tool与args() {
+        // 正常：key = "tool::<args JSON>"
+        val key = "amap_search::{\"query\":\"医院\",\"count\":5}"
+        val p = service.parseLedgerKey(key)
+        assertNotNull("应能解析台账行 key", p)
+        assertEquals("amap_search", p!!.first)
+        assertEquals("医院", p.second["query"])
+        // gson 将 JSON 数字解析为 Double
+        assertEquals(5.0, (p.second["count"] as Number).toDouble(), 0.0)
+        // 非法 key（无 :: 分隔）返回 null
+        assertNull(service.parseLedgerKey("no-separator"))
+        assertNull(service.parseLedgerKey("tool::"))
     }
 
     @Test
