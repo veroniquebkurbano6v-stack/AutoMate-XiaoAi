@@ -122,17 +122,24 @@ object FloatingProgressManager {
     /** 悬浮窗麦克风按钮（录音动画用） */
     private var micBtn: ImageView? = null
 
-    /** 波纹光环 View（录音时显示在按钮下层） */
-    private var micHaloView: View? = null
-
     /** 录音音波可视化 View（录音时显示音波替代静态麦克风图标） */
     private var micWaveformView: MicWaveformView? = null
 
     /** 麦克风脉冲动画器（Issue #1：波纹扩散 + 呼吸 + 音量反馈，主界面与悬浮窗统一风格） */
     private var micPulseAnimator: MicPulseAnimator? = null
 
+    /**
+     * 录音中标志位：true=当前在录音状态。
+     * 用于悬浮窗隐藏/重显、面板切换（removeCurrentView → createUnifiedView）时，
+     * 新建的 micPulseAnimator/micWaveformView 能自动恢复到录音动画运行态，
+     * 避免出现"录音仍在继续但界面显示空闲态"的视觉不一致。
+     */
+    @Volatile
+    private var isMicAnimating = false
+
     /** 启动麦克风录音脉冲动画 + 音波可视化 */
     fun startMicAnimation() {
+        isMicAnimating = true
         val btn = micBtn ?: return
         // 激活态：切换为品牌渐变圆形背景
         btn.setBackgroundResource(R.drawable.bg_mic_active)
@@ -165,6 +172,7 @@ object FloatingProgressManager {
 
     /** 停止麦克风录音脉冲动画 + 音波可视化并复位 */
     fun stopMicAnimation() {
+        isMicAnimating = false
         micPulseAnimator?.stop()
         // 停止音波可视化并隐藏
         micWaveformView?.stopWaveform()
@@ -180,11 +188,15 @@ object FloatingProgressManager {
     }
 
     /**
-     * 同步音量到悬浮窗音波可视化（由 HomeActivity.onVolumeChanged 调用）
+     * 同步音量到悬浮窗音波可视化 + 麦克风按钮缩放（由 HomeActivity.onVolumeChanged 调用）
+     * ⚠️ 严格评审缺陷 #B：此前只更新 micWaveformView，漏掉了悬浮窗 micPulseAnimator 的音量驱动缩放，
+     *    导致"音量驱动按钮微缩放"在悬浮窗侧完全不生效；主界面与悬浮窗表现不一致。
      * @param volume 归一化音量 [0, 1]
      */
     fun setMicVolume(volume: Float) {
         micWaveformView?.setVolume(volume)
+        // 同步驱动悬浮窗麦克风按钮的音量微缩放（与主界面保持一致）
+        micPulseAnimator?.setVolume(volume)
     }
 
     fun show(application: Application) {
@@ -767,17 +779,32 @@ object FloatingProgressManager {
         micContainer.addView(micWaveform)
 
         // 允许波纹渲染到容器外（不被裁剪）
+        // ⚠️ Issue #1 PR 评审 #5：属性赋值 micContainer.clipChildren = false 与
+        //    micContainer.setClipChildren(false) 编译后等价，删除重复行。
         micContainer.clipChildren = false
-        micContainer.setClipChildren(false)
         inputRow.clipChildren = false
         inputRow.addView(micContainer)
 
         // 保存引用以便动画控制
         this@FloatingProgressManager.micBtn = micBtn
-        this@FloatingProgressManager.micHaloView = micHalo
         this@FloatingProgressManager.micWaveformView = micWaveform
+
+        // Issue #1 PR 评审 #2：重建 View 前先停止并清理旧 MicPulseAnimator，
+        // 避免旧 animator 在已 detached 视图上继续运行呼吸动画（CPU/内存泄漏）。
+        this@FloatingProgressManager.micPulseAnimator?.cleanup()
         // Issue #1：初始化水波纹动画器（双层波纹 + 与主界面统一风格）
-        this@FloatingProgressManager.micPulseAnimator = MicPulseAnimator(micBtn, micHalo, micHalo2)
+        val newAnimator = MicPulseAnimator(micBtn, micHalo, micHalo2)
+        this@FloatingProgressManager.micPulseAnimator = newAnimator
+
+        // Issue #1 PR 评审 #2 补充：若当前处于录音中，新建 animator 立即启动，
+        // 避免"录音仍在继续但界面显示空闲态"的视觉不一致。
+        if (isMicAnimating) {
+            newAnimator.start()
+            micBtn.setBackgroundResource(R.drawable.bg_mic_active)
+            micBtn.setImageDrawable(null)
+            micWaveform.visibility = View.VISIBLE
+            micWaveform.startWaveform()
+        }
 
         root.addView(inputRow)
 
@@ -1913,6 +1940,14 @@ object FloatingProgressManager {
         // 取消呼吸点动画，避免悬浮窗移除后动画仍在运行导致泄漏
         breatheAnimator?.cancel()
         breatheAnimator = null
+        // Issue #1 PR 评审 #2：View detach 前必须停止并清理麦克风相关动画器，
+        // 否则旧 micPulseAnimator 在 detached View 上继续运行（帧回调/postDelayed 泄漏），
+        // 且重显时新 animator 已覆盖字段、旧对象无人引用无法停止。
+        micPulseAnimator?.cleanup()
+        micPulseAnimator = null
+        micWaveformView?.stopWaveform()
+        micWaveformView = null
+        micBtn = null
         try {
             floatRoot?.let { windowManager?.removeView(it) }
         } catch (_: Exception) {}

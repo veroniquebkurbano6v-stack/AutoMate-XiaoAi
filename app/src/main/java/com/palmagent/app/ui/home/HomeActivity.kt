@@ -152,10 +152,14 @@ class HomeActivity : ComponentActivity() {
         }
         override fun onVolumeChanged(volume: Float) {
             // Issue #1：音量驱动麦克风按钮缩放反馈 + 音波可视化高度
-            micPulseAnimator?.setVolume(volume)
-            micWaveform?.setVolume(volume)
-            // 同步到悬浮窗的音波可视化
-            FloatingProgressManager.setMicVolume(volume)
+            // ⚠️ VoiceInputManager 在工作线程派发回调，所有 View 操作必须切回主线程，
+            //    否则会抛出 CalledFromWrongThreadException 导致录音时崩溃。
+            runOnUiThread {
+                micPulseAnimator?.setVolume(volume)
+                micWaveform?.setVolume(volume)
+                // 同步到悬浮窗的音波可视化
+                FloatingProgressManager.setMicVolume(volume)
+            }
         }
     }
 
