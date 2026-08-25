@@ -3,7 +3,6 @@ package com.palmagent.app.agent
 import android.graphics.Bitmap
 import android.util.Log
 import com.palmagent.app.LiveLogBuffer
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.QuestionAnswer
 import com.palmagent.app.model.ScreenInfo
@@ -32,7 +31,7 @@ import javax.inject.Inject
  *
  * 从 DefaultAgentService 中拆分，负责：
  * - GUI-Plus Grounding 定位
- * - 动作执行（映射 ActionType → Tool）
+ * - 动作执行（按工具名分发到 ToolRegistry）
  * - 操作前后变化检测
  * - 剪贴板自动粘贴
  * - 用户中断处理
@@ -53,9 +52,9 @@ class ActionExecutor @Inject constructor(
         private const val MAX_REPEAT_INTERVAL_MS = 2000L
         // 支持批量重复的动作类型（点击/长按/滚动），其余类型忽略 repeat 强制单次
         private val repeatableTypes = setOf(
-            ActionType.TAP, ActionType.CLICK, ActionType.LONG_PRESS,
-            ActionType.SCROLL_DOWN, ActionType.SCROLL_UP,
-            ActionType.SCROLL_LEFT, ActionType.SCROLL_RIGHT
+            "tap", "long_press",
+            "scroll_down", "scroll_up",
+            "scroll_left", "scroll_right"
         )
     }
 
@@ -154,7 +153,7 @@ class ActionExecutor @Inject constructor(
         userPrompt: String
     ): ToolResult {
         // v3.2 Bug-5 修复：ASK_USER 期间屏幕未变化，跳过操作后变化检测（节省 800ms + 一次截图）
-        if (action.type == ActionType.ASK_USER) {
+        if (action.type == "ask_user") {
             return try {
                 GUIAccessibilityService.instance?.setAgentActing(true)
                 executeFinalAction(action, screenshotBmp, round)
@@ -217,23 +216,23 @@ class ActionExecutor @Inject constructor(
     /**
      * 操作后延迟 + 智能等待
      */
-    suspend fun postActionDelayAndWait(actionType: ActionType) {
-        if (actionType == ActionType.FINISH) return
+    suspend fun postActionDelayAndWait(actionType: String) {
+        if (actionType == "finish") return
 
         // v3.2 Bug-7 修复：ASK_USER 期间屏幕未变化，跳过 delay 和 waitForPageStable
         // 用户回答后应立即继续任务，不应等待 1000ms + 页面稳定检测
-        if (actionType == ActionType.ASK_USER) {
+        if (actionType == "ask_user") {
             GUIAccessibilityService.instance?.markAgentAction()
             return
         }
 
-        if (actionType != ActionType.WAIT) {
+        if (actionType != "wait") {
             // 非 WAIT：先延迟（让动画/过渡完成），再稳定等待
             val delayMs = when (actionType) {
-                ActionType.HOME -> 500L
-                ActionType.BACK -> 500L
-                ActionType.SCROLL_UP, ActionType.SCROLL_DOWN,
-                ActionType.SCROLL_LEFT, ActionType.SCROLL_RIGHT -> 600L
+                "home" -> 500L
+                "back" -> 500L
+                "scroll_up", "scroll_down",
+                "scroll_left", "scroll_right" -> 600L
                 else -> POST_ACTION_DELAY_MS
             }
             delay(delayMs)
@@ -249,10 +248,10 @@ class ActionExecutor @Inject constructor(
      */
     private suspend fun executeFinalAction(action: AgentAction, screenshotBmp: Bitmap?, round: Int = 0): ToolResult {
         when (action.type) {
-            ActionType.REQUEST_USER_ACTION -> return handleUserActionRequest(action)
-            ActionType.VISUAL_DESCRIBE -> return ToolResult.success("VISUAL_DESCRIBE已在决策引擎中处理")
-            ActionType.ASK_USER -> return handleAskUser(action)
-            ActionType.FORGET -> {
+            "request_user_action" -> return handleUserActionRequest(action)
+            "visual_describe" -> return ToolResult.success("VISUAL_DESCRIBE已在决策引擎中处理")
+            "ask_user" -> return handleAskUser(action)
+            "forget" -> {
                 val target = action.text ?: ""
                 if (target.isBlank()) {
                     return ToolResult.error("FORGET: 需指定条目 ID 或关键词")
@@ -286,8 +285,7 @@ class ActionExecutor @Inject constructor(
             }
         }
 
-        val toolName = mapActionTypeToTool(finalAction.type)
-            ?: return ToolResult.error("不支持的动作类型: ${finalAction.type}")
+        val toolName = finalAction.type
 
         val params = if (isSwipeLike(finalAction.type)) {
             buildSwipeParams(finalAction)
@@ -361,7 +359,7 @@ class ActionExecutor @Inject constructor(
 
     private fun shouldUseGuiOwlGrounding(action: AgentAction): Boolean {
         if (!GuiOwlService.isReady) return false
-        if (action.type != ActionType.CLICK && action.type != ActionType.LONG_PRESS && action.type != ActionType.TAP) return false
+        if (action.type != "tap" && action.type != "long_press") return false
 
         val screenSize = getScreenSize()
         val hasValidCoordinate = action.coordinate != null &&
@@ -385,13 +383,13 @@ class ActionExecutor @Inject constructor(
         return "Click the $target"
     }
 
-    private fun isSwipeLike(type: ActionType): Boolean =
-        type in listOf(ActionType.SWIPE, ActionType.SCROLL_UP, ActionType.SCROLL_DOWN, ActionType.SCROLL_LEFT, ActionType.SCROLL_RIGHT)
+    private fun isSwipeLike(type: String): Boolean =
+        type in listOf("swipe", "scroll_up", "scroll_down", "scroll_left", "scroll_right")
 
     private fun buildSwipeParams(action: AgentAction): Map<String, Any> {
         return when (action.type) {
-            ActionType.SCROLL_DOWN, ActionType.SCROLL_UP,
-            ActionType.SCROLL_LEFT, ActionType.SCROLL_RIGHT -> {
+            "scroll_down", "scroll_up",
+            "scroll_left", "scroll_right" -> {
                 mapOf("duration_ms" to 300)
             }
             else -> {
@@ -456,26 +454,26 @@ class ActionExecutor @Inject constructor(
         action.targetDesc?.let { params["target_desc"] = it }
         action.actionDesc?.let { params["action_desc"] = it }
 
-        if (action.type == ActionType.AUTO_INPUT) {
+        if (action.type == "auto_input") {
             action.instruction?.let { params["instruction"] = it }
         }
 
-        // ============ v7：新增 3 个 ActionType 的工具参数映射 ============
+        // ============ v7：新增 3 个工具的参数映射 ============
         // OPEN_APP: text → app_name（主）, description → app_name（兜底）
-        if (action.type == ActionType.OPEN_APP) {
+        if (action.type == "open_app") {
             val appName = action.text?.takeIf { it.isNotBlank() } ?: action.description?.takeIf { it.isNotBlank() }
             appName?.let { params["app_name"] = it }
         }
 
         // LOCATE: description → tool 入参 description（AI 元素描述）, text → text
-        if (action.type == ActionType.LOCATE) {
+        if (action.type == "locate") {
             action.text?.let { params["text"] = it }
             val desc = action.description?.takeIf { it.isNotBlank() } ?: action.targetDesc?.takeIf { it.isNotBlank() }
             desc?.let { params["description"] = it }
         }
 
         // REQUEST_USER_ACTION: text → title（必填）, description → steps（选填）
-        if (action.type == ActionType.REQUEST_USER_ACTION) {
+        if (action.type == "request_user_action") {
             val title = action.text?.takeIf { it.isNotBlank() } ?: action.description?.takeIf { it.isNotBlank() }
             title?.let { params["title"] = it }
             val steps = action.description?.takeIf { it.isNotBlank() } ?: action.text?.takeIf { it.isNotBlank() }
@@ -483,19 +481,19 @@ class ActionExecutor @Inject constructor(
         }
 
         // FINISH: description → summary, text → next_action
-        if (action.type == ActionType.FINISH) {
+        if (action.type == "finish") {
             action.description?.takeIf { it.isNotBlank() }?.let { params["summary"] = it }
             action.text?.takeIf { it.isNotBlank() }?.let { params["next_action"] = it }
         }
 
         // WAIT: duration_ms → tool duration_ms（clamp 100-10000ms 防止卡死）
-        if (action.type == ActionType.WAIT) {
+        if (action.type == "wait") {
             val durationMs = action.durationMs ?: 1000L
             params["duration_ms"] = durationMs.coerceIn(100L, 10_000L)
         }
 
         // SELECT_SPEC: specs → specs（需选取的规格列表）, confirmText → confirm_text（确认按钮文本）
-        if (action.type == ActionType.SELECT_SPEC) {
+        if (action.type == "select_spec") {
             action.specs?.takeIf { it.isNotEmpty() }?.let { params["specs"] = it }
             action.confirmText?.takeIf { it.isNotBlank() }?.let { params["confirm_text"] = it }
         }
@@ -620,29 +618,6 @@ class ActionExecutor @Inject constructor(
         } catch (e: Exception) {
             AgentLogger.log(AgentLogger.LogType.ERROR, "用户操作后快照采集失败: ${e.message}")
             return "用户已完成操作: $guideText"
-        }
-    }
-
-    private fun mapActionTypeToTool(type: ActionType): String? {
-        return when (type) {
-            ActionType.CLICK -> "tap"
-            ActionType.TAP -> "tap"
-            ActionType.LONG_PRESS -> "long_press"
-            ActionType.SWIPE -> "swipe"
-            ActionType.SCROLL_DOWN -> "scroll_down"
-            ActionType.SCROLL_UP -> "scroll_up"
-            ActionType.SCROLL_LEFT -> "scroll_left"
-            ActionType.SCROLL_RIGHT -> "scroll_right"
-            ActionType.SCROLL_UNTIL -> "scroll_until"
-            ActionType.BACK -> "back"
-            ActionType.HOME -> "home"
-            ActionType.AUTO_INPUT -> "auto_input"
-            ActionType.LOCATE -> "locate"
-            ActionType.OPEN_APP -> "open_app"
-            ActionType.WAIT -> "wait"
-            ActionType.FINISH -> "finish"
-            ActionType.SELECT_SPEC -> "select_spec"
-            else -> null
         }
     }
 

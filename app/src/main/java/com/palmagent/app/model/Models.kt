@@ -59,7 +59,7 @@ enum class UIElementType {
 }
 
 data class AgentAction(
-    val type: ActionType,
+    val type: String,
     val targetElement: UIElement? = null,
     val targetId: String? = null,
     val coordinate: Coordinate? = null,
@@ -99,12 +99,6 @@ data class Coordinate(
     val x: Int,
     val y: Int
 )
-
-enum class ActionType {
-    CLICK, TAP, LONG_PRESS, SWIPE, AUTO_INPUT, SCROLL_UP, SCROLL_DOWN, SCROLL_LEFT, SCROLL_RIGHT, SCROLL_UNTIL,
-    WAIT, BACK, HOME, FINISH, LOCATE, REQUEST_USER_ACTION, VISUAL_DESCRIBE,
-    OPEN_APP, ASK_USER, FORGET, WEB_SEARCH, FETCH_RESULT, WEB_SEARCH_FETCH, SELECT_SPEC
-}
 
 /**
  * 批量提问的问题项（对齐 GitHub Copilot ask_questions / OpenSpace ask_user_question）

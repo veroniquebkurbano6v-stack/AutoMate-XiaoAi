@@ -14,7 +14,6 @@ import com.palmagent.app.framework.config.AppConfig
 import com.palmagent.app.framework.coroutine.AgentCoroutineScope
 import com.palmagent.app.framework.event.EventBus
 import com.palmagent.app.model.ActionRecord
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.service.AIService
@@ -242,7 +241,7 @@ class DefaultAgentService @Inject constructor(
                         LiveLogBuffer.append("⚠ VL决策失败，等待下一轮重试")
                         actionHistory.add(ActionRecord(
                             round = round,
-                            actionType = "WAIT",
+                            actionType = "wait",
                             params = emptyMap(),
                             description = "VL决策失败，等待重试",
                             screenPackage = screenInfo?.currentPackage,
@@ -261,7 +260,7 @@ class DefaultAgentService @Inject constructor(
                             modelInput = "VL决策失败，未产生模型输入",
                             modelOutput = "VL API 调用失败",
                             action = AgentAction(
-                                type = ActionType.WAIT,
+                                type = "wait",
                                 description = "VL决策失败，等待重试",
                                 confidence = 0.5f
                             ),
@@ -283,7 +282,7 @@ class DefaultAgentService @Inject constructor(
                     }
 
                     // VL 模式：WEB_SEARCH 处理（完整结果缓存 + 摘要仅本轮注入，不写工作区）
-                    if (finalAction.type == ActionType.WEB_SEARCH) {
+                    if (finalAction.type == "web_search") {
                         val searchQuery = finalAction.text ?: finalAction.description
                         Log.d(TAG, "VL请求联网搜索: $searchQuery")
                         LiveLogBuffer.append("🔍 VL请求联网搜索: ${searchQuery.take(40)}")
@@ -303,7 +302,7 @@ class DefaultAgentService @Inject constructor(
 
                         actionHistory.add(ActionRecord(
                             round = round,
-                            actionType = "WEB_SEARCH",
+                            actionType = "web_search",
                             params = mapOf("query" to searchQuery),
                             description = "联网搜索: $searchQuery",
                             screenPackage = screenInfo?.currentPackage,
@@ -337,8 +336,8 @@ class DefaultAgentService @Inject constructor(
                     }
 
                     // VL 模式：WEB_SEARCH_FETCH / FETCH_RESULT 处理（按 ref 取回缓存原文，仅本轮临时注入）
-                    if (finalAction.type == ActionType.WEB_SEARCH_FETCH ||
-                        finalAction.type == ActionType.FETCH_RESULT) {
+                    if (finalAction.type == "web_search_fetch" ||
+                        finalAction.type == "fetch_result") {
                         val ref = finalAction.text?.trim().orEmpty()
                         Log.d(TAG, "VL请求取回搜索结果: $ref")
                         LiveLogBuffer.append("📄 VL取回搜索结果: ${ref.take(40)}")
@@ -376,7 +375,7 @@ class DefaultAgentService @Inject constructor(
 
                         actionHistory.add(ActionRecord(
                             round = round,
-                            actionType = "FETCH_RESULT",
+                            actionType = "fetch_result",
                             params = mapOf("ref" to ref),
                             description = "取回搜索结果: $ref",
                             screenPackage = screenInfo?.currentPackage,
@@ -406,7 +405,7 @@ class DefaultAgentService @Inject constructor(
 
                     // VL 模式：UI 反馈（日志统一在 logRound 中保存）
                     callback.onContent(round, "VL决策: ${finalAction.type} - ${finalAction.description}")
-                    FloatingProgressManager.updateProgress(round, "${finalAction.type.name} ${finalAction.description.take(40)}")
+                    FloatingProgressManager.updateProgress(round, "${finalAction.type} ${finalAction.description.take(40)}")
                 } else {
                     // ============ 文本模式：保持现有流程 ============
                     // 完全取消每轮 OCR：无论无障碍树质量如何，都从无障碍树提取屏幕文本
@@ -459,7 +458,7 @@ class DefaultAgentService @Inject constructor(
                         knowledgeContext = enhancedContextForLog,
                         actionHistory = actionHistory.map {
                             AgentAction(
-                                type = ActionType.valueOf(it.actionType),
+                                type = it.actionType,
                                 description = it.description,
                                 confidence = 0.8f
                             )
@@ -492,15 +491,15 @@ class DefaultAgentService @Inject constructor(
                         Log.d(TAG, "LLM进度: ${finalAction.progress.currentStep} | 已完成${finalAction.progress.completedSteps.size}步 | 剩余${finalAction.progress.remainingSteps.size}步")
                     }
                     callback.onContent(round, "决策: ${finalAction.type} - ${finalAction.description}")
-                    FloatingProgressManager.updateProgress(round, "${finalAction.type.name} ${finalAction.description.take(40)}")
+                    FloatingProgressManager.updateProgress(round, "${finalAction.type} ${finalAction.description.take(40)}")
                 }
                 // ============ 分流结束，finalAction 已就绪 ============
 
                 // 摘要/取回原文"即看即弃"：模型本轮看到临时搜索结果并输出非搜索动作
                 // （说明已判断完毕），下一轮不再注入；WEB_SEARCH/FETCH 分支已 continue 自行更新
-                if (finalAction!!.type != ActionType.WEB_SEARCH &&
-                    finalAction.type != ActionType.WEB_SEARCH_FETCH &&
-                    finalAction.type != ActionType.FETCH_RESULT) {
+                if (finalAction!!.type != "web_search" &&
+                    finalAction.type != "web_search_fetch" &&
+                    finalAction.type != "fetch_result") {
                     transientSearchSection = null
                 }
 
@@ -519,15 +518,15 @@ class DefaultAgentService @Inject constructor(
                 // 屏幕描述复用标记：仅当上一轮是只读屏幕描述（VISUAL_DESCRIBE）时才可复用，
                 // 界面未变（只读操作不改变屏幕）；任何实际操作（LOCATE/TAP/SCROLL 等）后都必须重新描述
                 // （LOCATE 已内置自动点击，界面必变，不能按"仅定位"复用——历史 bug 修复）
-                screenDescriptor.lastRoundOnlyGrounding = finalAction.type == ActionType.VISUAL_DESCRIBE
+                screenDescriptor.lastRoundOnlyGrounding = finalAction.type == "visual_describe"
                 LiveLogBuffer.append("🎬 ${finalAction.description} → ${if (result.isSuccess) "✓" else "✗"} ${(if (result.isSuccess) result.data else result.error)?.take(60)}")
-                callback.onToolCall(round, "action", finalAction.type.name,
-                    finalAction.type.name, buildActionParams(finalAction).toString())
+                callback.onToolCall(round, "action", finalAction.type,
+                    finalAction.type, buildActionParams(finalAction).toString())
 
                 // v3.2: ASK_USER 轮不 recycle 截图，保留给下一轮复用（屏幕未变化）
                 // 在 recycle 前压缩截图字节，供后续 logRound 保存
                 val screenshotJpegForLog = AgentLogger.compressScreenshot(screenshotBmp)
-                if (finalAction.type == ActionType.ASK_USER) {
+                if (finalAction.type == "ask_user") {
                     lastActionWasAskUser = true
                     cachedCapture = capture
                     Log.d(TAG, "ASK_USER 轮，保留截图供下一轮复用")
@@ -540,9 +539,9 @@ class DefaultAgentService @Inject constructor(
                 }
 
                 actionExecutor.postActionDelayAndWait(finalAction.type)
-                progressTracker.recordHomeAttempt(finalAction.type.name, screenInfo?.currentPackage)
+                progressTracker.recordHomeAttempt(finalAction.type, screenInfo?.currentPackage)
 
-                if (finalAction.type == ActionType.WAIT) {
+                if (finalAction.type == "wait") {
                     waitConsecutiveCount++
                 } else {
                     waitConsecutiveCount = 0
@@ -553,12 +552,12 @@ class DefaultAgentService @Inject constructor(
                 } else {
                     ToolResult.error(result.error ?: "操作失败")
                 }
-                callback.onToolResult(round, "action", finalAction.type.name,
-                    finalAction.type.name, buildActionParams(finalAction).toString(), toolResult)
+                callback.onToolResult(round, "action", finalAction.type,
+                    finalAction.type, buildActionParams(finalAction).toString(), toolResult)
 
                 actionHistory.add(ActionRecord(
                     round = round,
-                    actionType = finalAction.type.name,
+                    actionType = finalAction.type,
                     params = buildActionParams(finalAction),
                     description = finalAction.description,
                     screenPackage = screenInfo?.currentPackage,
@@ -579,7 +578,7 @@ class DefaultAgentService @Inject constructor(
                 if (!result.isSuccess) {
                     failedActions.add(FailureCompactor.FailedAction(
                         round = round,
-                        actionType = finalAction.type.name,
+                        actionType = finalAction.type,
                         // 与 error(≤80)/suggestion(≤60) 对齐，收敛压缩输入大小
                         description = finalAction.description.take(100),
                         error = result.error ?: "执行失败",
@@ -625,7 +624,7 @@ class DefaultAgentService @Inject constructor(
                     planContext = planContext
                 )
 
-                if (finalAction.type == ActionType.FINISH) {
+                if (finalAction.type == "finish") {
                     // 收尾兜底：模型 FINISH 时可能遗留 remaining_steps 未合并、status 未置 completed
                     // （实机日志曾出现：最后一轮 CLICK 已完成但 progress 仍写"剩余=[...]"，status=in_progress）
                     // 此处强制规范化终态，保证任何消费 progress 的地方拿到自洽的 completed 状态
@@ -641,7 +640,7 @@ class DefaultAgentService @Inject constructor(
                 }
 
                 // 用户拒绝 REQUEST_USER_ACTION → 直接结束任务，不重规划
-                if (finalAction.type == ActionType.REQUEST_USER_ACTION && !result.isSuccess) {
+                if (finalAction.type == "request_user_action" && !result.isSuccess) {
                     val finishMsg = "用户拒绝了操作，任务已终止。"
                     AgentLogger.log(AgentLogger.LogType.SYSTEM, "用户拒绝REQUEST_USER_ACTION，结束任务")
                     LiveLogBuffer.append("🚫 $finishMsg")
@@ -663,7 +662,7 @@ class DefaultAgentService @Inject constructor(
             LiveLogBuffer.append("⚠️ 工具参数缺失: ${e.message}")
             actionHistory.add(com.palmagent.app.model.ActionRecord(
                 round = round,
-                actionType = "WAIT",
+                actionType = "wait",
                 params = emptyMap(),
                 description = "【执行错误】${e.message}，请重新输出含正确参数的动作",
                 screenPackage = null,
@@ -728,7 +727,7 @@ class DefaultAgentService @Inject constructor(
     private fun buildResultSummaryForHistory(action: AgentAction, result: ToolResult): String {
         // ASK_USER 结果截断：批量提问可能含多个问答，单问答案上限 200 字符
         // 注意：ActionExecutor.handleAskUser 返回值已含"用户回答："前缀，此处仅截断，不再加前缀
-        if (action.type == ActionType.ASK_USER) {
+        if (action.type == "ask_user") {
             return if (result.isSuccess) (result.data ?: "").take(200) else "追问失败"
         }
         return if (result.isSuccess) (result.data ?: "") else (result.error ?: "失败")
@@ -760,25 +759,25 @@ class DefaultAgentService @Inject constructor(
         action.targetDesc?.let { params["target_desc"] = it }
         action.actionDesc?.let { params["action_desc"] = it }
 
-        if (action.type == ActionType.AUTO_INPUT) {
+        if (action.type == "auto_input") {
             action.instruction?.let { params["instruction"] = it }
         }
-        if (action.type == ActionType.OPEN_APP) {
+        if (action.type == "open_app") {
             val appName = action.text?.takeIf { it.isNotBlank() } ?: action.description?.takeIf { it.isNotBlank() }
             appName?.let { params["app_name"] = it }
         }
-        if (action.type == ActionType.LOCATE) {
+        if (action.type == "locate") {
             action.text?.let { params["text"] = it }
             val desc = action.description?.takeIf { it.isNotBlank() } ?: action.targetDesc?.takeIf { it.isNotBlank() }
             desc?.let { params["description"] = it }
         }
-        if (action.type == ActionType.REQUEST_USER_ACTION) {
+        if (action.type == "request_user_action") {
             val title = action.text?.takeIf { it.isNotBlank() } ?: action.description?.takeIf { it.isNotBlank() }
             title?.let { params["title"] = it }
             val steps = action.description?.takeIf { it.isNotBlank() } ?: action.text?.takeIf { it.isNotBlank() }
             steps?.let { params["steps"] = it }
         }
-        if (action.type == ActionType.ASK_USER) {
+        if (action.type == "ask_user") {
             // 记录已问问题文本，供下一轮提示词注入"已问问题"区域防重追问
             action.questions?.let { qs ->
                 params["asked_questions"] = qs.map { it.question }
@@ -910,7 +909,7 @@ class DefaultAgentService @Inject constructor(
 
         // 已问问题（防重追问：提示模型不要重复追问已问过的问题）
         val askedQuestions = actionHistory
-            .filter { it.actionType == ActionType.ASK_USER.name }
+            .filter { it.actionType == "ask_user" }
             .mapNotNull { it.params["asked_questions"] as? List<*> }
             .flatten()
             .filterIsInstance<String>()

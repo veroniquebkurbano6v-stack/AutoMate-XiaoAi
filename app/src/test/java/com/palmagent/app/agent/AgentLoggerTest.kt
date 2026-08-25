@@ -1,6 +1,5 @@
 package com.palmagent.app.agent
 
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.AgentAction
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -60,7 +59,7 @@ class AgentLoggerTest {
     @Test
     fun `logRound_creates_round_directory_with_complete_file_structure`() {
         val action = AgentAction(
-            type = ActionType.LOCATE,
+            type = LOCATE,
             description = "点击微信群聊列表中的目标群",
             confidence = 0.9f,
             text = "东莞职业技术学院 422"
@@ -93,7 +92,7 @@ class AgentLoggerTest {
     @Test
     fun `logRound_decision_file_contains_mode_and_action_type`() {
         val action = AgentAction(
-            type = ActionType.WEB_SEARCH,
+            type = WEB_SEARCH,
             description = "搜索答案",
             confidence = 0.8f,
             text = "1+1等于几"
@@ -122,7 +121,7 @@ class AgentLoggerTest {
     @Test
     fun `logRound_text_mode_saves_enhanced_context_and_ocr`() {
         val action = AgentAction(
-            type = ActionType.WAIT,
+            type = WAIT,
             description = "等待页面加载",
             confidence = 0.7f
         )
@@ -155,7 +154,7 @@ class AgentLoggerTest {
     @Test
     fun `logRound_vl_mode_does_not_save_ocr_and_enhanced_context`() {
         val action = AgentAction(
-            type = ActionType.FINISH,
+            type = FINISH,
             description = "任务完成",
             confidence = 1.0f,
             text = "已完成"
@@ -212,7 +211,7 @@ class AgentLoggerTest {
     @Test
     fun `logRound_writes_screenshot_bytes_when_provided`() {
         val action = AgentAction(
-            type = ActionType.WAIT,
+            type = WAIT,
             description = "测试",
             confidence = 0.5f
         )

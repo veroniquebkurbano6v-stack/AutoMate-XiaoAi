@@ -1,6 +1,5 @@
 package com.palmagent.app.service
 
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.AgentAction
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -40,28 +39,28 @@ class ActionParserSearchIconTest {
     @Test
     fun `legacy_search_icon_true_ignored_but_action_parsed`() {
         val action = parse("\"search_icon\":\"true\"")
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
     }
 
     @Test
     fun `legacy_search_icon_one_ignored_but_action_parsed`() {
         val action = parse("\"search_icon\":\"1\"")
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
     }
 
     @Test
     fun `legacy_search_icon_false_ignored_but_action_parsed`() {
         val action = parse("\"search_icon\":\"false\"")
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
     }
 
     @Test
     fun `legacy_search_icon_random_string_ignored_but_action_parsed`() {
         val action = parse("\"search_icon\":\"maybe\"")
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
     }
 
     // ===== 新 is_text_input_box 字段：由工具层消费，解析层忽略 =====
@@ -69,14 +68,14 @@ class ActionParserSearchIconTest {
     @Test
     fun `is_text_input_box_true_ignored_by_parser`() {
         val action = parse("\"is_text_input_box\":\"true\"")
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
     }
 
     @Test
     fun `is_text_input_box_false_ignored_by_parser`() {
         val action = parse("\"is_text_input_box\":\"false\"")
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
     }
 
@@ -85,7 +84,7 @@ class ActionParserSearchIconTest {
     @Test
     fun `no_field_parses_normally`() {
         val action = parse(null)
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
     }
 
@@ -107,7 +106,7 @@ class ActionParserSearchIconTest {
 
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
 
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
         assertEquals("搜索按钮", action.targetId)
         assertEquals(0.9f, action.confidence, 0.001f)
     }
@@ -120,6 +119,6 @@ class ActionParserSearchIconTest {
         val response = """{"type":"CLICK","search_icon":"1"}"""
         // 如果触发 KVUtils，会抛 RuntimeException("not mocked")
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
-        assertEquals(ActionType.CLICK, action.type)
+        assertEquals(CLICK, action.type)
     }
 }
