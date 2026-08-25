@@ -294,7 +294,7 @@ class ActionExecutor @Inject constructor(
         }
 
         val tool = ToolRegistry.getTool(toolName)
-            ?: return ToolResult.error("工具未注册: $toolName")
+            ?: return ToolResult.error("未知工具 '$toolName'，可用工具: tap, locate, swipe, long_press, scroll_down, scroll_up, scroll_left, scroll_right, scroll_until, back, home, wait, open_app, auto_input, finish, web_search, fetch_result, forget, select_spec, request_user_action, visual_describe, ask_user")
 
         // 批量重复执行：仅对可重复类型生效（TAP/CLICK/LONG_PRESS/SCROLL_*），其余类型强制单次
         val repeatCount = if (finalAction.type in repeatableTypes) {

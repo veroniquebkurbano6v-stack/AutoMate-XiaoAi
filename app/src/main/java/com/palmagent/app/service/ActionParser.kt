@@ -233,36 +233,8 @@ object ActionParser {
                 extractActionFromText(response, screenInfo)
             }
         } catch (e: Exception) {
-            // 尝试从 JSON 中提取未知动作类型并降级映射
-            try {
-                val jsonStart = response.indexOf("{")
-                val jsonEnd = response.lastIndexOf("}") + 1
-                if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                    val jsonStr = response.substring(jsonStart, jsonEnd)
-                    val actionJson = gson.fromJson(jsonStr, ActionJson::class.java)
-                    val unknownType = actionJson.type?.lowercase() ?: ""
-                    if (unknownType.isNotBlank() && unknownType != "操作类型") {
-                        android.util.Log.w("ActionParser", "未知动作类型 '$unknownType'，尝试降级处理")
-                        val fallbackAction = tryMapUnknownType(unknownType, actionJson)
-                        if (fallbackAction != null) return fallbackAction
-                    }
-                }
-            } catch (_: Exception) {}
             extractActionFromText(response, screenInfo)
         }
-    }
-
-    /**
-     * 将未知动作类型映射到合理默认值（防御性容错）
-     * 当模型输出不在已知工具列表中的类型时，降级为 WAIT
-     */
-    private fun tryMapUnknownType(type: String, json: ActionJson): AgentAction? {
-        android.util.Log.w("ActionParser", "未知动作类型 '$type'，降级为 WAIT")
-        return AgentAction(
-            type = "wait",
-            description = "未知动作降级: $type",
-            confidence = 0.1f
-        )
     }
 
     /**
