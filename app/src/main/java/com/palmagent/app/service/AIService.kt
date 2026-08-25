@@ -136,7 +136,7 @@ class AIService(
 
         if (apiKey.isEmpty()) {
             return@withContext AgentAction(
-                type = ActionType.FINISH,
+                type = "finish",
                 description = "API Key 未配置，请在设置中配置API Key",
                 confidence = 0f
             )
@@ -177,7 +177,7 @@ class AIService(
                         }
                         Log.w(TAG, "重发请求也失败，返回WAIT等待重试")
                         return@withContext AgentAction(
-                            type = ActionType.WAIT,
+                            type = "wait",
                             description = "模型未输出有效操作，等待重试",
                             confidence = 0.3f
                         )
@@ -209,7 +209,7 @@ class AIService(
         }
 
         AgentAction(
-            type = ActionType.FINISH,
+            type = "finish",
             description = "API调用失败：$lastError",
             confidence = 0f
         )

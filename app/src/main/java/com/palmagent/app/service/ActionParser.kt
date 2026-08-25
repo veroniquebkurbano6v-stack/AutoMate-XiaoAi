@@ -152,12 +152,12 @@ object ActionParser {
                 val jsonStr = response.substring(jsonStart, jsonEnd)
                 val actionJson = gson.fromJson(jsonStr, ActionJson::class.java)
 
-                val actionType = ActionType.valueOf(actionJson.type?.uppercase() ?: "CLICK")
+                val actionType = actionJson.type?.lowercase() ?: "tap"
 
-                // v3.2 Layer 2：复杂模式兜底，ASK_USER 降级为 WAIT（复杂模式下执行模型不准追问）
-                val finalActionType = if (actionType == ActionType.ASK_USER && KVUtils.isComplexModeEnabled()) {
+                // 复杂模式兜底，ASK_USER 降级为 WAIT（复杂模式下执行模型不准追问）
+                val finalActionType = if (actionType == "ask_user" && KVUtils.isComplexModeEnabled()) {
                     android.util.Log.w("ActionParser", "复杂模式不支持 ASK_USER，降级为 WAIT")
-                    ActionType.WAIT
+                    "wait"
                 } else actionType
 
                 var targetElement: UIElement? = null
@@ -186,15 +186,15 @@ object ActionParser {
                 }
 
                 // ASK_USER 批量提问解析
-                val parsedQuestions = if (finalActionType == ActionType.ASK_USER) {
+                val parsedQuestions = if (finalActionType == "ask_user") {
                     parseQuestions(actionJson.questions)
                 } else null
 
                 // 严格校验：ASK_USER 必须有合法 questions 数组，否则降级为 WAIT（不保留旧格式兼容回退）
-                if (finalActionType == ActionType.ASK_USER && parsedQuestions.isNullOrEmpty()) {
+                if (finalActionType == "ask_user" && parsedQuestions.isNullOrEmpty()) {
                     android.util.Log.w("ActionParser", "ASK_USER 缺少合法 questions 字段，降级为 WAIT")
                     return AgentAction(
-                        type = ActionType.WAIT,
+                        type = "wait",
                         description = "ASK_USER 缺少合法 questions 字段",
                         confidence = 0.1f
                     )
@@ -233,36 +233,8 @@ object ActionParser {
                 extractActionFromText(response, screenInfo)
             }
         } catch (e: Exception) {
-            // 尝试从 JSON 中提取未知动作类型并降级映射
-            try {
-                val jsonStart = response.indexOf("{")
-                val jsonEnd = response.lastIndexOf("}") + 1
-                if (jsonStart >= 0 && jsonEnd > jsonStart) {
-                    val jsonStr = response.substring(jsonStart, jsonEnd)
-                    val actionJson = gson.fromJson(jsonStr, ActionJson::class.java)
-                    val unknownType = actionJson.type?.uppercase() ?: ""
-                    if (unknownType.isNotBlank() && unknownType != "操作类型") {
-                        android.util.Log.w("ActionParser", "未知动作类型 '$unknownType'，尝试降级处理")
-                        val fallbackAction = tryMapUnknownType(unknownType, actionJson)
-                        if (fallbackAction != null) return fallbackAction
-                    }
-                }
-            } catch (_: Exception) {}
             extractActionFromText(response, screenInfo)
         }
-    }
-
-    /**
-     * 将未知动作类型映射到合理默认值（防御性容错）
-     * 当模型输出不在 ActionType 枚举中的类型时，降级为 WAIT
-     */
-    private fun tryMapUnknownType(type: String, json: ActionJson): AgentAction? {
-        android.util.Log.w("ActionParser", "未知动作类型 '$type'，降级为 WAIT")
-        return AgentAction(
-            type = ActionType.WAIT,
-            description = "未知动作降级: $type",
-            confidence = 0.1f
-        )
     }
 
     /**
@@ -319,7 +291,7 @@ object ActionParser {
     fun extractActionFromText(text: String, screenInfo: ScreenInfo?): AgentAction {
         if (text.isBlank()) {
             return AgentAction(
-                type = ActionType.WAIT,
+                type = "wait",
                 description = "模型返回空内容，等待重试",
                 confidence = 0.3f
             )
@@ -332,7 +304,7 @@ object ActionParser {
             textLower.contains("视觉问答") || textLower.contains("屏幕描述") ||
             textLower.contains("屏幕问答") ->
                 AgentAction(
-                    type = ActionType.VISUAL_DESCRIBE,
+                    type = "visual_describe",
                     text = text,
                     description = "视觉描述屏幕",
                     confidence = 0.8f
@@ -340,7 +312,7 @@ object ActionParser {
             textLower.contains("web_search") || textLower.contains("联网搜索") ||
             textLower.contains("搜索一下") ->
                 AgentAction(
-                    type = ActionType.WEB_SEARCH,
+                    type = "web_search",
                     text = text,
                     description = "联网搜索",
                     confidence = 0.8f
@@ -348,39 +320,39 @@ object ActionParser {
             textLower.contains("需要用户") || textLower.contains("用户操作") ||
             textLower.contains("手动操作") || textLower.contains("请求用户") ->
                 AgentAction(
-                    type = ActionType.REQUEST_USER_ACTION,
+                    type = "request_user_action",
                     text = text,
                     description = text.take(200),
                     confidence = 0.8f
                 )
-            textLower.contains("tap") || textLower.contains("click") || textLower.contains("点击") ->
+            textLower.contains("tap") || textLower.contains("点击") ->
                 AgentAction(
-                    type = ActionType.WAIT,
+                    type = "wait",
                     description = "点击操作解析失败，等待下轮重试",
                     confidence = 0.3f
                 )
             textLower.contains("完成") || textLower.contains("结束") -> AgentAction(
-                type = ActionType.FINISH,
+                type = "finish",
                 description = text.takeIf { it.length < 200 } ?: "任务完成",
                 confidence = 0.9f
             )
             textLower.contains("返回") && textLower.contains("主页") -> AgentAction(
-                type = ActionType.HOME,
+                type = "home",
                 description = "返回主页",
                 confidence = 0.8f
             )
             textLower.contains("返回") -> AgentAction(
-                type = ActionType.BACK,
+                type = "back",
                 description = "返回上一页",
                 confidence = 0.8f
             )
             textLower.contains("等待") -> AgentAction(
-                type = ActionType.WAIT,
+                type = "wait",
                 description = "等待加载",
                 confidence = 0.8f
             )
             else -> AgentAction(
-                type = ActionType.WAIT,
+                type = "wait",
                 description = "无法解析操作：${text.take(100)}",
                 confidence = 0.3f
             )

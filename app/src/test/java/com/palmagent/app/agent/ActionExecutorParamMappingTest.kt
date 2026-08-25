@@ -1,7 +1,6 @@
 package com.palmagent.app.agent
 
 import com.palmagent.app.AgentApplication
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.AgentAction
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -77,7 +76,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `OPEN_APP text_mapped_to_app_name`() {
         val action = AgentAction(
-            type = ActionType.OPEN_APP,
+            type = "open_app",
             text = "com.tencent.mm",
             description = "打开微信应用",
             confidence = 0.9f
@@ -89,7 +88,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `OPEN_APP description_fallback_to_app_name`() {
         val action = AgentAction(
-            type = ActionType.OPEN_APP,
+            type = "open_app",
             text = null,
             description = "微信",
             confidence = 0.9f
@@ -101,7 +100,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `OPEN_APP no_text_no_description_app_name_is_null`() {
         val action = AgentAction(
-            type = ActionType.OPEN_APP,
+            type = "open_app",
             text = null,
             description = "",
             confidence = 0.9f
@@ -115,7 +114,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `LOCATE description_and_text_dual_field_mapping`() {
         val action = AgentAction(
-            type = ActionType.LOCATE,
+            type = "locate",
             text = "搜索",
             description = "搜索图标,放大镜,顶部",
             confidence = 0.9f
@@ -128,7 +127,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `LOCATE description_missing_targetDesc_fallback`() {
         val action = AgentAction(
-            type = ActionType.LOCATE,
+            type = "locate",
             text = "搜索",
             description = "",
             targetDesc = "搜索框",
@@ -142,7 +141,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `LOCATE no_description_no_targetDesc_description_null`() {
         val action = AgentAction(
-            type = ActionType.LOCATE,
+            type = "locate",
             text = "搜索",
             description = "",
             confidence = 0.9f
@@ -157,7 +156,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `REQUEST_USER_ACTION text_to_title_description_to_steps`() {
         val action = AgentAction(
-            type = ActionType.REQUEST_USER_ACTION,
+            type = "request_user_action",
             text = "请确认支付",
             description = "点击确认按钮",
             confidence = 0.9f
@@ -170,7 +169,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `REQUEST_USER_ACTION text_missing_description_fallback_to_title`() {
         val action = AgentAction(
-            type = ActionType.REQUEST_USER_ACTION,
+            type = "request_user_action",
             text = null,
             description = "请支付",
             confidence = 0.9f
@@ -182,7 +181,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `REQUEST_USER_ACTION description_missing_text_fallback_to_steps`() {
         val action = AgentAction(
-            type = ActionType.REQUEST_USER_ACTION,
+            type = "request_user_action",
             text = "请确认",
             description = "",
             confidence = 0.9f
@@ -202,7 +201,7 @@ class ActionExecutorParamMappingTest {
     @Test
     fun `AUTO_INPUT instruction_and_text_regression`() {
         val action = AgentAction(
-            type = ActionType.AUTO_INPUT,
+            type = "auto_input",
             text = "测试文本",
             description = "测试输入",
             instruction = "搜索框",

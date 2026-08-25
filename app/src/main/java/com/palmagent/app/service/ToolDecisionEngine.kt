@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.palmagent.app.agent.AgentLogger
 import com.palmagent.app.agent.ScratchpadEntry
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.model.ToolCallResult
@@ -72,7 +71,7 @@ class ToolDecisionEngine(
             loopCount++
 
             when (action.type) {
-                ActionType.WEB_SEARCH -> {
+                "web_search" -> {
                     val query = action.text?.takeIf { it.isNotBlank() } ?: action.description
                     if (query.isBlank()) {
                         log("WEB_SEARCH 缺少 query 参数，跳过")
@@ -170,7 +169,7 @@ class ToolDecisionEngine(
                     )
                 }
 
-                ActionType.FETCH_RESULT, ActionType.WEB_SEARCH_FETCH -> {
+                "fetch_result", "web_search_fetch" -> {
                     val ref = action.text?.takeIf { it.isNotBlank() } ?: action.description
                     if (ref.isBlank()) {
                         log("FETCH_RESULT 缺少 ref 参数，跳过")
@@ -254,7 +253,7 @@ class ToolDecisionEngine(
                     )
                 }
 
-                ActionType.VISUAL_DESCRIBE -> {
+                "visual_describe" -> {
                     val question = action.text?.takeIf { it.isNotBlank() } ?: action.description
 
                     // 方案 B①：相同调用拦截——同轮相同 (tool, 参数) 达到阈值时

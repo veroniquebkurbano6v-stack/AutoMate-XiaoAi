@@ -9,7 +9,6 @@ import com.palmagent.app.agent.ScratchpadEntry
 import com.palmagent.app.agent.ScreenDescriptor
 import com.palmagent.app.agent.TaskProgressTracker
 import com.palmagent.app.model.ActionRecord
-import com.palmagent.app.model.ActionType
 import com.palmagent.app.model.TaskProgress
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -139,7 +138,7 @@ class BuildEnhancedContextUseCase @Inject constructor(
         // B4 修复：注入已问问题（防重追问），与 VL 模式 buildVisionUserPrompt 对称
         // 文本模式此前缺失此区块，与系统提示词"④ actionHistory【已问问题】已记录的不重复问"承诺不一致
         val askedQuestions = params.actionHistory
-            .filter { it.actionType == ActionType.ASK_USER.name }
+            .filter { it.actionType == "ask_user" }
             .mapNotNull { it.params["asked_questions"] as? List<*> }
             .flatten()
             .filterIsInstance<String>()
