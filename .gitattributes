@@ -31,5 +31,6 @@ gradlew.bat      text eol=crlf
 *.ps1            text eol=crlf
 # Shell 脚本（LF）
 *.sh             text eol=lf
-# Git LFS 大文件（onnx 模型）
-*.onnx          filter=lfs diff=lfs merge=lfs -text
+
+# Git LFS 大文件
+*.onnx filter=lfs diff=lfs merge=lfs -text
