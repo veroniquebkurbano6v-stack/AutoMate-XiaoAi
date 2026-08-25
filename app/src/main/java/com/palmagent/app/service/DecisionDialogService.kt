@@ -639,7 +639,9 @@ Plan 示例（预约挂号）：
         val maskCount = maxOf(0, rounds.size - keepLastRounds)
         for (idx in 0 until maskCount) {
             val range = rounds[idx]
-            for (k in range.first + 1 until range.last) {
+            // rounds.add(i until j) 中的 IntRange 实际为 [first, last=j-1]；
+            // 用闭区间覆盖 assistant 之后的所有 role=tool 消息（tool_call_id 在 last 内）
+            for (k in range.first + 1 .. range.last) {
                 val msg = messages[k]
                 if (msg["role"] == "tool") {
                     messages[k] = msg.toMutableMap().apply { this["content"] = OBSERVATION_MASK_PLACEHOLDER }

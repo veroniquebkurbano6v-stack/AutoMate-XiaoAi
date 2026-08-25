@@ -202,8 +202,9 @@ class DecisionDialogAutonomousToolCallTest {
             systemPrompt.contains("必须调用"))
         assertTrue("SYSTEM_PROMPT 应包含追问前自检规则",
             systemPrompt.contains("追问") || systemPrompt.contains("自检"))
-        assertTrue("SYSTEM_PROMPT 应包含禁止凭空捏造规则",
-            systemPrompt.contains("禁止凭空捏造") || systemPrompt.contains("不要捏造"))
+        // SYSTEM_PROMPT 红线 3 原文为「禁止捏造」（不得凭训练知识猜 App 名/包名/UI 路径），断言与文案对齐
+        assertTrue("SYSTEM_PROMPT 应包含禁止捏造规则",
+            systemPrompt.contains("禁止捏造"))
 
         println("✓ SYSTEM_PROMPT 关键引导文本校验通过")
     }

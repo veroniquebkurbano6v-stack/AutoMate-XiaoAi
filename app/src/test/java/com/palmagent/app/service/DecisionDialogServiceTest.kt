@@ -226,10 +226,10 @@ class DecisionDialogServiceTest {
         assertEquals("应只调 1 次 LLM", 1, testInterceptor.capturedBodies.size)
     }
 
-    // ===== Case 7: 工具结果超过保留轮数后，早期工具消息被框架清理 =====
+    // ===== Case 7: 工具结果超过保留轮数后，早期工具消息被框架掩码（保留最近 1 轮原文） =====
 
     @Test
-    fun `chat 工具结果超过保留轮数后 早期工具消息被框架清理`() = runBlocking {
+    fun `chat 工具结果超过保留轮数后 早期工具结果被掩码为占位符`() = runBlocking {
         // 连续 3 轮调用 list_apps（产生 3 轮工具消息），第 4 次返回 ready
         repeat(3) {
             testInterceptor.responses.add(
@@ -247,15 +247,22 @@ class DecisionDialogServiceTest {
         val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
-        // 第 4 次请求发送前，框架已清理到只保留最近 1 轮（KEEP_TOOL_ROUNDS=1）工具结果
+        // 第 4 次请求发送前，框架对旧轮次工具结果执行"观察掩码"（MASK_KEEP_ROUNDS=1）：
+        // 更早轮次的 role=tool 内容被替换为占位符（不删除消息，保证 tool_calls/tool 配对），最近 1 轮保留原文。
         val fourthBody = testInterceptor.capturedBodies[3]
         val fourthJson = gson.fromJson(fourthBody, JsonObject::class.java)
         val messages = fourthJson.getAsJsonArray("messages")
-        var toolCount = 0
+        var masked = 0
+        var keptRaw = 0
         messages.forEach { msgElem ->
-            if (msgElem.asJsonObject.get("role").asString == "tool") toolCount++
+            val obj = msgElem.asJsonObject
+            if (obj.get("role").asString == "tool") {
+                if (obj.get("content").asString.contains("工具结果已掩码")) masked++ else keptRaw++
+            }
         }
-        assertEquals("第4次请求应只保留最近1轮工具结果", 1, toolCount)
+        // 3 轮工具消息都在（掩码而非移除，保证配对协议），其中 2 轮旧结果为占位符、最近 1 轮保留原文
+        assertEquals("旧轮次应被掩码", 2, masked)
+        assertEquals("最近1轮应保留原文", 1, keptRaw)
     }
 
     // ===== Case 8: 模型调用 workspace_update，工作区写入 system 且工具结果仍被清理 =====
