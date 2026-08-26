@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.palmagent.app.LiveLogBuffer
 import com.palmagent.app.model.AgentAction
-import com.palmagent.app.model.Coordinate
 import com.palmagent.app.model.QuestionAnswer
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.service.GUIAccessibilityService
@@ -412,32 +411,20 @@ class ActionExecutor @Inject constructor(
             return params
         }
 
-        // direction=custom 或旧坐标模式：优先使用 AI 返回的 coordinate_end / coordinate 精确滑动
+        // custom 模式（direction=custom 或旧坐标格式）：必须显式提供 coordinate_end 终点，
+        // 不提供则不推算终点，交由 SwipeTool 校验报错（严格：swipe 必须显式给 direction 或 end_x/end_y）
         if (direction == "custom" || action.coordinateEnd != null) {
             params["direction"] = "custom"
             params["start_x"] = startX
             params["start_y"] = startY
-            val end = action.coordinateEnd ?: Coordinate(startX, startY - (screenH * 0.4).toInt())
-            params["end_x"] = end.x
-            params["end_y"] = end.y
+            action.coordinateEnd?.let { end ->
+                params["end_x"] = end.x
+                params["end_y"] = end.y
+            }
             return params
         }
 
-        // 历史兼容回退：仅有 coordinate 无终点时，根据方向文本推算终点
-        val swipeDistance = (screenH * 0.4).toInt()
-        val directionText = action.text?.lowercase() ?: ""
-        val (endX, endY) = when {
-            directionText.contains("down") || directionText.contains("下") -> Pair(startX, startY + swipeDistance)
-            directionText.contains("up") || directionText.contains("上") -> Pair(startX, startY - swipeDistance)
-            directionText.contains("left") || directionText.contains("左") -> Pair(startX - swipeDistance, startY)
-            directionText.contains("right") || directionText.contains("右") -> Pair(startX + swipeDistance, startY)
-            else -> Pair(startX, startY - swipeDistance)
-        }
-        params["direction"] = "custom"
-        params["start_x"] = startX
-        params["start_y"] = startY
-        params["end_x"] = endX
-        params["end_y"] = endY
+        // 未提供 direction 且未提供终点：不推算，交由 SwipeTool 校验报错
         return params
     }
 

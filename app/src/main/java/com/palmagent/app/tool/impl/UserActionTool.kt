@@ -40,7 +40,7 @@ class UserActionTool : BaseTool() {
         private const val TAG = "UserActionTool"
     }
 
-    override fun getName(): String = "user_action"
+    override fun getName(): String = "request_user_action"
 
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter(
