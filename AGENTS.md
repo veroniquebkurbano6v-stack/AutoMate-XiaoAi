@@ -34,8 +34,8 @@ AutoMate·小艾：Android GUI 智能助手（Kotlin），端侧 RAG + 云端多
 - DI 用 Hilt（`framework/di/AgentModule.kt`）+ KSP；知识库 SQLite 用 Room；kb.db 为自建 SQLite（KbDbAccessor 管理，BLOB 存向量）。
 - 模型角色（local.default.properties 默认值）：LLM=deepseek-v4-flash（执行）、PLANNER=deepseek-v4-flash（决策）、VLM=qwen3-vl-flash（屏幕描述）、KEYBOARD_VLM=glm-4v-flash（键盘检测）、COMPACT=glm-4.5-flash（上下文压缩）、GUI-Plus=gui-plus-2026-02-26（视觉执行，百炼 DashScope）。
 
-## 工具清单（ToolRegistry，25 个）
-tap / long_press / swipe / scroll_down / scroll_up / scroll_left / scroll_right / scroll_until / back / home / wait / finish / open_app / list_apps / auto_input / locate / get_screen_info / visual_describe / user_action / select_spec / amap_search / amap_nearby / amap_directions / amap_weather / web_search
+## 工具清单（ToolRegistry，21 个）
+tap / long_press / swipe（方向滚动+direction参数 / scroll_until / back / home / wait / finish / open_app / list_apps / auto_input / locate / get_screen_info / visual_describe / user_action / select_spec / amap_search / amap_nearby / amap_directions / amap_weather / web_search
 
 新增工具只需在 `ToolRegistry` 的 `toolClasses` 加一行；参数在工具类 `getParameters()` 声明，AI 描述由 `getToolDescriptionsForAI()` 自动生成。
 

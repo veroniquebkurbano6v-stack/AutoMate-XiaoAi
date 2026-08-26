@@ -51,6 +51,10 @@ object ActionParser {
         // 批量重复执行字段：repeat=连续执行同一动作的次数，interval_ms=每次间隔毫秒
         val repeat: Int? = null,
         val interval_ms: Long? = null,
+        // 滑动方向（SWIPE 使用）：up/down/left/right/custom
+        val direction: String? = null,
+        // 方向模式滑动距离（像素，SWIPE 选填）
+        val distance: JsonElement? = null,
         // 下一轮屏幕描述想额外确认的问题（透传给 GUI 模型按需回答）
         val visual_question: String? = null,
         // 批量提问结构化字段（ASK_USER 必填，对齐 GitHub Copilot ask_questions）
@@ -225,15 +229,44 @@ object ActionParser {
                     questions = parsedQuestions,
                     repeat = actionJson.repeat?.coerceIn(1, MAX_REPEAT) ?: 1,
                     intervalMs = actionJson.interval_ms?.coerceIn(MIN_REPEAT_INTERVAL_MS, MAX_REPEAT_INTERVAL_MS),
+                    direction = actionJson.direction?.lowercase()
+                        ?.takeIf { it in setOf("up", "down", "left", "right", "custom") },
+                    distance = parseDistance(actionJson.distance),
                     visualQuestion = actionJson.visual_question?.takeIf { it.isNotBlank() },
                     specs = parseSpecsField(actionJson.specs),
                     confirmText = actionJson.confirm_text?.takeIf { it.isNotBlank() }
                 )
             } else {
-                extractActionFromText(response, screenInfo)
+                parseErrorAction(response, "模型输出未包含合法动作 JSON")
             }
         } catch (e: Exception) {
-            extractActionFromText(response, screenInfo)
+            parseErrorAction(response, "动作 JSON 解析失败: ${e.message}")
+        }
+    }
+
+    /**
+     * 解析失败兜底：生成"解析错误"动作，错误描述注入历史操作上下文，
+     * 提示模型重新输出含正确 type 字段的 JSON 动作（不再做关键字→工具映射）。
+     */
+    private fun parseErrorAction(response: String, reason: String): AgentAction {
+        android.util.Log.w("ActionParser", "$reason，原始输出: ${response.take(200)}")
+        return AgentAction(
+            type = "wait",
+            description = "【解析错误】$reason，请重新输出含正确 type 字段的 JSON 动作",
+            confidence = 0.1f
+        )
+    }
+
+    /**
+     * 解析 SWIPE 的 distance 字段：兼容 JSON 数字与数字字符串，非法/非正数返回 null。
+     * 模型可能输出 300 / "300" / 300.0。
+     */
+    private fun parseDistance(raw: JsonElement?): Int? {
+        if (raw == null || !raw.isJsonPrimitive) return null
+        return try {
+            raw.asJsonPrimitive.asFloat.toInt().takeIf { it > 0 }
+        } catch (_: Exception) {
+            null
         }
     }
 
@@ -281,80 +314,6 @@ object ActionParser {
                 options = options,
                 multiSelect = qj.multiSelect ?: false,
                 allowFreeInput = qj.allowFreeInput ?: true
-            )
-        }
-    }
-
-    /**
-     * 从自然语言文本中提取动作（回退策略）
-     */
-    fun extractActionFromText(text: String, screenInfo: ScreenInfo?): AgentAction {
-        if (text.isBlank()) {
-            return AgentAction(
-                type = "wait",
-                description = "模型返回空内容，等待重试",
-                confidence = 0.3f
-            )
-        }
-
-        val textLower = text.lowercase()
-
-        return when {
-            textLower.contains("视觉描述") || textLower.contains("visual_describe") ||
-            textLower.contains("视觉问答") || textLower.contains("屏幕描述") ||
-            textLower.contains("屏幕问答") ->
-                AgentAction(
-                    type = "visual_describe",
-                    text = text,
-                    description = "视觉描述屏幕",
-                    confidence = 0.8f
-                )
-            textLower.contains("web_search") || textLower.contains("联网搜索") ||
-            textLower.contains("搜索一下") ->
-                AgentAction(
-                    type = "web_search",
-                    text = text,
-                    description = "联网搜索",
-                    confidence = 0.8f
-                )
-            textLower.contains("需要用户") || textLower.contains("用户操作") ||
-            textLower.contains("手动操作") || textLower.contains("请求用户") ->
-                AgentAction(
-                    type = "request_user_action",
-                    text = text,
-                    description = text.take(200),
-                    confidence = 0.8f
-                )
-            textLower.contains("tap") || textLower.contains("点击") ->
-                AgentAction(
-                    type = "wait",
-                    description = "点击操作解析失败，等待下轮重试",
-                    confidence = 0.3f
-                )
-            textLower.contains("完成") || textLower.contains("结束") -> AgentAction(
-                type = "finish",
-                description = text.takeIf { it.length < 200 } ?: "任务完成",
-                confidence = 0.9f
-            )
-            textLower.contains("返回") && textLower.contains("主页") -> AgentAction(
-                type = "home",
-                description = "返回主页",
-                confidence = 0.8f
-            )
-            textLower.contains("返回") -> AgentAction(
-                type = "back",
-                description = "返回上一页",
-                confidence = 0.8f
-            )
-            textLower.contains("等待") -> AgentAction(
-                type = "wait",
-                description = "等待加载",
-                confidence = 0.8f
-            )
-            else -> AgentAction(
-                type = "wait",
-                description = "无法解析操作：${text.take(100)}",
-                confidence = 0.3f
             )
         }
     }

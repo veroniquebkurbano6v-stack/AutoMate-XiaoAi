@@ -213,15 +213,10 @@ class ScrollUntilTool : BaseTool() {
         }
     }
 
-    /** 按方向执行一次滚动，复用对应方向滚动工具（含边界签名检测） */
+    /** 按方向执行一次滚动，复用 swipe 方向滚动模式（含边界签名检测） */
     private suspend fun scrollOnce(direction: String): ToolResult {
-        val tool: BaseTool = when (direction) {
-            "up" -> ScrollUpTool()
-            "left" -> ScrollLeftTool()
-            "right" -> ScrollRightTool()
-            else -> ScrollDownTool()
-        }
-        return tool.executeWithWaitAfter(emptyMap())
+        val safeDirection = direction.lowercase().takeIf { it in setOf("up", "down", "left", "right") } ?: "down"
+        return SwipeTool().executeWithWaitAfter(mapOf("direction" to safeDirection))
     }
 
     /** 宽松解析布尔参数（true/1/yes/Boolean） */

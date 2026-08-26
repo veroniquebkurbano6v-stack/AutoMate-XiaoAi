@@ -52,10 +52,8 @@ object PromptBuilder {
 - tap: coordinate(必填,[x,y]数组如[976,2376]), description(必填) — 仅已知精确坐标直接点击
 - open_app: text(必填,应用中文名或包名) — 打开应用
 - long_press: coordinate(必填,[x,y]数组), description(必填) — 长按
-- swipe: coordinate(起点,[x,y]数组), coordinate_end(终点,[x,y]数组), description(必填) — 精确滑动（全面屏返回/自定义轨迹）
-- scroll_down/up: description(必填) — 向下看更多/向上回顶部。⚠️ 页面显示"历史搜索""热门搜索"等是搜索页而非结果页，不要滚动，应执行搜索
+- swipe: direction(必填, up/down/left/right/custom), start_x/start_y(可选,起点), end_x/end_y(direction=custom时必填,终点), distance(可选,方向模式滑动距离像素,默认一屏的80%), duration_ms(可选,不传则按距离自动推算), description(必填) — ⭐滚动/滑动二合一：direction=down 向下看更多 / up 向上回顶部 / left/right 水平滑动切换标签 / custom 精确滑动（全面屏返回/自定义轨迹）。⚠️ 页面显示"历史搜索""热门搜索"等是搜索页而非结果页，不要滚动，应执行搜索
 - scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — ⭐滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置，如"心相印金装经典抽纸"、"底部导航栏的购物车图标"），禁止模糊描述（那个/相关的/类似的）
-- scroll_left/right: description(必填) — 水平滑动切换标签
 - back/home: description(必填) — 返回/主页
 - wait: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载/动画
 - request_user_action: text(必填,标题), description(选填) — 不可逆操作交用户（见约束4）
@@ -77,7 +75,7 @@ object PromptBuilder {
 - coordinate/coordinate_end(坐标): 一律用数组 [x, y]（先x后y），如 tap 示例 {"type":"tap","coordinate":[976,2376],"description":"点击去结算按钮"}
 - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
 - visual_question(必填): 本轮动作后想从下轮屏幕描述确认的问题（如"当前界面是美团App吗？"）；确实无需确认时写""
-- repeat/interval_ms(可选): 重复点击 N 次（1-10，间隔500-2000ms，仅tap/long_press/scroll_*）
+- repeat/interval_ms(可选): 重复操作 N 次（1-10，间隔500-2000ms，仅tap/long_press/swipe）
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
@@ -130,10 +128,8 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 - tap: coordinate(必填,[x,y]数组如[976,2376]), description(必填) — 仅已知精确坐标直接点击
 - open_app: text(必填,应用中文名或包名) — 打开应用
 - long_press: coordinate(必填,[x,y]数组), description(必填) — 长按
-- swipe: coordinate(起点,[x,y]数组), coordinate_end(终点,[x,y]数组), description(必填) — 精确滑动（全面屏返回/自定义轨迹）
-- scroll_down/up: description(必填) — 向下看更多/向上回顶部。⚠️ 页面显示"历史搜索""热门搜索"等是搜索页而非结果页，不要滚动，应执行搜索
+- swipe: direction(必填, up/down/left/right/custom), start_x/start_y(可选,起点), end_x/end_y(direction=custom时必填,终点), distance(可选,方向模式滑动距离像素,默认一屏的80%), duration_ms(可选,不传则按距离自动推算), description(必填) — ⭐滚动/滑动二合一：direction=down 向下看更多 / up 向上回顶部 / left/right 水平滑动切换标签 / custom 精确滑动（全面屏返回/自定义轨迹）。⚠️ 页面显示"历史搜索""热门搜索"等是搜索页而非结果页，不要滚动，应执行搜索
 - scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — ⭐滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置，如"心相印金装经典抽纸"、"底部导航栏的购物车图标"），禁止模糊描述（那个/相关的/类似的）
-- scroll_left/right: description(必填) — 水平滑动切换标签
 - back/home: description(必填) — 返回/主页
 - wait: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载/动画
 - request_user_action: text(必填,标题), description(选填) — 不可逆操作交用户（见约束4）
@@ -151,7 +147,7 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 - coordinate/coordinate_end(坐标): 一律用数组 [x, y]（先x后y），如 tap 示例 {"type":"tap","coordinate":[976,2376],"description":"点击去结算按钮"}
 - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
 - visual_question(必填): 本轮动作后想从下轮屏幕描述确认的问题（如"当前界面是美团App吗？"）；确实无需确认时写""
-- repeat/interval_ms(可选): 重复点击 N 次（1-10，间隔500-2000ms，仅tap/long_press/scroll_*）
+- repeat/interval_ms(可选): 重复操作 N 次（1-10，间隔500-2000ms，仅tap/long_press/swipe）
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
@@ -195,9 +191,8 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 - auto_input: text(必填,输入文本), is_text_input_box(选填,布尔"true"=文本输入框,"false"=搜索图标；不填跳过定位) — 一步完成"定位输入框→输入文本→自动点搜索按钮"
 
 ### 导航与浏览
-- scroll_down/up: description(必填) — 向下/向上滚动
+- swipe: direction(必填, up/down/left/right/custom), description(必填) — 滚动/滑动：向下看更多→direction=down；回顶部→up；水平切换标签→left/right；精确滑动/全面屏返回→custom
 - scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — 滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置），禁止模糊描述
-- scroll_left/right: description(必填) — 水平滑动切换标签
 - back/home: description(必填) — 返回/主页
 
 ### 应用与等待
@@ -218,7 +213,7 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 ## 输出格式
 每轮输出一个 JSON 对象。
 
-⚠️ type 字段必须是上方"操作工具"列表中的具体动作名（如 locate/finish/wait/scroll_down），**不能写"操作类型"字面量**。
+⚠️ type 字段必须是上方"操作工具"列表中的具体动作名（如 locate/finish/wait/swipe），**不能写"操作类型"字面量**。
 
 示例1（定位点击）：
 ```json
@@ -247,7 +242,7 @@ progress字段必填：current_step, completed_steps, remaining_steps, status
 引导到目标界面/所有步骤完成/无法克服障碍时 finish（障碍需在 summary 说明）
 
 ### locate 失败处理
-失败时根据原因调整：服务不可用→改用 SCROLL/back/open_app；未找到→调整描述或滚动查找。连续2次失败必须切换策略。
+失败时根据原因调整：服务不可用→改用 swipe(滚动)/back/open_app；未找到→调整描述或用 swipe 滚动查找。连续2次失败必须切换策略。
 """.trimIndent()
 
     /**
@@ -271,9 +266,8 @@ progress字段必填：current_step, completed_steps, remaining_steps, status
 - auto_input: text(必填,输入文本), is_text_input_box(选填,布尔"true"=文本输入框,"false"=搜索图标；不填跳过定位) — 一步完成"定位输入框→输入文本→自动点搜索按钮"
 
 ### 导航与浏览
-- scroll_down/up: description(必填) — 向下/向上滚动
+- swipe: direction(必填, up/down/left/right/custom), description(必填) — 滚动/滑动：向下看更多→direction=down；回顶部→up；水平切换标签→left/right；精确滑动/全面屏返回→custom
 - scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — 滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置），禁止模糊描述
-- scroll_left/right: description(必填) — 水平滑动切换标签
 - back/home: description(必填) — 返回/主页
 
 ### 应用与等待
@@ -290,7 +284,7 @@ progress字段必填：current_step, completed_steps, remaining_steps, status
 ## 输出格式
 每轮输出一个 JSON 对象。
 
-⚠️ type 字段必须是上方"操作工具"列表中的具体动作名（如 locate/finish/wait/scroll_down），**不能写"操作类型"字面量**。
+⚠️ type 字段必须是上方"操作工具"列表中的具体动作名（如 locate/finish/wait/swipe），**不能写"操作类型"字面量**。
 
 示例1（定位点击）：
 ```json
@@ -319,7 +313,7 @@ progress字段必填：current_step, completed_steps, remaining_steps, status
 引导到目标界面/所有步骤完成/无法克服障碍时 finish（障碍需在 summary 说明）
 
 ### locate 失败处理
-失败时根据原因调整：服务不可用→改用 SCROLL/back/open_app；未找到→调整描述或滚动查找。连续2次失败必须切换策略。
+失败时根据原因调整：服务不可用→改用 swipe(滚动)/back/open_app；未找到→调整描述或用 swipe 滚动查找。连续2次失败必须切换策略。
 """.trimIndent()
 
     /**
