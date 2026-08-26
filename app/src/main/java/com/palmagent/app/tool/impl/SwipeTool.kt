@@ -1,6 +1,7 @@
 package com.palmagent.app.tool.impl
 
 import android.util.Log
+import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.tool.BaseTool
 import com.palmagent.app.tool.ToolParameter
 import com.palmagent.app.tool.ToolResult
@@ -26,8 +27,10 @@ class SwipeTool : BaseTool() {
         private const val CENTER_RATIO = 0.5f
         /** 方向模式的最小滑动距离（像素），防御 distance 过小导致"假滑动" */
         private const val MIN_SWIPE_DISTANCE = 10
-        /** 滑动后等待页面稳定的时长（与 ActionExecutor 轮询间隔一致） */
-        private const val STABLE_WAIT_MS = 300L
+        /** 滑动后轮询页面稳定的间隔（毫秒） */
+        private const val STABLE_POLL_INTERVAL_MS = 150L
+        /** 滑动后轮询页面稳定的最大总时长（毫秒），覆盖惯性滚动/异步渲染 */
+        private const val STABLE_POLL_MAX_MS = 1200L
         private val DIRECTIONS = setOf("up", "down", "left", "right", "custom")
     }
 
@@ -114,9 +117,9 @@ class SwipeTool : BaseTool() {
             return result
         }
 
-        // 等页面稳定后校验：签名变化 = 真的滚动了；无变化 = 已到边界/未生效
-        delay(STABLE_WAIT_MS)
-        val afterSig = service?.getTreeSignature()
+        // 轮询等待页面稳定（连续两次签名一致视为稳定，覆盖惯性滚动/异步渲染），
+        // 再与滑动前签名对比：变化 = 真的滚动了；无变化 = 已到边界/未生效
+        val afterSig = waitForStableSignature(service)
         if (afterSig != null && beforeSig != null && afterSig == beforeSig) {
             Log.w(TAG, "向${dirName}滑动后页面签名无变化，滚动可能未生效（已到页面边界？）")
             return ToolResult.error(
@@ -131,6 +134,30 @@ class SwipeTool : BaseTool() {
         return ToolResult.success(
             "向${dirName}滑动完成 (${path.startX},${path.startY}) → (${path.endX},${path.endY})，屏幕尺寸: ${screenW}x${screenH}"
         )
+    }
+
+    /**
+     * 轮询等待无障碍树签名稳定：连续两次读取一致（约 2×STABLE_POLL_INTERVAL_MS）才视为稳定，
+     * 避免"滑动已生效但树尚未渲染完"的首次检查误判；超时（STABLE_POLL_MAX_MS）返回最后一次签名。
+     * service 为 null 返回 null。
+     */
+    private suspend fun waitForStableSignature(service: GUIAccessibilityService?): Pair<Int, String>? {
+        if (service == null) return null
+        var prev = service.getTreeSignature()
+        var stableCount = 0
+        val deadline = System.currentTimeMillis() + STABLE_POLL_MAX_MS
+        while (System.currentTimeMillis() < deadline) {
+            delay(STABLE_POLL_INTERVAL_MS)
+            val cur = service.getTreeSignature()
+            if (cur == prev) {
+                stableCount++
+                if (stableCount >= 2) return cur
+            } else {
+                stableCount = 0
+            }
+            prev = cur
+        }
+        return service.getTreeSignature()
     }
 
     /**
