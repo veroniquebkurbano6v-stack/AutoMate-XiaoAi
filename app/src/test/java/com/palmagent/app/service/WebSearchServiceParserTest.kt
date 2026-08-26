@@ -108,22 +108,68 @@ class WebSearchServiceParserTest {
 
     @Test
     fun `ai_search_source_content_单对象形态解析`() {
-        // source content 可能是单条网页对象（非集合）
+        // 博查 ai-search 实测：每条 source(webpage) message 的 content 为单条网页对象（非集合）
         val body = """
             {
               "messages": [
                 {
                   "type": "source",
                   "content_type": "webpage",
-                  "content": "{\"name\":\"单条结果\",\"url\":\"https://s.com\",\"snippet\":\"single\"}"
-                }
+                  "content": "{\"name\":\"单条结果\",\"url\":\"https://s.com\",\"snippet\":\"single\",\"summary\":\"sum\"}"
+                },
+                {"type": "answer", "content": "答案是…"}
               ]
             }
         """.trimIndent()
 
         val result = WebSearchService.parseAiSearchResponse("x", body, 1L)
-        // 单对象 content 无 value 数组 → 走回退也解析不到 → null（不崩溃）
-        // 注：当前实现按 value 数组解析，单对象会回退顶层结构失败返回 null
+        assertNotNull("单条网页对象形态应解析成功", result)
+        result!!
+        assertEquals(1, result.results.size)
+        assertEquals("单条结果", result.results[0].title)
+        assertEquals("https://s.com", result.results[0].url)
+        assertEquals("sum", result.results[0].summary)
+        assertEquals("答案是…", result.answer)
+    }
+
+    @Test
+    fun `ai_search_多条source均为单对象_全部收集`() {
+        // 多条 source message，每条一个单网页对象
+        val body = """
+            {
+              "messages": [
+                {"type": "source", "content_type": "webpage", "content": "{\"name\":\"页1\",\"url\":\"https://1.com\",\"snippet\":\"a\"}"},
+                {"type": "source", "content_type": "webpage", "content": "{\"name\":\"页2\",\"url\":\"https://2.com\",\"snippet\":\"b\"}"},
+                {"type": "source", "content_type": "weather", "content": "{\"city\":\"杭州\"}"},
+                {"type": "answer", "content": "综合结论"}
+              ]
+            }
+        """.trimIndent()
+
+        val result = WebSearchService.parseAiSearchResponse("x", body, 1L)
+        assertNotNull(result)
+        result!!
+        // 仅 content_type=webpage 的两条被收集；weather 模态卡忽略
+        assertEquals(2, result.results.size)
+        assertEquals("页1", result.results[0].title)
+        assertEquals("页2", result.results[1].title)
+        assertEquals("综合结论", result.answer)
+    }
+
+    @Test
+    fun `ai_search_source_content_非网页对象_忽略不崩溃`() {
+        // content 是 JSON 但非网页对象（无 name/url），应忽略而非崩溃/误收
+        val body = """
+            {
+              "messages": [
+                {"type": "source", "content_type": "webpage", "content": "{\"foo\":\"bar\",\"n\":1}"},
+                {"type": "answer", "content": "仅有答案"}
+              ]
+            }
+        """.trimIndent()
+
+        val result = WebSearchService.parseAiSearchResponse("x", body, 1L)
+        // 无有效网页条目 → items 空 → 回退也无果 → null（不崩溃）
         assertEquals(null, result)
     }
 

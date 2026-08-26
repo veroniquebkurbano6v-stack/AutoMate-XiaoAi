@@ -290,7 +290,9 @@ object WebSearchService {
     /**
      * 解析博查 ai-search 响应（2026-08 实测结构，与 web-search 不同）：
      * - 结果条：messages[] 中 type=source 且 content_type=webpage 的 message，
-     *   content 为 JSON 字符串，内含网页集合（webPages.value[] / value[] / 单条网页对象其一）；
+     *   content 为 JSON 字符串，兼容两种实测形态：
+     *   ① 单条网页对象 {name,url,snippet,...}（每条 source 一页，博查流式/非流式常见）；
+     *   ② 网页集合（webPages.value[] / value[] 包装）；
      * - 答案：messages[] 中 type=answer 的 message.content（大模型聚合答案，与 source 顺序无保证）；
      * - 防御：messages 缺失或解析不到结果时回退 data.webPages / 顶层 webPages（兼容非流式简化响应）。
      */
@@ -317,7 +319,17 @@ object WebSearchService {
                                     val src = try {
                                         JsonParser.parseString(content).asJsonObject
                                     } catch (_: Exception) { null }
-                                    src?.let { extractWebPages(it)?.let { r -> items.addAll(r) } }
+                                    if (src != null) {
+                                        // 形态A/B/C：content 内嵌网页集合（webPages.value[] / data.webPages / value[]）
+                                        val collected = extractWebPages(src)
+                                        if (collected != null) {
+                                            items.addAll(collected)
+                                        } else {
+                                            // 形态D：content 为单条网页对象（博查 ai-search source 实测结构，
+                                            // 每条 source message 对应一个网页 {name,url,snippet,...}）
+                                            extractSingleWebPage(src)?.let { items.add(it) }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -343,7 +355,8 @@ object WebSearchService {
      * 提取博查响应中的网页条目（防御式多形态）：
      * - 形态A：json.webPages.value[]（官方示例）
      * - 形态B：json.data.webPages.value[]（2026-08 实测 web-search 响应结构）
-     * - 形态C：json.value[]（ai-search source content 的简化形态）
+     * - 形态C：json.value[]（ai-search source content 的简化集合形态）
+     * 返回 null 表示无集合形态，调用方应再试 [extractSingleWebPage]。
      */
     private fun extractWebPages(json: com.google.gson.JsonObject): List<SearchItem>? {
         val webPages = json.getAsJsonObject("webPages")
@@ -352,13 +365,34 @@ object WebSearchService {
             ?: return null
         return valueArr.mapNotNull { item ->
             val obj = item.asJsonObject
-            SearchItem(
-                title = obj.get("name")?.takeIf { !it.isJsonNull }?.asString ?: "",
-                url = obj.get("url")?.takeIf { !it.isJsonNull }?.asString ?: "",
-                snippet = obj.get("snippet")?.takeIf { !it.isJsonNull }?.asString ?: "",
-                summary = obj.get("summary")?.takeIf { !it.isJsonNull }?.asString
-            )
+            obj.toSearchItemOrNull()
         }.filter { it.title.isNotEmpty() || it.url.isNotEmpty() }
+    }
+
+    /**
+     * 形态D：单条网页对象（博查 ai-search 每条 source message 的 content 实测结构：
+     * 一个 JSON 对象，含 name/url/snippet/summary 等，无 webPages/value 包装）。
+     * 非网页对象（无 name 且无 url）返回 null。
+     */
+    private fun extractSingleWebPage(json: com.google.gson.JsonObject): SearchItem? {
+        // 含集合包装键的对象不是单网页，交给 extractWebPages；这里只认裸网页字段
+        if (json.has("webPages") || json.has("value") || json.has("data")) return null
+        val item = json.toSearchItemOrNull() ?: return null
+        return item.takeIf { it.title.isNotEmpty() || it.url.isNotEmpty() }
+    }
+
+    /** JsonObject → SearchItem（name/url/snippet/summary 字段，缺失安全） */
+    private fun com.google.gson.JsonObject.toSearchItemOrNull(): SearchItem? {
+        // 必须至少像一个网页条目（含 name 或 url），否则视为非网页对象
+        val name = get("name")?.takeIf { !it.isJsonNull }?.asString ?: ""
+        val url = get("url")?.takeIf { !it.isJsonNull }?.asString ?: ""
+        if (name.isEmpty() && url.isEmpty()) return null
+        return SearchItem(
+            title = name,
+            url = url,
+            snippet = get("snippet")?.takeIf { !it.isJsonNull }?.asString ?: "",
+            summary = get("summary")?.takeIf { !it.isJsonNull }?.asString
+        )
     }
 
     // ==================== DuckDuckGo HTML 抓取（兜底） ====================
