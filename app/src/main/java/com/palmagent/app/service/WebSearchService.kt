@@ -31,6 +31,7 @@ object WebSearchService {
 
     private const val TAG = "WebSearchService"
     private const val BOCHA_API_URL = "https://api.bochaai.com/v1/web-search"
+    private const val BOCHA_AI_URL = "https://api.bochaai.com/v1/ai-search"
     private const val DDG_HTML_URL = "https://duckduckgo.com/html/?q="
     private const val CONNECT_TIMEOUT_S = 5L
     private const val READ_TIMEOUT_S = 10L
@@ -89,15 +90,20 @@ object WebSearchService {
     /**
      * 统一搜索入口（兼容旧调用方）：自动选择引擎，返回格式化文本。
      * 注意：主链路请使用 [searchWithCache]（带去重+缓存+摘要视图）。
+     *
+     * @param mode 检索模式："web"=网页检索（默认，成本低）；"ai"=AI聚合答案+引用（需要直接结论时用，成本更高）。
+     *              ai 模式基于博查 ai-search 端点（answer=true），失败（如未开通白名单/超时）自动降级为 web 重试。
      */
-    suspend fun search(query: String, count: Int = 5): ToolCallResult = withContext(Dispatchers.IO) {
+    suspend fun search(query: String, count: Int = 5, mode: String = "web"): ToolCallResult = withContext(Dispatchers.IO) {
         if (query.isBlank()) {
             return@withContext ToolCallResult("web_search", success = false, error = "查询词不能为空")
         }
+        val ei = mode == "ai"
         val bochaKey = KVUtils.getBochaApiKey()
         val outcome = if (bochaKey.isNotEmpty()) {
-            Log.d(TAG, "使用博查引擎搜索: query=$query, count=$count")
-            searchViaBocha(query, count, bochaKey)
+            Log.d(TAG, "使用博查引擎搜索: query=$query, count=$count, mode=${if (ei) "ai" else "web"}")
+            if (ei) searchWithAiOrFallbackWeb(query, count, bochaKey)
+            else searchViaBocha(query, count, bochaKey)
         } else {
             Log.d(TAG, "未配置博查Key，使用 DuckDuckGo 兜底: query=$query, count=$count")
             searchViaDuckDuckGo(query, count)
@@ -115,13 +121,19 @@ object WebSearchService {
 
     /**
      * 主链路搜索入口：去重 → 搜索 → 完整缓存 → 摘要视图。
-     * 1. 同 query（规范化）在最近 KEEP_ROUNDS 内已缓存 → 直接复用缓存摘要，不重复调博查
-     * 2. 未命中 → 调搜索引擎 → 完整结果写 ToolResultCache（全字段不截断）
+     * 1. 同 query（规范化）+ 同 mode 在最近 KEEP_ROUNDS 内已缓存 → 直接复用缓存摘要，不重复调博查
+     * 2. 未命中 → 调搜索引擎 → 完整结果写 ToolResultCache（全字段不截断；ai 模式的 answer 随缓存落盘）
      * 3. 返回摘要视图（仅本轮注入，不入工作区），模型可按 ref 调 fetch_result 取回原文
      *
      * @param round 当前轮次（ref 命名 ws-<round>-<n>）
+     * @param mode 检索模式："web"/"ai"（同 [search]，缓存键含 mode 维度，互不串用）
      */
-    suspend fun searchWithCache(query: String, count: Int = 5, round: Int): CachedSearchResult =
+    suspend fun searchWithCache(
+        query: String,
+        count: Int = 5,
+        round: Int,
+        mode: String = "web"
+    ): CachedSearchResult =
         withContext(Dispatchers.IO) {
             if (query.isBlank()) {
                 return@withContext CachedSearchResult(
@@ -129,16 +141,17 @@ object WebSearchService {
                     error = "查询词不能为空"
                 )
             }
+            val ei = mode == "ai"
 
-            // 1. 去重检查：规范化 query 命中缓存则直接复用
-            val hit = ToolResultCache.hitRound(query)
+            // 1. 去重检查：规范化 query + mode 命中缓存则直接复用
+            val hit = ToolResultCache.hitRound(query, mode)
             if (hit != null) {
-                Log.d(TAG, "搜索缓存命中 round=$hit: query=${query.take(60)}")
+                Log.d(TAG, "搜索缓存命中 round=$hit: query=${query.take(60)}, mode=$mode")
                 val entries = readEntries(hit)
                 if (entries.isNotEmpty()) {
                     return@withContext CachedSearchResult(
                         success = true,
-                        summaryText = buildCachedSummaryHeader(query, hit) + "\n" +
+                        summaryText = buildCachedSummaryHeader(query, mode, hit) + "\n" +
                             ToolResultCache.buildSummary(query, entries),
                         hitCache = true,
                         hitRound = hit,
@@ -150,7 +163,8 @@ object WebSearchService {
             // 2. 未命中 → 正常搜索（结构化）
             val bochaKey = KVUtils.getBochaApiKey()
             val outcome = if (bochaKey.isNotEmpty()) {
-                searchViaBocha(query, count, bochaKey)
+                if (ei) searchWithAiOrFallbackWeb(query, count, bochaKey)
+                else searchViaBocha(query, count, bochaKey)
             } else {
                 searchViaDuckDuckGo(query, count)
             }
@@ -161,8 +175,8 @@ object WebSearchService {
                 )
             }
 
-            // 3. 完整结果写缓存（全字段），再生成摘要视图
-            val cached = ToolResultCache.putSearch(round, query, outcome.result!!.results)
+            // 3. 完整结果写缓存（ai 模式带 answer），再生成摘要视图
+            val cached = ToolResultCache.putSearch(round, query, outcome.result!!.results, outcome.result.answer, mode)
             if (cached.isEmpty()) {
                 // 缓存写失败：回退旧逻辑（格式化全文），保证不破坏主流程
                 return@withContext CachedSearchResult(
@@ -182,27 +196,41 @@ object WebSearchService {
             )
         }
 
+    /** ai-search 失败（未开通白名单/超时等）自动降级 web-search 重试，保证任务不中断 */
+    private suspend fun searchWithAiOrFallbackWeb(query: String, count: Int, apiKey: String): SearchOutcome {
+        val aiOutcome = searchViaBocha(query, count, apiKey, ai = true)
+        if (aiOutcome.success) return aiOutcome
+        Log.w(TAG, "ai-search 失败（${aiOutcome.error}），降级 web-search 重试")
+        return searchViaBocha(query, count, apiKey, ai = false)
+    }
+
     /** 读取某轮缓存条目（供命中后复用摘要） */
     private fun readEntries(round: Int): List<ToolResultCache.CachedEntry> =
         ToolResultCache.readEntries(round) ?: emptyList()
 
-    private fun buildCachedSummaryHeader(query: String, round: Int): String =
-        "【搜索结果摘要】查询: $query | 缓存命中 round $round（如需最新结果可用新关键词重搜）"
+    private fun buildCachedSummaryHeader(query: String, mode: String, round: Int): String =
+        "【搜索结果摘要】查询: $query | 模式: $mode | 缓存命中 round $round（如需最新结果可用新关键词重搜）"
 
     // ==================== 博查 Bocha AI Search ====================
 
-    private suspend fun searchViaBocha(query: String, count: Int, apiKey: String): SearchOutcome {
+    /**
+     * 博查搜索统一调用：mode 由端点区分。
+     * @param ai true=ai-search 端点（body 带 answer=true，返回大模型聚合答案）；false=web-search 端点（现有行为）
+     */
+    private suspend fun searchViaBocha(query: String, count: Int, apiKey: String, ai: Boolean = false): SearchOutcome {
         val startMs = System.currentTimeMillis()
+        val url = if (ai) BOCHA_AI_URL else BOCHA_API_URL
         val requestBody = buildString {
             append("{")
             append("\"query\":\"").append(escapeJson(query)).append("\",")
             append("\"count\":").append(count).append(",")
+            if (ai) append("\"answer\":true,")
             append("\"freshness\":\"oneWeek\"")
             append("}")
         }
 
         val req = Request.Builder()
-            .url(BOCHA_API_URL)
+            .url(url)
             .addHeader("Authorization", "Bearer $apiKey")
             .addHeader("Content-Type", "application/json")
             .post(requestBody.toRequestBody(jsonMediaType))
@@ -213,7 +241,7 @@ object WebSearchService {
                 val elapsedMs = System.currentTimeMillis() - startMs
                 val body = resp.body?.string()
                 if (!resp.isSuccessful) {
-                    Log.w(TAG, "博查搜索HTTP失败: code=${resp.code}, body=$body, elapsed=${elapsedMs}ms")
+                    Log.w(TAG, "博查搜索HTTP失败: code=${resp.code}, body=$body, elapsed=${elapsedMs}ms, ai=$ai")
                     return@use SearchOutcome(
                         success = false,
                         error = "博查HTTP ${resp.code}: ${body?.take(200) ?: "无响应体"}",
@@ -227,7 +255,8 @@ object WebSearchService {
                         durationMs = elapsedMs
                     )
                 }
-                val result = parseBochaResponse(query, body, elapsedMs)
+                val result = if (ai) parseAiSearchResponse(query, body, elapsedMs)
+                else parseBochaResponse(query, body, elapsedMs)
                 if (result == null) {
                     SearchOutcome(success = false, error = "博查响应解析失败", durationMs = elapsedMs)
                 } else {
@@ -248,24 +277,45 @@ object WebSearchService {
     private fun parseBochaResponse(query: String, body: String, elapsedMs: Long): WebSearchResult? {
         return try {
             val json = JsonParser.parseString(body).asJsonObject
-            val webPages = json.getAsJsonObject("webPages") ?: return null
-            val valueArr = webPages.getAsJsonArray("value") ?: return null
-            val items = valueArr.mapNotNull { item ->
-                val obj = item.asJsonObject
-                SearchItem(
-                    title = obj.get("name")?.takeIf { !it.isJsonNull }?.asString ?: "",
-                    url = obj.get("url")?.takeIf { !it.isJsonNull }?.asString ?: "",
-                    snippet = obj.get("snippet")?.takeIf { !it.isJsonNull }?.asString ?: "",
-                    summary = obj.get("summary")?.takeIf { !it.isJsonNull }?.asString
-                )
-            }.filter { it.title.isNotEmpty() || it.url.isNotEmpty() }
-
+            val items = extractWebPages(json) ?: return null
             val answer = json.get("summary")?.takeIf { !it.isJsonNull }?.asString
             WebSearchResult(query = query, engine = "bocha", answer = answer, results = items, elapsedMs = elapsedMs)
         } catch (e: Exception) {
             Log.e(TAG, "解析博查响应异常: ${e.message}", e)
             null
         }
+    }
+
+    /**
+     * 解析博查 ai-search 响应：结构与 web-search 同构（webPages.value[]），
+     * 大模型聚合答案在顶层 answer 字段（部分响应为 summary），防御式兜底。
+     */
+    private fun parseAiSearchResponse(query: String, body: String, elapsedMs: Long): WebSearchResult? {
+        return try {
+            val json = JsonParser.parseString(body).asJsonObject
+            val items = extractWebPages(json) ?: return null
+            val answer = json.get("answer")?.takeIf { !it.isJsonNull }?.asString
+                ?: json.get("summary")?.takeIf { !it.isJsonNull }?.asString
+            WebSearchResult(query = query, engine = "bocha", answer = answer, results = items, elapsedMs = elapsedMs)
+        } catch (e: Exception) {
+            Log.e(TAG, "解析博查AI响应异常: ${e.message}", e)
+            null
+        }
+    }
+
+    /** 提取博查响应 webPages.value（web/ai 端点结构一致，共用） */
+    private fun extractWebPages(json: com.google.gson.JsonObject): List<SearchItem>? {
+        val webPages = json.getAsJsonObject("webPages") ?: return null
+        val valueArr = webPages.getAsJsonArray("value") ?: return null
+        return valueArr.mapNotNull { item ->
+            val obj = item.asJsonObject
+            SearchItem(
+                title = obj.get("name")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                url = obj.get("url")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                snippet = obj.get("snippet")?.takeIf { !it.isJsonNull }?.asString ?: "",
+                summary = obj.get("summary")?.takeIf { !it.isJsonNull }?.asString
+            )
+        }.filter { it.title.isNotEmpty() || it.url.isNotEmpty() }
     }
 
     // ==================== DuckDuckGo HTML 抓取（兜底） ====================

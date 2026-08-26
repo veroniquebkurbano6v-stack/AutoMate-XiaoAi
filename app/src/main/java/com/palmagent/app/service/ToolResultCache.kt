@@ -41,7 +41,9 @@ object ToolResultCache {
         val title: String = "",
         val url: String = "",
         val snippet: String = "",
-        val summary: String? = null
+        val summary: String? = null,
+        // ai 模式的 AI 聚合答案（仅首个缓存条目承载，供摘要视图渲染；旧文件缺省 null 向后兼容）
+        val answer: String? = null
     )
 
     private val gson = Gson()
@@ -207,14 +209,23 @@ object ToolResultCache {
     /**
      * 缓存一轮搜索结果（完整保存所有条目），返回带 ref 的缓存条目列表（web_search 特殊）。
      * 写入失败返回空列表（调用方回退旧截断逻辑）。
+     *
+     * @param answer ai 模式的 AI 聚合答案（写入首个条目，供摘要视图/取回渲染；web 模式为 null）
+     * @param mode 检索模式（入缓存去重键，web/ai 互不串用）
      */
-    fun putSearch(round: Int, query: String, items: List<WebSearchService.SearchItem>): List<CachedEntry> {
+    fun putSearch(
+        round: Int,
+        query: String,
+        items: List<WebSearchService.SearchItem>,
+        answer: String? = null,
+        mode: String = "web"
+    ): List<CachedEntry> {
         val dir = cacheDir ?: return emptyList()
         val file = File(dir, "search_$round.json")
         try {
             val entries = items.mapIndexed { idx, item ->
                 CachedEntry(
-                    key = "web_search::" + normalizeText(query),
+                    key = "web_search::" + mode + ":" + normalizeText(query),
                     ref = "ws-$round-${idx + 1}",
                     tool = "web_search",
                     preview = buildPreview(item.title + "\n" + (item.snippet ?: "")),
@@ -223,11 +234,12 @@ object ToolResultCache {
                     title = item.title,
                     url = item.url,
                     snippet = item.snippet,
-                    summary = item.summary
+                    summary = item.summary,
+                    answer = if (idx == 0) answer else null
                 )
             }
             file.writeText(gson.toJson(entries))
-            index[normalizeText(query)] = round
+            index[mode + ":" + normalizeText(query)] = round
             cleanupSearch()
             return entries
         } catch (e: Exception) {
@@ -236,9 +248,9 @@ object ToolResultCache {
         }
     }
 
-    /** 同 query 是否命中缓存？返回命中轮次（文件仍存在时），否则 null */
-    fun hitRound(query: String): Int? {
-        val key = normalizeText(query)
+    /** 同 query + 同 mode 是否命中缓存？返回命中轮次（文件仍存在时），否则 null */
+    fun hitRound(query: String, mode: String = "web"): Int? {
+        val key = mode + ":" + normalizeText(query)
         if (key.isBlank()) return null
         val round = index[key] ?: return null
         val dir = cacheDir ?: return null
@@ -275,6 +287,10 @@ object ToolResultCache {
         if (entries.isEmpty()) return "【搜索结果摘要】查询: $query | 无结果"
         val sb = StringBuilder()
         sb.append("【搜索结果摘要】查询: $query | 共 ${entries.size} 条")
+        // ai 模式的聚合答案渲染在头部（与 formatResults 的 AI摘要 模板一致，缓存命中也可见）
+        entries.firstOrNull()?.answer?.takeIf { it.isNotBlank() }?.let {
+            sb.append("\nAI摘要: ${it.take(500)}")
+        }
         sb.append("\n如需某条完整内容，调用 fetch_result 传入 ref；请判断哪些与任务相关，把要点写入工作区。")
         entries.forEach { e ->
             sb.append("\n[${e.ref}] ${e.title}")

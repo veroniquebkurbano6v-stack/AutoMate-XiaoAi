@@ -186,7 +186,7 @@ object ToolRegistry {
         "wait" to "description(必填), duration_ms(可选,默认1000,范围100-10000)",
         "request_user_action" to "text(必填,标题), description(选填)",
         "finish" to "description(必填,已完成摘要), text(必填,用户接下来做什么)",
-        "web_search" to "text(必填,搜索关键词)",
+        "web_search" to "query(必填,搜索关键词), mode(选填,web/ai,默认web)：web=网页检索(默认,成本低)；ai=AI聚合答案+引用来源(需要直接结论如'如何挂号'时用,成本更高)",
         "visual_describe" to "text(问题)",
         "select_spec" to "specs(必填,需选取的规格数组如[\"大份\",\"微辣\",\"去冰\"]), confirm_text(选填,确认按钮文本,默认\"选好了\")",
         "swipe" to "direction(必填, up/down/left/right/custom), description(必填)",

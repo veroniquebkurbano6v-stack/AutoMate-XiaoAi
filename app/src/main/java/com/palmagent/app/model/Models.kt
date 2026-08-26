@@ -89,7 +89,10 @@ data class AgentAction(
     val confirmText: String? = null,
     // 滚动查找字段（仅 SCROLL_UNTIL 类型使用）：maxScrolls=最大滚动次数，clickOnFound=找到后是否自动点击
     val maxScrolls: Int? = null,
-    val clickOnFound: Boolean? = null
+    val clickOnFound: Boolean? = null,
+    // 联网搜索字段（仅 WEB_SEARCH 使用）：query=搜索关键词（协议字段，与 text 区分），mode=web/ai 检索模式（默认web）
+    val query: String? = null,
+    val mode: String? = null
 )
 
 /**
