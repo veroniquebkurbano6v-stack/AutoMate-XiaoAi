@@ -157,14 +157,12 @@ object ActionParser {
                 val actionJson = gson.fromJson(jsonStr, ActionJson::class.java)
 
                 val actionType = actionJson.type?.lowercase() ?: "tap"
-                // 动作名归一化：模型/历史数据可能输出 click，动作集已统一为 tap（与 GuiOwlService.normalizeAction 一致）
-                val normalizedType = if (actionType == "click") "tap" else actionType
 
                 // 复杂模式兜底，ASK_USER 降级为 WAIT（复杂模式下执行模型不准追问）
-                val finalActionType = if (normalizedType == "ask_user" && KVUtils.isComplexModeEnabled()) {
+                val finalActionType = if (actionType == "ask_user" && KVUtils.isComplexModeEnabled()) {
                     android.util.Log.w("ActionParser", "复杂模式不支持 ASK_USER，降级为 WAIT")
                     "wait"
-                } else normalizedType
+                } else actionType
 
                 var targetElement: UIElement? = null
                 if (actionJson.target != null && screenInfo != null) {

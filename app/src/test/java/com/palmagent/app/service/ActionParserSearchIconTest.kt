@@ -22,7 +22,7 @@ class ActionParserSearchIconTest {
 
     private fun buildResponse(field: String?): String {
         val fields = listOf(
-            "\"type\":\"CLICK\"",
+            "\"type\":\"tap\"",
             "\"target\":\"搜索按钮\"",
             field
         ).filterNotNull().filter { it.isNotEmpty() }
@@ -97,7 +97,7 @@ class ActionParserSearchIconTest {
     fun `parseActionWithLegacyField_otherFieldsAlsoCorrect`() {
         val response = """
             {
-                "type": "CLICK",
+                "type": "tap",
                 "target": "搜索按钮",
                 "search_icon": "true",
                 "confidence": 0.9
@@ -116,7 +116,7 @@ class ActionParserSearchIconTest {
      */
     @Test
     fun `parseActionWithClickType_doesNotTriggerKVUtils`() {
-        val response = """{"type":"CLICK","search_icon":"1"}"""
+        val response = """{"type":"tap","search_icon":"1"}"""
         // 如果触发 KVUtils，会抛 RuntimeException("not mocked")
         val action = ActionParser.parseActionFromResponse(response, screenInfo = null)
         assertEquals("tap", action.type)
