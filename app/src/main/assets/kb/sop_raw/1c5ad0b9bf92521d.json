@@ -1,0 +1,64 @@
+{
+  "sop_id": "1c5ad0b9bf92521d",
+  "original_task_name": "复诊挂号",
+  "task_name": "预约同一医生复诊挂号",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "复诊",
+    "复诊挂号",
+    "我的预约",
+    "挂号",
+    "医院",
+    "就诊",
+    "医生",
+    "一键复诊",
+    "微信"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "进入目标医院的预约挂号服务页面",
+      "expected": "进入挂号首页，展示复诊与预约功能入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击页面中的复诊或我的预约模块入口",
+      "expected": "进入复诊页面，展示历史就诊医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在列表中点击原就诊医生发起复诊",
+      "expected": "进入复诊预约页面，展示该医生可约时段",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "选择目标复诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "核对就诊人信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到挂号成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

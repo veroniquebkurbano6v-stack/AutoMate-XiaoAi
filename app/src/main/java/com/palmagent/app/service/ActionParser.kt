@@ -28,11 +28,27 @@ object ActionParser {
     private const val MIN_REPEAT_INTERVAL_MS = 500L
     private const val MAX_REPEAT_INTERVAL_MS = 2000L
 
+    // 滚动查找（SCROLL_UNTIL）滚动次数安全边界（与 ScrollUntilTool.MAX_SCROLLS_MAX 对齐）
+    private const val MAX_SCROLL_UNTIL_SCROLLS = 10
+
     /**
-     * P3-11 修复：宽松解析布尔值，识别 "true"/"1"/"yes"（大小写不敏感）
+     * P3-11 修复：宽松解析布尔值，识别 "true"/"1"/"yes"（大小写不敏感）。
+     * @param raw 兼容 JSON 原生布尔（true/false）与字符串（"true"/"1"/"yes"/"false"/"0"/"no"）
+     * @return Boolean? 无法解析或未提供时返回 null（交由下游使用默认值）
      */
-    private fun parseBooleanLoose(s: String): Boolean =
-        s.equals("true", ignoreCase = true) || s == "1" || s.equals("yes", ignoreCase = true)
+    private fun parseBooleanLoose(raw: JsonElement?): Boolean? {
+        if (raw == null || !raw.isJsonPrimitive) return null
+        val primitive = raw.asJsonPrimitive
+        return when {
+            primitive.isBoolean -> primitive.asBoolean
+            primitive.isString -> when (primitive.asString.lowercase()) {
+                "true", "1", "yes", "是" -> true
+                "false", "0", "no", "否" -> false
+                else -> null
+            }
+            else -> null
+        }
+    }
 
     data class ActionJson(
         val type: String? = null,
@@ -62,7 +78,10 @@ object ActionParser {
         val questions: List<QuestionJson>? = null,
         // 规格自动选取（SELECT_SPEC 使用）：specs=需选取的规格列表（兼容 JSON 数组或逗号分隔字符串），confirm_text=确认按钮文本
         val specs: JsonElement? = null,
-        val confirm_text: String? = null
+        val confirm_text: String? = null,
+        // 滚动查找（SCROLL_UNTIL 使用）：max_scrolls=最大滚动次数，click_on_found=找到后是否自动定位并点击
+        val max_scrolls: Int? = null,
+        val click_on_found: JsonElement? = null
     )
 
     data class QuestionJson(
@@ -234,7 +253,9 @@ object ActionParser {
                     distance = parseDistance(actionJson.distance),
                     visualQuestion = actionJson.visual_question?.takeIf { it.isNotBlank() },
                     specs = parseSpecsField(actionJson.specs),
-                    confirmText = actionJson.confirm_text?.takeIf { it.isNotBlank() }
+                    confirmText = actionJson.confirm_text?.takeIf { it.isNotBlank() },
+                    maxScrolls = actionJson.max_scrolls?.takeIf { it in 1..MAX_SCROLL_UNTIL_SCROLLS },
+                    clickOnFound = parseBooleanLoose(actionJson.click_on_found)
                 )
             } else {
                 parseErrorAction(response, "模型输出未包含合法动作 JSON")

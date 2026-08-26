@@ -1,0 +1,88 @@
+{
+  "sop_id": "7470b7e2ece71f07",
+  "original_task_name": "微信公众号预约挂号",
+  "task_name": "通过微信公众号预约挂号",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "微信",
+    "公众号",
+    "医院",
+    "挂号",
+    "预约挂号",
+    "就诊",
+    "科室",
+    "医生",
+    "预约"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击微信首页右上角的搜索入口",
+      "expected": "进入搜索页面，展示搜索输入框",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索框中输入目标医院名称并搜索",
+      "expected": "搜索结果页展示匹配的医院公众号账号",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击搜索结果中目标医院的公众号并关注",
+      "expected": "成功关注，页面进入该公众号主界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "点击公众号底部菜单栏的预约挂号入口",
+      "expected": "进入预约挂号页面，展示就诊服务选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "绑定就诊人的姓名、身份证号与手机号信息",
+      "expected": "就诊人信息提交成功并保存为就诊人档案",
+      "action_type": "type"
+    },
+    {
+      "step_order": 7,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 10,
+      "goal": "核对挂号信息并点击页面底部的支付按钮",
+      "expected": "跳转微信支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 11,
+      "goal": "在微信支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到挂号成功的通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

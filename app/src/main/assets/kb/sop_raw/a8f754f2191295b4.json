@@ -1,0 +1,70 @@
+{
+  "sop_id": "a8f754f2191295b4",
+  "original_task_name": "医院自有APP预约挂号",
+  "task_name": "通过医院自有APP预约挂号",
+  "app_name": "省医通",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "省医通",
+    "医院APP",
+    "挂号",
+    "预约挂号",
+    "医院",
+    "就诊",
+    "科室",
+    "医生",
+    "自建APP"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的医院专属APP应用图标",
+      "expected": "APP启动并进入医院服务首页界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "注册账号并绑定就诊人的身份与联系方式",
+      "expected": "注册成功，就诊人信息绑定完成并保存",
+      "action_type": "type"
+    },
+    {
+      "step_order": 3,
+      "goal": "在首页点击预约挂号功能入口",
+      "expected": "进入挂号页面，展示可预约的科室列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "核对挂号信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

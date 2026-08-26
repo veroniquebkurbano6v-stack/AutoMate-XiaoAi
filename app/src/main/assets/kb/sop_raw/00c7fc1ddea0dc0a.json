@@ -1,0 +1,82 @@
+{
+  "sop_id": "00c7fc1ddea0dc0a",
+  "original_task_name": "医院官网网页预约挂号",
+  "task_name": "通过医院官网网页预约挂号",
+  "app_name": "浏览器",
+  "source": "cagui_auto",
+  "difficulty": "L4",
+  "domain": "医疗健康",
+  "keywords": [
+    "浏览器",
+    "医院官网",
+    "网页",
+    "挂号",
+    "预约挂号",
+    "就诊",
+    "科室",
+    "医生",
+    "电脑端"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的浏览器应用图标",
+      "expected": "浏览器启动并进入首页界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击浏览器顶部的地址栏区域",
+      "expected": "地址栏获得焦点，弹出键盘准备输入",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在地址栏中输入目标医院官网地址并访问",
+      "expected": "浏览器加载并打开目标医院的官网页面",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击官网页面中的预约挂号入口",
+      "expected": "进入预约挂号页面，展示登录注册选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "登录或注册账号并绑定就诊人信息",
+      "expected": "账号登录成功，就诊人信息绑定完成",
+      "action_type": "type"
+    },
+    {
+      "step_order": 6,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "核对挂号信息并点击页面中的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 10,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

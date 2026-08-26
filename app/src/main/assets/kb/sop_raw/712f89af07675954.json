@@ -1,0 +1,70 @@
+{
+  "sop_id": "712f89af07675954",
+  "original_task_name": "MDT多学科会诊挂号",
+  "task_name": "预约MDT多学科会诊",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L4",
+  "domain": "医疗健康",
+  "keywords": [
+    "MDT",
+    "多学科会诊",
+    "联合诊疗",
+    "挂号",
+    "医院",
+    "疑难杂症",
+    "就诊",
+    "申请审核",
+    "预约挂号"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "进入目标医院的预约挂号服务页面",
+      "expected": "进入挂号首页，展示各类门诊服务入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击MDT门诊或多学科会诊服务入口",
+      "expected": "进入MDT申请页面，展示病情资料填写表单",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "填写详细病情资料与就诊诉求并提交审核",
+      "expected": "申请提交成功，页面显示等待审核状态",
+      "action_type": "type"
+    },
+    {
+      "step_order": 5,
+      "goal": "审核通过后点击选择会诊预约时间",
+      "expected": "展示可预约的会诊日期与时段列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "选择目标会诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示会诊信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "核对会诊信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的会诊费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在支付页面确认并完成会诊费用支付",
+      "expected": "支付成功，收到会诊预约成功通知",
+      "action_type": "click"
+    }
+  ]
+}

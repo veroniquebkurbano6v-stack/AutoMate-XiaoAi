@@ -1,0 +1,58 @@
+{
+  "sop_id": "e4ccc9bbb2bccc0e",
+  "original_task_name": "检查项目预约",
+  "task_name": "预约检查项目",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "检查预约",
+    "检查项目",
+    "CT",
+    "MRI",
+    "B超",
+    "检查单",
+    "医院",
+    "预约",
+    "就诊"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "进入目标医院的线上服务页面",
+      "expected": "进入医院服务首页，展示检查预约功能入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击页面中的检查预约功能模块入口",
+      "expected": "进入检查预约页面，展示待预约的检查单",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在检查单列表中点击目标检查项目",
+      "expected": "进入预约页面，展示该检查的可用时间段",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "选择目标日期并点击合适的检查时间段",
+      "expected": "时段被选中，页面展示检查预约确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "核对检查信息并点击确认预约按钮",
+      "expected": "预约成功，页面展示检查预约凭证",
+      "action_type": "click"
+    }
+  ]
+}

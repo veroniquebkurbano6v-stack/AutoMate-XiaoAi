@@ -81,6 +81,33 @@ class PromptBuilderToolConsistencyTest {
         )
     }
 
+    /**
+     * 一致性护栏（审查 #3）：隐藏工具（amap_* / list_apps / get_screen_info）必须同时
+     * 从统一入口 getExecutionTools()（prompt 描述与检索候选的单一事实源）过滤掉，
+     * 禁止出现"prompt 未描述但语义检索仍可能召回"的不一致状态。
+     */
+    @Test
+    fun `hidden tools must be excluded from execution tool pool`() {
+        val executionTools = ToolRegistry.getExecutionTools().map { it.getName() }.toSet()
+
+        val leaked = intentionallyHidden.intersect(executionTools)
+        assertTrue(
+            "隐藏工具仍出现在统一执行工具入口 getExecutionTools() 中: $leaked\n" +
+                "执行工具池: ${executionTools.sorted()}",
+            leaked.isEmpty()
+        )
+
+        // prompt 描述同样不应出现隐藏工具
+        for (prompt in allPromptVariants()) {
+            val promptTools = extractToolNames(prompt)
+            val leakedToPrompt = intentionallyHidden.intersect(promptTools)
+            assertTrue(
+                "隐藏工具出现在执行提示词工具清单中: $leakedToPrompt\n来源变体见上方断言",
+                leakedToPrompt.isEmpty()
+            )
+        }
+    }
+
     /** 覆盖 4 个提示词变体：文本/视觉 × 简单/复杂 */
     private fun allPromptVariants(): List<String> {
         val variants = mutableListOf<String>()

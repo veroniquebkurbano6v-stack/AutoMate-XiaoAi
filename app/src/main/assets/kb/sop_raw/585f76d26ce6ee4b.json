@@ -1,0 +1,88 @@
+{
+  "sop_id": "585f76d26ce6ee4b",
+  "original_task_name": "健康深圳平台预约挂号",
+  "task_name": "通过健康深圳平台预约挂号",
+  "app_name": "健康深圳",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "健康深圳",
+    "深圳",
+    "挂号",
+    "预约挂号",
+    "统一平台",
+    "医院",
+    "社康中心",
+    "候补挂号",
+    "AI导诊"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击微信首页顶部的搜索栏区域",
+      "expected": "进入搜索页面，展示搜索输入框",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索框中输入健康深圳并搜索",
+      "expected": "搜索结果展示健康深圳小程序入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击搜索结果中的健康深圳小程序进入",
+      "expected": "小程序启动，进入平台预约挂号首页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "在平台首页搜索框输入目标医院名称并搜索",
+      "expected": "搜索结果展示目标医院的挂号入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 6,
+      "goal": "点击搜索结果中目标医院的挂号入口进入",
+      "expected": "进入该医院的挂号页面，展示科室列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 10,
+      "goal": "填写就诊人信息并点击确认支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 11,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

@@ -113,9 +113,13 @@ class AIService(
         // B7 清理：buildPrompt 不再接收 screenInfo/actionHistory；actionHistory 参数已移除
         // （screenInfo 仍保留，parseActionFromResponse 解析坐标时需要）
         val prompt = PromptBuilder.buildPrompt(userRequest, knowledgeContext = knowledgeContext)
+        val systemPrompt = PromptBuilder.getSystemPrompt()
+
+        // 真机调试观测点：发送前打印 system prompt（含工具描述区），便于 logcat 核对模型实际收到的契约
+        Log.d(TAG, "system_prompt[${systemPrompt.length}chars]\n$systemPrompt")
 
         val messages = listOf(
-            ChatMessage("system", PromptBuilder.getSystemPrompt()),
+            ChatMessage("system", systemPrompt),
             ChatMessage("user", prompt)
         )
 
