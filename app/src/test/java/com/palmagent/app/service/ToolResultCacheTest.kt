@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -152,6 +153,65 @@ class ToolResultCacheTest {
                 // 按 key + session 定位各自全文
                 assertEquals("会话A医院", ToolResultCache.getByKey(key, "sessA")?.content)
                 assertEquals("会话B医院", ToolResultCache.getByKey(key, "sessB")?.content)
+            } finally {
+                ToolResultCache.resetForTest()
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun webSearch缓存键_含mode维度_web与ai互不串用() {
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            try {
+                val items = listOf(
+                    WebSearchService.SearchItem(title = "网页A", url = "https://a.com", snippet = "sa"),
+                    WebSearchService.SearchItem(title = "网页B", url = "https://b.com", snippet = "sb")
+                )
+                // 同 query 分别 web / ai 写入
+                ToolResultCache.putSearch(1, "医院挂号", items, answer = null, mode = "web")
+                ToolResultCache.putSearch(2, "医院挂号", items, answer = "AI聚合答案", mode = "ai")
+
+                // 各自命中各自轮次，互不串用
+                assertEquals("web 应命中 round=1", 1, ToolResultCache.hitRound("医院挂号", "web"))
+                assertEquals("ai 应命中 round=2", 2, ToolResultCache.hitRound("医院挂号", "ai"))
+                // 默认 mode=web 兼容旧调用方
+                assertEquals("默认 mode=web", 1, ToolResultCache.hitRound("医院挂号"))
+
+                // answer 落盘在首个条目，摘要视图渲染 AI摘要
+                val entries = ToolResultCache.readEntries(2)!!
+                assertEquals("首个条目承载 answer", "AI聚合答案", entries.first().answer)
+                val summary = ToolResultCache.buildSummary("医院挂号", entries)
+                assertTrue("buildSummary 应渲染 AI摘要: $summary", summary.contains("AI摘要: AI聚合答案"))
+                // web 条目无 answer，不渲染 AI摘要 行
+                val webSummary = ToolResultCache.buildSummary("医院挂号", ToolResultCache.readEntries(1)!!)
+                assertFalse("web 摘要不应含 AI摘要 行: $webSummary", webSummary.contains("AI摘要:"))
+            } finally {
+                ToolResultCache.resetForTest()
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun webSearch缓存键_旧文件无answer字段_读回不崩溃() {
+        val dir = File(System.getProperty("java.io.tmpdir"), "trc-${System.nanoTime()}")
+        try {
+            ToolResultCache.initForTest(dir)
+            try {
+                // 手工写一份不含 answer 字段的旧格式 search_ 文件
+                val legacy = """
+                    [{"key":"web_search::x","ref":"ws-9-1","tool":"web_search","preview":"p","content":"c",
+                    "createdAt":1,"title":"t","url":"u","snippet":"s","summary":null}]
+                """.trimIndent()
+                java.io.File(dir, "search_9.json").writeText(legacy)
+                val entries = ToolResultCache.readEntries(9)
+                assertNotNull(entries)
+                assertNull("旧文件无 answer 字段 → 读回 null（向后兼容）", entries!!.first().answer)
             } finally {
                 ToolResultCache.resetForTest()
             }

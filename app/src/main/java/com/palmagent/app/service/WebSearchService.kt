@@ -274,7 +274,8 @@ object WebSearchService {
         }
     }
 
-    private fun parseBochaResponse(query: String, body: String, elapsedMs: Long): WebSearchResult? {
+    // internal 供同模块单测黄金样本调用（WebSearchServiceParserTest）
+    internal fun parseBochaResponse(query: String, body: String, elapsedMs: Long): WebSearchResult? {
         return try {
             val json = JsonParser.parseString(body).asJsonObject
             val items = extractWebPages(json) ?: return null
@@ -287,26 +288,68 @@ object WebSearchService {
     }
 
     /**
-     * 解析博查 ai-search 响应：结构与 web-search 同构（webPages.value[]），
-     * 大模型聚合答案在顶层 answer 字段（部分响应为 summary），防御式兜底。
+     * 解析博查 ai-search 响应（2026-08 实测结构，与 web-search 不同）：
+     * - 结果条：messages[] 中 type=source 且 content_type=webpage 的 message，
+     *   content 为 JSON 字符串，内含网页集合（webPages.value[] / value[] / 单条网页对象其一）；
+     * - 答案：messages[] 中 type=answer 的 message.content（大模型聚合答案，与 source 顺序无保证）；
+     * - 防御：messages 缺失或解析不到结果时回退 data.webPages / 顶层 webPages（兼容非流式简化响应）。
      */
-    private fun parseAiSearchResponse(query: String, body: String, elapsedMs: Long): WebSearchResult? {
+    internal fun parseAiSearchResponse(query: String, body: String, elapsedMs: Long): WebSearchResult? {
         return try {
             val json = JsonParser.parseString(body).asJsonObject
-            val items = extractWebPages(json) ?: return null
-            val answer = json.get("answer")?.takeIf { !it.isJsonNull }?.asString
-                ?: json.get("summary")?.takeIf { !it.isJsonNull }?.asString
-            WebSearchResult(query = query, engine = "bocha", answer = answer, results = items, elapsedMs = elapsedMs)
+            var answer: String? = null
+            val items = mutableListOf<SearchItem>()
+            val messages = json.getAsJsonArray("messages")
+            if (messages != null) {
+                for (m in messages) {
+                    if (!m.isJsonObject) continue
+                    val mo = m.asJsonObject
+                    val type = mo.get("type")?.takeIf { !it.isJsonNull }?.asString
+                    when (type) {
+                        "answer" -> {
+                            answer = mo.get("content")?.takeIf { !it.isJsonNull }?.asString
+                                ?.takeIf { it.isNotBlank() } ?: answer
+                        }
+                        "source" -> {
+                            if (mo.get("content_type")?.takeIf { !it.isJsonNull }?.asString == "webpage") {
+                                val content = mo.get("content")?.takeIf { !it.isJsonNull }?.asString
+                                if (content != null) {
+                                    val src = try {
+                                        JsonParser.parseString(content).asJsonObject
+                                    } catch (_: Exception) { null }
+                                    src?.let { extractWebPages(it)?.let { r -> items.addAll(r) } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // 防御：messages 未解析出结果时回退常规 web 结构（data/顶层 webPages）
+            if (items.isEmpty()) {
+                extractWebPages(json)?.let { items.addAll(it) }
+            }
+            if (items.isEmpty()) return null
+            WebSearchResult(
+                query = query, engine = "bocha",
+                answer = answer, results = items, elapsedMs = elapsedMs
+            )
         } catch (e: Exception) {
             Log.e(TAG, "解析博查AI响应异常: ${e.message}", e)
             null
         }
     }
 
-    /** 提取博查响应 webPages.value（web/ai 端点结构一致，共用） */
+    /**
+     * 提取博查响应中的网页条目（防御式多形态）：
+     * - 形态A：json.webPages.value[]（官方示例）
+     * - 形态B：json.data.webPages.value[]（2026-08 实测 web-search 响应结构）
+     * - 形态C：json.value[]（ai-search source content 的简化形态）
+     */
     private fun extractWebPages(json: com.google.gson.JsonObject): List<SearchItem>? {
-        val webPages = json.getAsJsonObject("webPages") ?: return null
-        val valueArr = webPages.getAsJsonArray("value") ?: return null
+        val webPages = json.getAsJsonObject("webPages")
+            ?: json.getAsJsonObject("data")?.getAsJsonObject("webPages")
+        val valueArr = webPages?.getAsJsonArray("value") ?: json.getAsJsonArray("value")
+            ?: return null
         return valueArr.mapNotNull { item ->
             val obj = item.asJsonObject
             SearchItem(
