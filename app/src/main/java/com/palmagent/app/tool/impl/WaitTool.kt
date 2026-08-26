@@ -27,5 +27,5 @@ class WaitTool : BaseTool() {
         "Wait for a specified duration (useful for page loading delays)."
 
     override fun getDescriptionCN(): String =
-        "等待指定时长（用于等待页面加载等情况）。"
+        "等待指定时长，用于等待页面加载、动画播放、网络请求完成等场景。duration_ms默认1000ms，范围100-10000ms。"
 }

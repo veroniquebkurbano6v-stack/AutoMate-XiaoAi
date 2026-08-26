@@ -2,6 +2,7 @@ package com.palmagent.app.service
 
 import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.ScreenInfo
+import com.palmagent.app.tool.ToolRegistry
 import com.palmagent.app.utils.KVUtils
 
 /**
@@ -47,26 +48,7 @@ object PromptBuilder {
 7. **遇到广告弹窗/开屏广告/升级弹窗时（识别特征：全屏遮罩、"跳过/Skip/关闭/×"按钮、倒计时圆环），必须先关闭弹窗再继续任务**：优先 locate/tap 点击"跳过/关闭/×"按钮；无法识别关闭按钮时用 back 返回；关闭后再继续原任务，禁止在弹窗遮挡下盲目点击或滚动。
 
 # 工具（动作空间）
-- auto_input: text(必填,输入文本), is_text_input_box(选填,布尔"true"=文本输入框,"false"=搜索图标；不填跳过定位) — ⭐定位输入框→输入→自动点"搜索/发送"按钮
-- locate: description(必填,功能+图标特征+区域), text(必填,要定位的文字) — ⭐视觉定位并自动点击（Grounding→OCR 兜底）
-- tap: coordinate(必填,[x,y]数组如[976,2376]), description(必填) — 仅已知精确坐标直接点击
-- open_app: text(必填,应用中文名或包名) — 打开应用
-- long_press: coordinate(必填,[x,y]数组), description(必填) — 长按
-- swipe: direction(必填, up/down/left/right/custom), start_x/start_y(可选,起点), end_x/end_y(direction=custom时必填,终点), distance(可选,方向模式滑动距离像素,默认一屏的80%), duration_ms(可选,不传则按距离自动推算), description(必填) — ⭐滚动/滑动二合一：direction=down 向下看更多 / up 向上回顶部 / left/right 水平滑动切换标签 / custom 精确滑动（全面屏返回/自定义轨迹）。⚠️ 页面显示"历史搜索""热门搜索"等是搜索页而非结果页，不要滚动，应执行搜索
-- scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — ⭐滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置，如"心相印金装经典抽纸"、"底部导航栏的购物车图标"），禁止模糊描述（那个/相关的/类似的）
-- back/home: description(必填) — 返回/主页
-- wait: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载/动画
-- request_user_action: text(必填,标题), description(选填) — 不可逆操作交用户（见约束4）
-- finish: description(必填,已完成摘要), text(必填,用户接下来做什么) — 结束任务
-- ask_user: questions(必填数组) — 仅缺少必要信息时批量追问，一次问完所有问题（1-4个）。仅接受以下 JSON 格式，缺 questions 字段或误用 text/options 旧字段一律降级为 wait：
-  示例：{"type":"ask_user","questions":[{"question":"需要发短信给哪个联系人？","header":"联系人","options":[{"label":"张三","description":"最近联系人","recommended":true},{"label":"李四"}],"multiSelect":false,"allowFreeInput":true}],"progress":{"current_step":"确认联系人","completed_steps":[],"remaining_steps":["发短信"],"status":"in_progress"}}
-  规则：① 每问 2-6 个选项（UI 自动追加"其他"，勿生成）② multiSelect=true 可叠加，false 互斥单选 ③ recommended 最多 1 个 ④ label 与问题用任务同语言
-  红线：① 已确认信息（联系人/App名/地点/内容）禁重复追问 ② 屏幕信息/搜索能推断的不问 ③ 主观偏好用中等默认值 ④ 已问问题不重复问
-- web_search: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- fetch_result: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
-- forget: text(必填,条目ID如"sp-3-1") — 删除不再需要的工作记忆条目
-- visual_describe: text(问题) — 向视觉模型提问（限约束3场景），别自己瞎猜
-- select_spec: specs(必填,需选取的规格数组如["大份","微辣","去冰"]), confirm_text(选填,确认按钮文本,默认"选好了") — 规格自动选取（外卖/购物等规格表单）：无障碍树检查每个规格是否已选中，未选则节点直点；表单过长未显示时自动小步慢速下滑后继续检查，直到全部选好，最后点击确认按钮。适合份量/辣度/口味等规格选择，无需坐标
+${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false)}
 
 # 输出格式与运行规则
 每轮通过 content 字段输出一个 JSON 对象（所有操作都走 content，不要用 tool_calls），字段：
@@ -123,22 +105,7 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 8. **遇到广告弹窗/开屏广告/升级弹窗时（识别特征：全屏遮罩、"跳过/Skip/关闭/×"按钮、倒计时圆环），必须先关闭弹窗再继续任务**：优先 locate/tap 点击"跳过/关闭/×"按钮；无法识别关闭按钮时用 back 返回；关闭后再继续原任务，禁止在弹窗遮挡下盲目点击或滚动。
 
 # 工具（动作空间）
-- auto_input: text(必填,输入文本), is_text_input_box(选填,布尔"true"=文本输入框,"false"=搜索图标；不填跳过定位) — ⭐定位输入框→输入→自动点"搜索/发送"按钮
-- locate: description(必填,功能+图标特征+区域), text(必填,要定位的文字) — ⭐视觉定位并自动点击（Grounding→OCR 兜底）
-- tap: coordinate(必填,[x,y]数组如[976,2376]), description(必填) — 仅已知精确坐标直接点击
-- open_app: text(必填,应用中文名或包名) — 打开应用
-- long_press: coordinate(必填,[x,y]数组), description(必填) — 长按
-- swipe: direction(必填, up/down/left/right/custom), start_x/start_y(可选,起点), end_x/end_y(direction=custom时必填,终点), distance(可选,方向模式滑动距离像素,默认一屏的80%), duration_ms(可选,不传则按距离自动推算), description(必填) — ⭐滚动/滑动二合一：direction=down 向下看更多 / up 向上回顶部 / left/right 水平滑动切换标签 / custom 精确滑动（全面屏返回/自定义轨迹）。⚠️ 页面显示"历史搜索""热门搜索"等是搜索页而非结果页，不要滚动，应执行搜索
-- scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — ⭐滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置，如"心相印金装经典抽纸"、"底部导航栏的购物车图标"），禁止模糊描述（那个/相关的/类似的）
-- back/home: description(必填) — 返回/主页
-- wait: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载/动画
-- request_user_action: text(必填,标题), description(选填) — 不可逆操作交用户（见约束4）
-- finish: description(必填,已完成摘要), text(必填,用户接下来做什么) — 结束任务
-- web_search: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- fetch_result: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
-- forget: text(必填,条目ID如"sp-3-1") — 删除不再需要的工作记忆条目
-- visual_describe: text(问题) — 向视觉模型提问（限约束3场景），别自己瞎猜
-- select_spec: specs(必填,需选取的规格数组如["大份","微辣","去冰"]), confirm_text(选填,确认按钮文本,默认"选好了") — 规格自动选取（外卖/购物等规格表单）：无障碍树检查每个规格是否已选中，未选则节点直点；表单过长未显示时自动小步慢速下滑后继续检查，直到全部选好，最后点击确认按钮。适合份量/辣度/口味等规格选择，无需坐标
+${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = true)}
 
 # 输出格式与运行规则
 每轮通过 content 字段输出一个 JSON 对象（所有操作都走 content，不要用 tool_calls），字段：
@@ -185,30 +152,7 @@ finish示例（完全完成型）：{"type":"finish","description":"已成功打
 **遇到广告弹窗/开屏广告/升级弹窗时（识别特征：全屏遮罩、"跳过/Skip/关闭/×"按钮、倒计时圆环），必须先关闭弹窗再继续任务**：优先 locate 点击"跳过/关闭/×"按钮；无法识别关闭按钮时用 back 返回；关闭后再继续原任务，禁止在弹窗遮挡下盲目点击或滚动。
 
 ## 操作工具
-
-### 定位与输入
-- locate: text(必填,简要描述目标), description(必填,外观特征+屏幕区域) — 最高频工具：委托视觉定位服务精确定位并自动点击
-- auto_input: text(必填,输入文本), is_text_input_box(选填,布尔"true"=文本输入框,"false"=搜索图标；不填跳过定位) — 一步完成"定位输入框→输入文本→自动点搜索按钮"
-
-### 导航与浏览
-- swipe: direction(必填, up/down/left/right/custom), description(必填) — 滚动/滑动：向下看更多→direction=down；回顶部→up；水平切换标签→left/right；精确滑动/全面屏返回→custom
-- scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — 滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置），禁止模糊描述
-- back/home: description(必填) — 返回/主页
-
-### 应用与等待
-- open_app: text(必填,应用中文名或包名), description(选填) — 打开应用
-- wait: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载
-
-### 任务控制
-- request_user_action: text(必填,标题), description(选填,步骤说明) — 请求用户手动操作
-- finish: description(必填,已完成操作摘要), text(必填,用户接下来做什么) — 结束任务
-- web_search: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- fetch_result: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
-- ask_user: 仅缺少必要信息时批量追问，一次问完所有问题（1-4个）。⚠️ 仅接受以下 JSON 格式，缺 questions 字段或误用 text/options 旧字段一律降级为 wait：
-  示例：{"type":"ask_user","questions":[{"question":"需要发短信给哪个联系人？","header":"联系人","options":[{"label":"张三","description":"最近联系人","recommended":true},{"label":"李四"}],"multiSelect":false,"allowFreeInput":true}],"progress":{"current_step":"确认联系人","completed_steps":[],"remaining_steps":["发短信"],"status":"in_progress"}}
-  规则：① 每问 2-6 个选项（UI 自动追加"其他"，勿生成）② multiSelect=true 可叠加，false 互斥单选 ③ recommended 最多 1 个 ④ label 与问题用任务同语言
-  红线：① 【决策模型任务计划】区域信息已确认（联系人/App名/地点/内容），禁重复追问 ② 截图/web_search 能推断的不问 ③ 主观偏好用中等默认值 ④ actionHistory【已问问题】已记录的不重复问
-- forget: text(必填,条目ID如"sp-3-1"或关键词), description(选填,删除原因) — 删除不再需要的工作记忆条目
+${ToolRegistry.getExecutionToolDescriptions(isVision = true, isComplex = false)}
 
 ## 输出格式
 每轮输出一个 JSON 对象。
@@ -260,26 +204,7 @@ progress字段必填：current_step, completed_steps, remaining_steps, status
 3. **遇到广告弹窗/开屏广告/升级弹窗时（识别特征：全屏遮罩、"跳过/Skip/关闭/×"按钮、倒计时圆环），必须先关闭弹窗再继续任务**：优先 locate 点击"跳过/关闭/×"按钮；无法识别关闭按钮时用 back 返回；关闭后再继续原任务，禁止在弹窗遮挡下盲目点击或滚动。
 
 ## 操作工具
-
-### 定位与输入
-- locate: text(必填,简要描述目标), description(必填,外观特征+屏幕区域) — 最高频工具：委托视觉定位服务精确定位并自动点击
-- auto_input: text(必填,输入文本), is_text_input_box(选填,布尔"true"=文本输入框,"false"=搜索图标；不填跳过定位) — 一步完成"定位输入框→输入文本→自动点搜索按钮"
-
-### 导航与浏览
-- swipe: direction(必填, up/down/left/right/custom), description(必填) — 滚动/滑动：向下看更多→direction=down；回顶部→up；水平切换标签→left/right；精确滑动/全面屏返回→custom
-- scroll_until: target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true) — 滚动查找目标：每屏甄别是否存在，不存在则滚动继续，找到后按 click_on_found 定位点击或返回坐标。target 必须视觉可辨识（可见文字/图标形状/颜色/位置），禁止模糊描述
-- back/home: description(必填) — 返回/主页
-
-### 应用与等待
-- open_app: text(必填,应用中文名或包名), description(选填) — 打开应用
-- wait: description(必填), duration_ms(可选,默认1000,范围100-10000) — 等待页面加载
-
-### 任务控制
-- request_user_action: text(必填,标题), description(选填,步骤说明) — 请求用户手动操作
-- finish: description(必填,已完成操作摘要), text(必填,用户接下来做什么) — 结束任务
-- web_search: text(必填,搜索关键词) — 查询互联网信息。完整结果缓存本地，本轮仅返回摘要（含 ref）；相关条目用 fetch_result 取回原文并提炼要点进工作记忆
-- fetch_result: text(必填,ref如"ws-3-2"/"fx-...") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），仅供本轮参考，不写入工作记忆；需要保留的要点请自行提炼
-- forget: text(必填,条目ID如"sp-3-1"或关键词), description(选填,删除原因) — 删除不再需要的工作记忆条目
+${ToolRegistry.getExecutionToolDescriptions(isVision = true, isComplex = true)}
 
 ## 输出格式
 每轮输出一个 JSON 对象。

@@ -33,5 +33,5 @@ class LongPressTool : BaseTool() {
         "Long press at the specified screen coordinates."
 
     override fun getDescriptionCN(): String =
-        "长按屏幕上的指定坐标位置。"
+        "长按屏幕上的指定坐标位置。用于触发上下文菜单、选择文本、拖拽图标等长按操作。"
 }

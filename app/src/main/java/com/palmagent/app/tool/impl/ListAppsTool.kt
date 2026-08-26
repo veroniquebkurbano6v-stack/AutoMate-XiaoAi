@@ -27,6 +27,7 @@ class ListAppsTool : BaseTool() {
     }
 
     override fun getName(): String = "list_apps"
+    override fun isExposedToExecutionModel(): Boolean = false
 
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter(
