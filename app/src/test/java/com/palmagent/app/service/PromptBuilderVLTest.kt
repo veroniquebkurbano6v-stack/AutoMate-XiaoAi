@@ -1,5 +1,6 @@
 package com.palmagent.app.service
 
+import com.palmagent.app.tool.ToolRegistry
 import com.palmagent.app.utils.KVUtils
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,6 +32,7 @@ class PromptBuilderVLTest {
             isAccessible = true
             set(KVUtils, fakePrefs)
         }
+        ToolRegistry.initAllTools()
     }
 
     @Test

@@ -175,8 +175,8 @@ class LocateTool : BaseTool() {
         "Works for both text buttons and textless icons."
 
     override fun getDescriptionCN(): String =
-        "定位并点击UI元素（自动点击，无需再调tap）。Grounding视觉定位优先（~1.3s），" +
-        "失败时OCR文字匹配兜底（~3.5s）。description和text均为必填——" +
+        "⭐视觉定位并自动点击（Grounding→OCR 兜底），无需再调tap。定位并点击UI元素。" +
+        "Grounding视觉定位优先（~1.3s），失败时OCR文字匹配兜底（~3.5s）。description和text均为必填——" +
         "description用于Grounding视觉定位，text用于OCR兜底匹配。" +
         "适用于文字按钮和无文字图标。" +
         "重要：description必须包含位置信息、元素文字及可能的同义文字（如\"我的\"或\"个人中心\"、\"搜索\"或\"放大镜\"），" +

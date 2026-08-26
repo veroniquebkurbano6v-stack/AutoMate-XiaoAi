@@ -1,0 +1,64 @@
+{
+  "sop_id": "37be38e8a60ba962",
+  "original_task_name": "专家门诊挂号",
+  "task_name": "预约专家门诊号",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "专家门诊",
+    "专家号",
+    "挂号",
+    "医院",
+    "就诊",
+    "科室",
+    "医生专长",
+    "出诊时间",
+    "抢号"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "进入目标医院的预约挂号服务页面",
+      "expected": "进入挂号页面，展示可预约的科室列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在医生列表中点击目标专家查看出诊信息",
+      "expected": "进入专家详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "核对就诊人信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到挂号成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

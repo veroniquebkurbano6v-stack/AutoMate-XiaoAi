@@ -23,5 +23,5 @@ class HomeTool : BaseTool() {
         "Press the system Home button to go to the launcher."
 
     override fun getDescriptionCN(): String =
-        "按下系统主页键，回到桌面。"
+        "按下系统主页键回到桌面/主屏幕。用于退出当前应用返回桌面。"
 }

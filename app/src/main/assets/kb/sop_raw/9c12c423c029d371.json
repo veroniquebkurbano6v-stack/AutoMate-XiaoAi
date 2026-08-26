@@ -1,0 +1,64 @@
+{
+  "sop_id": "9c12c423c029d371",
+  "original_task_name": "互联网医院复诊续方",
+  "task_name": "互联网医院在线复诊续方",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L4",
+  "domain": "医疗健康",
+  "keywords": [
+    "互联网医院",
+    "复诊续方",
+    "在线复诊",
+    "处方",
+    "开药",
+    "药品配送",
+    "慢性病",
+    "就诊",
+    "微信"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "进入目标互联网医院的在线服务页面",
+      "expected": "进入互联网医院首页，展示在线服务入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击在线复诊入口并填写复诊申请信息",
+      "expected": "申请提交成功，进入与医生的问诊页面",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "在问诊页面与医生沟通并等待开具处方",
+      "expected": "医生问诊完成，页面展示开具的电子处方",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "核对处方信息并点击确认支付药费",
+      "expected": "跳转支付页面，展示待支付的药品费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "在支付页面确认并完成药品费用支付",
+      "expected": "支付成功，进入药品配送信息填写页面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "填写收货地址并点击提交配送订单",
+      "expected": "订单提交成功，页面显示等待药品配送",
+      "action_type": "type"
+    }
+  ]
+}

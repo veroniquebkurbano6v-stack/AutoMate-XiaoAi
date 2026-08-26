@@ -7,6 +7,7 @@ import com.palmagent.app.tool.ToolResult
 class GetScreenInfoTool : BaseTool() {
 
     override fun getName(): String = "get_screen_info"
+    override fun isExposedToExecutionModel(): Boolean = false
 
     override fun getParameters(): List<ToolParameter> = emptyList()
 

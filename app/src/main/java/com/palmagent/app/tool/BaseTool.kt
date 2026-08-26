@@ -57,6 +57,12 @@ abstract class BaseTool {
     fun getDescription(): String =
         if (useChineseDescription) getDescriptionCN() else getDescriptionEN()
 
+    /**
+     * 是否暴露给执行模型。
+     * false 的工具仅系统内部使用（如决策模型），不进入执行模型的 prompt 描述和检索候选集。
+     */
+    open fun isExposedToExecutionModel(): Boolean = true
+
     open fun getDisplayName(): String = getName()
 
     protected fun requireString(params: Map<String, Any>, key: String): String {

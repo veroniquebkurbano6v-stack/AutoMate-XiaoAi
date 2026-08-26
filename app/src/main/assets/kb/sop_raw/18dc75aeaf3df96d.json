@@ -1,0 +1,70 @@
+{
+  "sop_id": "18dc75aeaf3df96d",
+  "original_task_name": "粤健通平台预约挂号",
+  "task_name": "通过粤健通平台预约挂号",
+  "app_name": "粤健通",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "粤健通",
+    "广东",
+    "省级平台",
+    "挂号",
+    "预约挂号",
+    "医院",
+    "电子健康码",
+    "就诊",
+    "全省互认"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的粤健通应用图标",
+      "expected": "粤健通启动并进入平台首页界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "在首页选择所在城市并点击目标医院",
+      "expected": "进入该医院的挂号页面，展示科室列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "绑定就诊人信息并确认电子健康码",
+      "expected": "就诊人信息提交成功，电子健康码生成可用",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "核对挂号信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

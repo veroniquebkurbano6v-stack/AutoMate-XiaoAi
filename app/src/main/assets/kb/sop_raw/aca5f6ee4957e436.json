@@ -1,0 +1,76 @@
+{
+  "sop_id": "aca5f6ee4957e436",
+  "original_task_name": "互联网医院在线问诊转线下挂号",
+  "task_name": "通过互联网医院在线问诊后预约线下挂号",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L4",
+  "domain": "医疗健康",
+  "keywords": [
+    "互联网医院",
+    "在线问诊",
+    "线下挂号",
+    "预约挂号",
+    "复诊",
+    "医生",
+    "就诊",
+    "微信",
+    "问诊"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击微信首页顶部的搜索栏区域",
+      "expected": "进入搜索页面，展示搜索输入框",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索框中输入目标互联网医院名称并搜索",
+      "expected": "搜索结果展示目标互联网医院的小程序入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击搜索结果中的互联网医院小程序进入",
+      "expected": "小程序启动，进入在线问诊服务首页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "点击在线问诊入口发起问诊并描述病情",
+      "expected": "问诊创建成功，进入与医生的对话页面",
+      "action_type": "type"
+    },
+    {
+      "step_order": 6,
+      "goal": "根据医生评估点击转线下就诊的建议入口",
+      "expected": "页面展示线下号源预约选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在号源列表中选择目标医生与就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "核对挂号信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

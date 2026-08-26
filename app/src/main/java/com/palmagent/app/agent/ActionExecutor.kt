@@ -291,6 +291,9 @@ class ActionExecutor @Inject constructor(
             buildActionParams(finalAction).mapValues { it.value ?: "" as Any }
         }
 
+        // 真机调试观测点：打印"协议参数名 → 执行参数名"映射结果，便于核对模型输出字段是否被正确转译
+        Log.d(TAG, "tool_params[${toolName}] modelText=${finalAction.text?.take(40)} mapped=$params")
+
         val tool = ToolRegistry.getTool(toolName)
             ?: run {
                 val allTools = ToolRegistry.getAllTools().map { it.getName() }.toMutableList().apply {
@@ -496,6 +499,19 @@ class ActionExecutor @Inject constructor(
         if (action.type == "select_spec") {
             action.specs?.takeIf { it.isNotEmpty() }?.let { params["specs"] = it }
             action.confirmText?.takeIf { it.isNotBlank() }?.let { params["confirm_text"] = it }
+        }
+
+        // SCROLL_UNTIL: target → target（主取 targetId：ActionParser 将 JSON target 落入 AgentAction.targetId；
+        // text 兜底兼容旧格式）, direction → direction（同 swip direction 模式）
+        if (action.type == "scroll_until") {
+            val target = action.targetId?.takeIf { it.isNotBlank() }
+                ?: action.text?.takeIf { it.isNotBlank() }
+                ?: action.targetDesc?.takeIf { it.isNotBlank() }
+            target?.let { params["target"] = it }
+            action.direction?.let { params["direction"] = it }
+            action.maxScrolls?.let { params["max_scrolls"] = it }
+            action.intervalMs?.let { params["interval_ms"] = it }
+            action.clickOnFound?.let { params["click_on_found"] = it }
         }
         // =================================================
 

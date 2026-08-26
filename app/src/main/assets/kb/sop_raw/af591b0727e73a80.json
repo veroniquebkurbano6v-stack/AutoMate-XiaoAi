@@ -1,0 +1,82 @@
+{
+  "sop_id": "af591b0727e73a80",
+  "original_task_name": "支付宝生活号预约挂号",
+  "task_name": "通过支付宝生活号预约挂号",
+  "app_name": "支付宝",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "支付宝",
+    "生活号",
+    "医院",
+    "挂号",
+    "预约挂号",
+    "就诊",
+    "科室",
+    "医生",
+    "医保电子凭证"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的支付宝应用图标",
+      "expected": "支付宝启动并进入首页界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击支付宝首页顶部的搜索栏区域",
+      "expected": "进入搜索页面，搜索输入框获得焦点",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索框中输入目标医院名称并搜索",
+      "expected": "搜索结果展示目标医院的生活号入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击搜索结果中目标医院的生活号进入",
+      "expected": "进入医院生活号页面，展示挂号服务入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "绑定就诊人的姓名、证件号与手机号信息",
+      "expected": "就诊人信息提交成功并保存为就诊人档案",
+      "action_type": "type"
+    },
+    {
+      "step_order": 6,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "核对挂号信息并点击确认支付按钮",
+      "expected": "跳转支付宝支付页面，展示待支付金额",
+      "action_type": "click"
+    },
+    {
+      "step_order": 10,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}

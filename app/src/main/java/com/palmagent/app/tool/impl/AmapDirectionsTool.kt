@@ -23,6 +23,7 @@ class AmapDirectionsTool : BaseTool() {
     private val mcpService = WebMCPService()
 
     override fun getName(): String = "amap_directions"
+    override fun isExposedToExecutionModel(): Boolean = false
 
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter(

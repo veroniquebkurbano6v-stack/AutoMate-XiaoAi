@@ -1,6 +1,7 @@
 package com.palmagent.app.service
 
 import android.content.SharedPreferences
+import com.palmagent.app.tool.ToolRegistry
 import com.palmagent.app.utils.KVUtils
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -27,6 +28,7 @@ class PromptBuilderTest {
             isAccessible = true
             set(KVUtils, fakePrefs)
         }
+        ToolRegistry.initAllTools()
     }
 
     @Test

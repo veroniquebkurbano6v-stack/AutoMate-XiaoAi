@@ -86,7 +86,10 @@ data class AgentAction(
     val visualQuestion: String? = null,
     // 规格自动选取字段（仅 SELECT_SPEC 类型使用）：specs=需选取的规格列表，confirmText=确认按钮文本（默认"选好了"）
     val specs: List<String>? = null,
-    val confirmText: String? = null
+    val confirmText: String? = null,
+    // 滚动查找字段（仅 SCROLL_UNTIL 类型使用）：maxScrolls=最大滚动次数，clickOnFound=找到后是否自动点击
+    val maxScrolls: Int? = null,
+    val clickOnFound: Boolean? = null
 )
 
 /**

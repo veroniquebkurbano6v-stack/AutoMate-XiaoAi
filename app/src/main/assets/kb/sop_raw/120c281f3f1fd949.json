@@ -1,0 +1,64 @@
+{
+  "sop_id": "120c281f3f1fd949",
+  "original_task_name": "健康体检预约",
+  "task_name": "预约健康体检",
+  "app_name": "微信",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "健康体检",
+    "体检",
+    "体检套餐",
+    "体检中心",
+    "预约",
+    "医院",
+    "体检日期",
+    "就诊人",
+    "微信"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "进入目标医院体检中心的预约服务页面",
+      "expected": "进入体检预约页面，展示体检套餐列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在套餐列表中点击选择合适的体检套餐",
+      "expected": "套餐被选中，进入体检时间选择页面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "选择目标体检日期并点击合适的体检时段",
+      "expected": "时段被选中，进入体检人信息填写页面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "填写体检人的姓名与证件等个人信息",
+      "expected": "信息填写完成，页面展示体检订单确认页",
+      "action_type": "type"
+    },
+    {
+      "step_order": 6,
+      "goal": "核对体检信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的体检费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在支付页面确认并完成体检费用支付",
+      "expected": "支付成功，收到体检预约成功通知",
+      "action_type": "click"
+    }
+  ]
+}

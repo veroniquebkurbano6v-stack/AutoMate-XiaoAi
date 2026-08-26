@@ -24,6 +24,7 @@ class AmapSearchTool : BaseTool() {
     private val mcpService = WebMCPService()
 
     override fun getName(): String = "amap_search"
+    override fun isExposedToExecutionModel(): Boolean = false
 
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter(

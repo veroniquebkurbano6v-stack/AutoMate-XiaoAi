@@ -1,0 +1,82 @@
+{
+  "sop_id": "cc46756bf9f6f8d4",
+  "original_task_name": "健康160第三方平台预约挂号",
+  "task_name": "通过第三方挂号平台预约挂号",
+  "app_name": "健康160",
+  "source": "cagui_auto",
+  "difficulty": "L3",
+  "domain": "医疗健康",
+  "keywords": [
+    "健康160",
+    "第三方平台",
+    "挂号",
+    "预约挂号",
+    "医院",
+    "就诊",
+    "科室",
+    "医生",
+    "聚合平台"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的健康160应用图标",
+      "expected": "健康160启动并进入平台首页界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "登录账号完成个人身份信息绑定",
+      "expected": "登录成功，进入平台挂号服务首页",
+      "action_type": "type"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击首页顶部的搜索栏区域",
+      "expected": "搜索栏获得焦点，弹出键盘准备输入",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在搜索输入框中输入目标医院名称进行搜索",
+      "expected": "搜索结果列表展示目标医院的挂号入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 5,
+      "goal": "点击搜索结果中目标医院的挂号入口进入",
+      "expected": "进入该医院的挂号页面，展示科室列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "在科室列表中选择目标科室及细分方向",
+      "expected": "进入该科室页面，展示可预约的医生列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在医生列表中点击目标医生查看出诊信息",
+      "expected": "进入医生详情页，展示医生专长和出诊时间",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "选择目标就诊日期并点击合适的就诊时段",
+      "expected": "时段被选中，页面展示挂号信息确认页",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "核对挂号信息并点击页面底部的支付按钮",
+      "expected": "跳转支付页面，展示待支付的挂号费用",
+      "action_type": "click"
+    },
+    {
+      "step_order": 10,
+      "goal": "在支付页面确认并完成挂号费支付",
+      "expected": "支付成功，收到预约成功通知与就诊提醒",
+      "action_type": "click"
+    }
+  ]
+}
