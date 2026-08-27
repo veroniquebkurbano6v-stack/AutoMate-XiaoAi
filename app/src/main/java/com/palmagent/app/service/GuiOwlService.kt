@@ -179,7 +179,8 @@ object GuiOwlService {
                     return@withContext result
                 }
                 lastErrorMsg = result.error ?: "解析失败"
-                Log.w(TAG, "[GROUND]失败(尝试$attempt): $lastErrorMsg")
+                // 失败日志追加模型原始响应前 300 字符（rawResponse），用于追溯模型实际输出的格式
+                Log.w(TAG, "[GROUND]失败(尝试$attempt): $lastErrorMsg | raw: ${content.take(300)}")
                 LiveLogBuffer.append("❌ GUI-Plus[GROUND]失败: $lastErrorMsg")
             } catch (e: java.net.SocketTimeoutException) {
                 lastErrorMsg = "请求超时: ${e.message}"
@@ -515,8 +516,29 @@ Rules:
 - Do not output anything else outside those two parts.
 - If finishing, use action=terminate in the tool call."""
 
-    /** 定位模式：使用官方手机端 System Prompt，用户指令含定位目标 */
-    private fun buildGroundSystemPrompt(): String = MOBILE_SYSTEM_PROMPT
+    /**
+     * 定位模式：专用定位 prompt（不复用官方通用 MOBILE_SYSTEM_PROMPT——其动作空间含 open/type/answer 等
+     * 无坐标动作，与"定位必须返回坐标"的用途冲突，是"响应中未找到有效坐标"反复重试的根因，经真实 API 实测确认）。
+     * 约束：动作只能是 click/long_press/swipe 且必须携带 coordinate 数组 [x,y]；禁止 open/type 等自由动作。
+     * internal 供同模块单测校验定位约束契约（GuiOwlServiceGroundingTest）。
+     */
+    internal fun buildGroundSystemPrompt(): String = """
+        你是手机屏幕元素定位器。给定屏幕截图与定位指令，返回"应点击屏幕上的哪个位置"。
+        你只做定位：不打开应用、不输入文本、不回答问题、不规划多步任务。
+
+        # 输出格式（严格遵循）
+        每轮只输出一行 Action 简述，然后一个 <tool_call>...</tool_call> 块：
+        <tool_call>
+        {"name": "mobile_use", "arguments": {"action": "click", "coordinate": [x, y]}}
+        </tool_call>
+
+        # 动作约束（必须遵守）
+        - action 只能是 click、long_press、swipe 三者之一，且必须携带 coordinate 数组 [x,y]（[0,1000] 归一化）。
+        - 禁止输出 open、type、answer、terminate、interact、key、wait、system_button 等动作。
+        - 若指令是"打开应用/输入文本/搜索"等复合操作，仍只输出应点击的界面元素位置（如搜索框/输入框的坐标），
+          不要输出打开应用或输入文本的动作。
+        - 除 Action 简述与 <tool_call> 块外，不要输出任何其他内容。
+    """.trimIndent()
 
     /** 决策模式：使用官方手机端 System Prompt，用户指令含完整任务 */
     private fun buildDecideSystemPrompt(): String = MOBILE_SYSTEM_PROMPT
@@ -658,7 +680,8 @@ Rules:
         }.getOrNull()
     }
 
-    private fun parseGroundingResponse(
+    // internal 供同模块单测调用（GuiOwlServiceGroundingTest），模拟执行模型 GUI 定位请求的响应解析
+    internal fun parseGroundingResponse(
         content: String,
         screenWidth: Int,
         screenHeight: Int,
