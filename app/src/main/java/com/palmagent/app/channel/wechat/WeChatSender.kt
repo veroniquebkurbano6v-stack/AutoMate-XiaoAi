@@ -17,6 +17,9 @@ class WeChatSender(
 
     companion object {
         private const val TAG = "WeChatSender"
+
+        /** 发送失败重试次数（不含首次）与退避间隔，避免网络抖动直接丢消息 */
+        private val RETRY_DELAYS_MS = longArrayOf(800L, 2000L, 4000L)
     }
 
     fun sendText(text: String, contextToken: String?, messageId: Long? = null): Boolean {
@@ -25,6 +28,47 @@ class WeChatSender(
             return false
         }
 
+        val ret = sendTextOnce(text, contextToken)
+        if (ret == 0) return true
+
+        // 不可恢复错误：参数错误(-2)、权限不足(-4) 重试无意义
+        if (ret == -2 || ret == -4) {
+            Log.w(TAG, "消息发送失败(ret=$ret)，不可恢复错误，跳过重试")
+            LiveLogBuffer.append("WeChat消息发送失败(不可恢复: ret=$ret)")
+            return false
+        }
+
+        // 可恢复失败：指数退避重试
+        var lastRet = ret
+        for (delayMs in RETRY_DELAYS_MS) {
+            try { Thread.sleep(delayMs) } catch (_: InterruptedException) {}
+            lastRet = sendTextOnce(text, contextToken)
+            if (lastRet == 0) {
+                Log.d(TAG, "消息第${RETRY_DELAYS_MS.indexOf(delayMs) + 1}次重试成功")
+                return true
+            }
+        }
+
+        // 兜底：context_token 可能已过期/失效，去掉 token 再试最后一次
+        if (!contextToken.isNullOrEmpty()) {
+            Log.w(TAG, "带token发送连续失败(ret=$lastRet)，尝试不带context_token兜底重发")
+            val fallbackRet = sendTextOnce(text, null)
+            if (fallbackRet == 0) {
+                LiveLogBuffer.append("⚠️ WeChat回复以无token方式补发成功(原ret=$lastRet)")
+                return true
+            }
+            lastRet = fallbackRet
+        }
+
+        Log.e(TAG, "消息发送最终失败: ret=$lastRet, toUser=${toUserId().takeLast(16)}, hasToken=${!contextToken.isNullOrEmpty()}")
+        LiveLogBuffer.append("❌ WeChat消息发送最终失败(ret=$lastRet): ${text.take(40)}")
+        return false
+    }
+
+    /**
+     * 单次发送（不重试），返回 API ret 码
+     */
+    private fun sendTextOnce(text: String, contextToken: String?): Int {
         val itemList = JsonArray().apply {
             add(JsonObject().apply {
                 addProperty("type", MessageItemType.TEXT)
@@ -45,24 +89,7 @@ class WeChatSender(
         }
 
         Log.d(TAG, "发送文本消息: ${text.take(50)}..., toUser=${toUserId().takeLast(16)}, contextToken=${if (contextToken.isNullOrEmpty()) "NULL" else contextToken!!.takeLast(12)}")
-        val ret = client.sendMessage(msgBody)
-        if (ret != 0) {
-            // 不可恢复错误：参数错误(-2)、权限不足(-4) 不重试
-            val isUnrecoverable = ret == -2 || ret == -4
-            if (isUnrecoverable) {
-                Log.w(TAG, "消息发送失败(ret=$ret)，不可恢复错误，跳过重试")
-                LiveLogBuffer.append("WeChat消息发送失败(不可恢复: ret=$ret)")
-                return false
-            }
-            Log.d(TAG, "消息发送失败(ret=$ret)，1秒后重试")
-            try { Thread.sleep(1000) } catch (_: InterruptedException) {}
-            val retriedRet = client.sendMessage(msgBody)
-            if (retriedRet != 0) {
-                LiveLogBuffer.append("WeChat消息发送失败(重试后仍失败: ret=$retriedRet)")
-            }
-            return retriedRet == 0
-        }
-        return true
+        return client.sendMessage(msgBody)
     }
 
     fun sendImage(imageData: ByteArray, contextToken: String?, messageId: Long? = null): Boolean {

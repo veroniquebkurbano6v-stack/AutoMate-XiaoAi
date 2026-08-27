@@ -33,10 +33,27 @@ class WeChatChannelHandler(
     private lateinit var inbound: WeChatInbound
     private var sender: WeChatSender? = null
 
+    // 这些字段会被收消息线程（inbound scope）和发回复线程（决策/编排多个协程）并发读写，
+    // 必须 volatile 保证可见性，否则偶发读到 stale 值导致回复丢失
+    @Volatile
     private var userId = ""
+    @Volatile
     private var botId = ""
+    @Volatile
     private var toUserId = ""
+    @Volatile
     private var lastContextToken: String? = null
+
+    /**
+     * 消息 ID → 该条消息自带的 contextToken。
+     * 微信 ilink 的 context_token 有时效性，长任务（决策对话+多轮执行）跨分钟复用同一个
+     * token 会被服务端拒绝（表现为"任务正常执行但微信端收不到任何回复"）。
+     * 回复时按 replyToMessageId 精确配对该条入站消息自己的 token，比全局共用更稳。
+     */
+    private val contextTokensByMessageId = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** 定长保护：只保留最近 N 条消息的 token，防止长期运行内存膨胀 */
+    private val maxTrackedContextTokens = 50
 
     private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -93,13 +110,16 @@ class WeChatChannelHandler(
     override fun sendMessage(text: String, replyToMessageId: String?): Boolean {
         val s = sender ?: return false
         val messageId = replyToMessageId?.toLongOrNull()
-        return s.sendText(text, lastContextToken, messageId)
+        // 优先使用该条入站消息自带的 contextToken（时效内精确配对），没有则退回最近一次的
+        val token = replyToMessageId?.let { contextTokensByMessageId[it] } ?: lastContextToken
+        return s.sendText(text, token, messageId)
     }
 
     override fun sendImage(imageBytes: ByteArray, replyToMessageId: String?): Boolean {
         val s = sender ?: return false
         val messageId = replyToMessageId?.toLongOrNull()
-        return s.sendImage(imageBytes, lastContextToken, messageId)
+        val token = replyToMessageId?.let { contextTokensByMessageId[it] } ?: lastContextToken
+        return s.sendImage(imageBytes, token, messageId)
     }
 
     override fun setTypingStatus(isTyping: Boolean): Boolean {
@@ -123,6 +143,17 @@ class WeChatChannelHandler(
                 }
                 if (!msg.contextToken.isNullOrEmpty()) {
                     lastContextToken = msg.contextToken
+                    // 按 messageId 记录该条消息自己的 token，回复时精确配对（定长保护）
+                    val msgIdKey = msg.messageId?.toString()
+                    if (msgIdKey != null) {
+                        if (contextTokensByMessageId.size >= maxTrackedContextTokens) {
+                            // 移除最早写入的一条
+                            contextTokensByMessageId.keys().toList().firstOrNull()?.let {
+                                contextTokensByMessageId.remove(it)
+                            }
+                        }
+                        msg.contextToken?.let { contextTokensByMessageId[msgIdKey] = it }
+                    }
                 }
 
                 val isUserMessage = msg.messageType == MessageType.USER || msg.messageType == MessageType.NONE || msg.messageType == null
