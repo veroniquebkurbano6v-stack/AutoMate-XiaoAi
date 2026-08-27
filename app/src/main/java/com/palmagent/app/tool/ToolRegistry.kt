@@ -85,7 +85,7 @@ object ToolRegistry {
         val filtered = getExecutionTools()
             .filter { tool ->
                 when (tool.getName()) {
-                    "tap", "long_press", "visual_describe", "select_spec" -> !isVision
+                    "tap", "visual_describe", "select_spec" -> !isVision
                     else -> true
                 }
             }
@@ -93,7 +93,7 @@ object ToolRegistry {
         // 分组输出（定位与输入 → 导航与浏览 → 应用与等待 → 任务控制 → 信息查询）
         val groups = linkedMapOf(
             "定位与输入" to listOf("locate", "auto_input", "tap"),
-            "导航与浏览" to listOf("swipe", "scroll_until", "back", "home", "long_press"),
+            "导航与浏览" to listOf("swipe", "scroll_until", "back", "home"),
             "应用与等待" to listOf("open_app", "wait"),
             "任务控制" to listOf("request_user_action", "finish", "select_spec"),
             "信息查询" to listOf("web_search", "visual_describe")
@@ -182,7 +182,6 @@ object ToolRegistry {
         "locate" to "description(必填,功能+图标特征+区域), text(必填,要定位的文字)",
         "tap" to "coordinate(必填,[x,y]数组如[976,2376]), description(必填)",
         "open_app" to "text(必填,应用中文名或包名)",
-        "long_press" to "coordinate(必填,[x,y]数组), description(必填)",
         "wait" to "description(必填), duration_ms(可选,默认1000,范围100-10000)",
         "request_user_action" to "text(必填,标题), description(选填)",
         "finish" to "description(必填,已完成摘要), text(必填,用户接下来做什么)",
