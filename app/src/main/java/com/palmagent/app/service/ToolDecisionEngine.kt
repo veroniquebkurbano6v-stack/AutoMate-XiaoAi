@@ -22,6 +22,19 @@ class ToolDecisionEngine(
         private const val MAX_CONSECUTIVE_FAILURES = 3
         /** fetch_result 单次取回显示上限（字符），通用 fx- 条目按此截断 */
         private const val FETCH_OUTPUT_MAX_CHARS = 4000
+
+        /** 解析 web_search 动作的 query + mode：
+         *  - query 主取协议字段（action.query），text/description 兜底兼容旧格式；
+         *  - mode 透传 action.mode（已在 ActionParser 经 web|ai 白名单），缺省 web。
+         *  返回 null 表示 query 为空，调用方应跳过搜索。 */
+        internal fun resolveWebSearchParams(action: AgentAction): Pair<String, String>? {
+            val query = action.query?.takeIf { it.isNotBlank() }
+                ?: action.text?.takeIf { it.isNotBlank() }
+                ?: action.description?.takeIf { it.isNotBlank() }
+            if (query.isNullOrBlank()) return null
+            val mode = action.mode ?: "web"
+            return query to mode
+        }
     }
 
     suspend fun executeWithTools(
@@ -72,8 +85,8 @@ class ToolDecisionEngine(
 
             when (action.type) {
                 "web_search" -> {
-                    val query = action.text?.takeIf { it.isNotBlank() } ?: action.description
-                    if (query.isBlank()) {
+                    val params = resolveWebSearchParams(action)
+                    if (params == null) {
                         log("WEB_SEARCH 缺少 query 参数，跳过")
                         toolResults.add(ToolCallResult(
                             toolName = "web_search",
@@ -87,10 +100,11 @@ class ToolDecisionEngine(
                             scratchpadEntries = scratchpadEntries
                         )
                     }
+                    val (query, mode) = params
 
-                    // 方案 B①：相同调用拦截——同轮相同 (tool, 参数) 达到阈值时
+                    // 方案 B①：相同调用拦截——同轮相同 (tool, mode, 参数) 达到阈值时
                     // 不执行搜索，注入强制换策略提示后重新请求 AI 决策，避免重试风暴烧 token
-                    val callSig = "web_search:$query"
+                    val callSig = "web_search:$mode:$query"
                     val sameCallCount = (callCounters[callSig] ?: 0) + 1
                     callCounters[callSig] = sameCallCount
                     if (sameCallCount >= MAX_SAME_CALL) {
@@ -121,7 +135,7 @@ class ToolDecisionEngine(
                     log("AI请求联网搜索: ${query.take(80)}")
                     LiveLogBuffer.append("🔍 模型请求联网搜索: ${query.take(80)}")
 
-                    val searchResult = WebSearchService.searchWithCache(query, count = 5, round = round)
+                    val searchResult = WebSearchService.searchWithCache(query, count = 5, round = round, mode = mode)
 
                     toolResults.add(ToolCallResult(
                         toolName = "web_search",
