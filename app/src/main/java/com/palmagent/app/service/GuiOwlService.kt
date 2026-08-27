@@ -519,25 +519,20 @@ Rules:
     /**
      * 定位模式：专用定位 prompt（不复用官方通用 MOBILE_SYSTEM_PROMPT——其动作空间含 open/type/answer 等
      * 无坐标动作，与"定位必须返回坐标"的用途冲突，是"响应中未找到有效坐标"反复重试的根因，经真实 API 实测确认）。
-     * 约束：动作只能是 click/long_press/swipe 且必须携带 coordinate 数组 [x,y]；禁止 open/type 等自由动作。
-     * internal 供同模块单测校验定位约束契约（GuiOwlServiceGroundingTest）。
+     * 精简原则（Anthropic 上下文工程）：最小高信号 token 集——白名单优于负面枚举、只输出解析器消费的内容。
      */
     internal fun buildGroundSystemPrompt(): String = """
-        你是手机屏幕元素定位器。给定屏幕截图与定位指令，返回"应点击屏幕上的哪个位置"。
-        你只做定位：不打开应用、不输入文本、不回答问题、不规划多步任务。
+        给定屏幕截图与定位指令，返回应点击的屏幕位置。
 
-        # 输出格式（严格遵循）
-        每轮只输出一行 Action 简述，然后一个 <tool_call>...</tool_call> 块：
-        <tool_call>
-        {"name": "mobile_use", "arguments": {"action": "click", "coordinate": [x, y]}}
-        </tool_call>
+        # 输出
+        只输出一个 <tool_call> 块（不要输出其他内容）：
+        <tool_call>{"name": "mobile_use", "arguments": {"action": "click", "coordinate": [x, y]}}</tool_call>
+        坐标 [x,y] 为 [0,1000] 归一化。
 
-        # 动作约束（必须遵守）
-        - action 只能是 click、long_press、swipe 三者之一，且必须携带 coordinate 数组 [x,y]（[0,1000] 归一化）。
-        - 禁止输出 open、type、answer、terminate、interact、key、wait、system_button 等动作。
-        - 若指令是"打开应用/输入文本/搜索"等复合操作，仍只输出应点击的界面元素位置（如搜索框/输入框的坐标），
-          不要输出打开应用或输入文本的动作。
-        - 除 Action 简述与 <tool_call> 块外，不要输出任何其他内容。
+        # 约束
+        - action 只能是 click/long_press/swipe，必须携带 coordinate。
+        - 禁止其他动作（open/type/answer/terminate/interact 等）。
+        - 指令是"打开/输入/搜索"等复合操作时，仍只返回应点击元素的坐标，不要输出打开或输入动作。
     """.trimIndent()
 
     /** 决策模式：使用官方手机端 System Prompt，用户指令含完整任务 */
