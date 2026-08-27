@@ -179,7 +179,8 @@ object GuiOwlService {
                     return@withContext result
                 }
                 lastErrorMsg = result.error ?: "解析失败"
-                Log.w(TAG, "[GROUND]失败(尝试$attempt): $lastErrorMsg")
+                // 失败日志追加模型原始响应前 300 字符（rawResponse），用于追溯模型实际输出的格式
+                Log.w(TAG, "[GROUND]失败(尝试$attempt): $lastErrorMsg | raw: ${content.take(300)}")
                 LiveLogBuffer.append("❌ GUI-Plus[GROUND]失败: $lastErrorMsg")
             } catch (e: java.net.SocketTimeoutException) {
                 lastErrorMsg = "请求超时: ${e.message}"
@@ -515,8 +516,24 @@ Rules:
 - Do not output anything else outside those two parts.
 - If finishing, use action=terminate in the tool call."""
 
-    /** 定位模式：使用官方手机端 System Prompt，用户指令含定位目标 */
-    private fun buildGroundSystemPrompt(): String = MOBILE_SYSTEM_PROMPT
+    /**
+     * 定位模式：专用定位 prompt（不复用官方通用 MOBILE_SYSTEM_PROMPT——其动作空间含 open/type/answer 等
+     * 无坐标动作，与"定位必须返回坐标"的用途冲突，是"响应中未找到有效坐标"反复重试的根因，经真实 API 实测确认）。
+     * 精简原则（Anthropic 上下文工程）：最小高信号 token 集——白名单优于负面枚举、只输出解析器消费的内容。
+     */
+    internal fun buildGroundSystemPrompt(): String = """
+        给定屏幕截图与定位指令，返回应点击的屏幕位置。
+
+        # 输出
+        只输出一个 <tool_call> 块（不要输出其他内容）：
+        <tool_call>{"name": "mobile_use", "arguments": {"action": "click", "coordinate": [x, y]}}</tool_call>
+        坐标 [x,y] 为 [0,1000] 归一化。
+
+        # 约束
+        - action 只能是 click/long_press/swipe，必须携带 coordinate。
+        - 禁止其他动作（open/type/answer/terminate/interact 等）。
+        - 指令是"打开/输入/搜索"等复合操作时，仍只返回应点击元素的坐标，不要输出打开或输入动作。
+    """.trimIndent()
 
     /** 决策模式：使用官方手机端 System Prompt，用户指令含完整任务 */
     private fun buildDecideSystemPrompt(): String = MOBILE_SYSTEM_PROMPT
@@ -658,7 +675,8 @@ Rules:
         }.getOrNull()
     }
 
-    private fun parseGroundingResponse(
+    // internal 供同模块单测调用（GuiOwlServiceGroundingTest），模拟执行模型 GUI 定位请求的响应解析
+    internal fun parseGroundingResponse(
         content: String,
         screenWidth: Int,
         screenHeight: Int,
