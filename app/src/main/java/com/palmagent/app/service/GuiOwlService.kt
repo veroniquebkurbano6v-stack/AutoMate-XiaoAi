@@ -67,6 +67,10 @@ object GuiOwlService {
         val coordinate: Coordinate? = null,
         val coordinateEnd: Coordinate? = null,
         val text: String? = null,
+        /** 统一协议 swipe 方向（up/down/left/right/custom），与文本执行模型协议对齐 */
+        val direction: String? = null,
+        /** 统一协议动作描述（模型输出，透传到 AgentAction 供 actionHistory/日志审计） */
+        val description: String? = null,
         val rawResponse: String = "",
         val error: String? = null,
         val durationMs: Long = 0
@@ -768,6 +772,9 @@ object GuiOwlService {
             }
 
             val text = json?.optString("text", null)
+            val direction = json?.optString("direction", null)?.lowercase()
+                ?.takeIf { it in setOf("up", "down", "left", "right", "custom") }
+            val description = json?.optString("description", null)
 
             DecideResult(
                 success = true,
@@ -775,6 +782,8 @@ object GuiOwlService {
                 coordinate = coordinate,
                 coordinateEnd = coordinateEnd,
                 text = text,
+                direction = direction,
+                description = description,
                 rawResponse = content,
                 durationMs = durationMs
             )

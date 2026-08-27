@@ -1302,6 +1302,9 @@ class SettingsActivity : AppCompatActivity() {
         val switch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_vision_mode)
         switch.isChecked = KVUtils.isVisionModeEnabled()
         switch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && KVUtils.getGuiOwlApiKey().isBlank()) {
+                Toast.makeText(this, "请先在 GUI-Plus 配置中填写 API Key（否则视觉执行将失败）", Toast.LENGTH_SHORT).show()
+            }
             KVUtils.setVisionModeEnabled(isChecked)
             com.palmagent.app.LiveLogBuffer.append("VL模式: ${if (isChecked) "开启" else "关闭"}")
         }

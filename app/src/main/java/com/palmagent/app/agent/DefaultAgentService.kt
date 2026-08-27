@@ -845,7 +845,8 @@ class DefaultAgentService @Inject constructor(
                 coordinate = result.coordinate,
                 coordinateEnd = result.coordinateEnd,
                 text = result.text,
-                description = "VL决策: ${result.action}",
+                direction = result.direction,
+                description = result.description ?: "VL决策: ${result.action}",
                 confidence = 1.0f
             )
             Log.d(TAG, "VL决策: ${action.type} - ${action.description}")
