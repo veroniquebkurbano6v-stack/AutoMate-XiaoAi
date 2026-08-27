@@ -283,11 +283,14 @@ class DefaultAgentService @Inject constructor(
 
                     // VL 模式：WEB_SEARCH 处理（完整结果缓存 + 摘要仅本轮注入，不写工作区）
                     if (finalAction.type == "web_search") {
-                        val searchQuery = finalAction.text ?: finalAction.description
+                        val searchQuery = finalAction.query?.takeIf { it.isNotBlank() }
+                            ?: finalAction.text?.takeIf { it.isNotBlank() }
+                            ?: finalAction.description
+                        val searchMode = finalAction.mode ?: "web"
                         Log.d(TAG, "VL请求联网搜索: $searchQuery")
                         LiveLogBuffer.append("🔍 VL请求联网搜索: ${searchQuery.take(40)}")
 
-                        val searchResult = WebSearchService.searchWithCache(searchQuery, round = round)
+                        val searchResult = WebSearchService.searchWithCache(searchQuery, round = round, mode = searchMode)
                         if (searchResult.success) {
                             // 摘要仅本轮临时注入（模型看后判断需取回的 ref；不写 Scratchpad）
                             transientSearchSection = searchResult.summaryText

@@ -122,6 +122,8 @@ class AIService(
             ChatMessage("system", systemPrompt),
             ChatMessage("user", prompt)
         )
+        // 上下文总量观测：与决策模型"上下文视图"对齐，量化每轮执行模型请求大小（systemPrompt + prompt）
+        Log.d(TAG, "执行模型上下文: messages=${messages.size}条, 总字符≈${messages.sumOf { it.content.length }}")
 
         var lastError = "未知错误"
         val apiUrl = getApiUrl()

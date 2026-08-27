@@ -93,8 +93,8 @@ class PromptBuilderTest {
     fun `system_prompt_contains_web_search_tool_description`() {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
-            "操作工具列表应包含 WEB_SEARCH 工具说明: \n$prompt",
-            prompt.contains("web_search: text(必填,搜索关键词)")
+            "操作工具列表应包含 WEB_SEARCH 工具说明（query+mode 新契约）: \n$prompt",
+            prompt.contains("web_search: query(必填,搜索关键词), mode(选填,web/ai,默认web)")
         )
     }
 

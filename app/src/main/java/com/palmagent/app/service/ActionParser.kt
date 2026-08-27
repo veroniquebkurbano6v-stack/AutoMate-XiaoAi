@@ -81,7 +81,10 @@ object ActionParser {
         val confirm_text: String? = null,
         // 滚动查找（SCROLL_UNTIL 使用）：max_scrolls=最大滚动次数，click_on_found=找到后是否自动定位并点击
         val max_scrolls: Int? = null,
-        val click_on_found: JsonElement? = null
+        val click_on_found: JsonElement? = null,
+        // 联网搜索（WEB_SEARCH 使用）：query=搜索关键词（协议字段），mode=检索模式 web/ai（默认web）
+        val query: String? = null,
+        val mode: String? = null
     )
 
     data class QuestionJson(
@@ -255,7 +258,9 @@ object ActionParser {
                     specs = parseSpecsField(actionJson.specs),
                     confirmText = actionJson.confirm_text?.takeIf { it.isNotBlank() },
                     maxScrolls = actionJson.max_scrolls?.takeIf { it in 1..MAX_SCROLL_UNTIL_SCROLLS },
-                    clickOnFound = parseBooleanLoose(actionJson.click_on_found)
+                    clickOnFound = parseBooleanLoose(actionJson.click_on_found),
+                    query = actionJson.query?.takeIf { it.isNotBlank() },
+                    mode = actionJson.mode?.lowercase()?.takeIf { it in setOf("web", "ai") }
                 )
             } else {
                 parseErrorAction(response, "模型输出未包含合法动作 JSON")

@@ -501,6 +501,14 @@ class ActionExecutor @Inject constructor(
             action.confirmText?.takeIf { it.isNotBlank() }?.let { params["confirm_text"] = it }
         }
 
+        // WEB_SEARCH: query → query（主取 query 协议字段；text 兜底兼容旧描述格式）, mode → mode（web/ai，默认web）
+        if (action.type == "web_search") {
+            val searchQuery = action.query?.takeIf { it.isNotBlank() }
+                ?: action.text?.takeIf { it.isNotBlank() }
+            searchQuery?.let { params["query"] = it }
+            action.mode?.takeIf { it in setOf("web", "ai") }?.let { params["mode"] = it }
+        }
+
         // SCROLL_UNTIL: target → target（主取 targetId：ActionParser 将 JSON target 落入 AgentAction.targetId；
         // text 兜底兼容旧格式）, direction → direction（同 swip direction 模式）
         if (action.type == "scroll_until") {
