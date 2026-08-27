@@ -17,7 +17,8 @@ object MessageMapper {
             isUser = entity.isUser,
             timestamp = entity.timestamp,
             status = try { MessageStatus.valueOf(entity.status) } catch (_: Exception) { MessageStatus.SENT },
-            questions = entity.questions
+            questions = entity.questions,
+            source = entity.source
         )
     }
 
@@ -29,7 +30,8 @@ object MessageMapper {
             isUser = ui.isUser,
             timestamp = ui.timestamp,
             status = ui.status.name,
-            questions = ui.questions
+            questions = ui.questions,
+            source = ui.source
         )
     }
 }

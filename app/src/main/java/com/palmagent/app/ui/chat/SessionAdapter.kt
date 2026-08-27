@@ -53,11 +53,14 @@ class SessionAdapter(
         private val tvName: TextView = itemView.findViewById(R.id.tvSessionName)
         private val tvPreview: TextView = itemView.findViewById(R.id.tvSessionPreview)
         private val tvTime: TextView = itemView.findViewById(R.id.tvSessionTime)
+        private val tvWechatBadge: TextView = itemView.findViewById(R.id.tvWechatBadge)
 
         fun bind(item: SessionWithPreview) {
             tvName.text = item.name
             tvPreview.text = item.preview ?: "（空会话）"
             tvTime.text = TIME_FORMAT.format(Date(item.updatedAt))
+            // 微信来源标识：仅微信通道会话显示绿色"微信"徽章
+            tvWechatBadge.visibility = if (item.source == "WECHAT") View.VISIBLE else View.GONE
             itemView.setOnClickListener { onSessionClick(item) }
             itemView.setOnLongClickListener {
                 onSessionLongClick(item)

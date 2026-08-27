@@ -5,6 +5,7 @@
   - 头像在左（青色渐变圆形 + "AI" 字样）
   - 气泡为现代白底 + 不对称圆角（左上小圆角模拟尾巴）+ 细边框
   - 保留 textAvatar / textMessage ID 供 ChatAdapter 使用
+  - tvWechatBadge：微信来源AI消息显示绿色"微信"标识
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -41,4 +42,18 @@
         android:paddingVertical="10dp"
         android:textColor="#1A1A1A"
         android:textSize="14sp" />
+
+    <!-- 微信来源标识：仅微信通道AI消息显示 -->
+    <TextView
+        android:id="@+id/tvWechatBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="4dp"
+        android:layout_marginBottom="2dp"
+        android:background="@drawable/bg_wechat_badge"
+        android:text="微信"
+        android:textColor="#FFFFFF"
+        android:textSize="8sp"
+        android:visibility="gone" />
 </LinearLayout>

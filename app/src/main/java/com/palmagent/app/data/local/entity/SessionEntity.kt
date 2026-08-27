@@ -14,5 +14,7 @@ data class SessionEntity(
     @PrimaryKey val id: String,
     val name: String,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    /** 会话来源："LOCAL"=本地输入，"WECHAT"=微信通道 */
+    val source: String = "LOCAL"
 )

@@ -326,7 +326,11 @@ Plan 示例（预约挂号）：
                 // 格式违规拦截：操作任务返回"无结构化问题"的裸文本 need_more_info
                 // （模型违反输出契约，把复述需求的长文本当追问）不允许直接上屏——
                 // 追加纠错提示重试一次，让模型输出规范 ready JSON 或调用 ask_questions
-                if (usedOperationalTool && !formatRetried &&
+                // 条件放宽：即使模型未调操作工具，只要用户请求含操作意图或回复含执行意图，也触发纠错
+                val isOperationLike = usedOperationalTool ||
+                    looksLikeOperationRequest(originalUserMessage) ||
+                    looksLikeExecutionIntent((result as? DialogResult.NeedMoreInfo)?.message ?: "")
+                if (isOperationLike && !formatRetried &&
                     result is DialogResult.NeedMoreInfo && result.questions == null
                 ) {
                     LiveLogBuffer.append("⚠️ [决策] 操作任务返回无问题追问（格式违规），追加纠错重试")
@@ -339,7 +343,7 @@ Plan 示例（预约挂号）：
                 // 绝不把模型长文本发给用户（userSummary 留空，UI 只显示简短确认语）
                 // ⚠️ 必须使用 originalUserMessage 而非 messages 反查：此时 messages 最后一个 role=user
                 // 是 FORMAT_CORRECTION_PROMPT，反查会拿到纠错提示全文而非用户真实请求
-                if (usedOperationalTool && result is DialogResult.NeedMoreInfo && result.questions == null) {
+                if (isOperationLike && result is DialogResult.NeedMoreInfo && result.questions == null) {
                     LiveLogBuffer.append("⚠️ [决策] 纠错重试后仍返回无问题追问，降级为按用户请求直接执行")
                     val userReq = originalUserMessage.takeIf { it.isNotBlank() } ?: "执行用户请求"
                     return DialogResult.Ready(
@@ -708,6 +712,38 @@ Plan 示例（预约挂号）：
             is DialogResult.NeedMoreInfo -> "需要追问: ${result.message.take(40)}（${result.questions?.size ?: 0}个问题）"
             is DialogResult.Error -> "出错: ${result.message.take(40)}"
         }
+    }
+
+    /**
+     * 检测用户消息是否包含操作意图关键词。
+     * 用于：模型未调操作工具但用户请求明显是操作类时，仍触发格式纠错/降级执行。
+     */
+    private fun looksLikeOperationRequest(message: String): Boolean {
+        val keywords = listOf(
+            "导航", "打开", "启动", "进入", "发送", "发消息", "发微信", "发短信", "发给",
+            "搜索", "查找", "搜一下", "查一下", "设置", "修改", "更改", "播放", "听歌",
+            "打电话", "拨号", "定闹钟", "设闹钟", "闹钟", "预约", "挂号", "订", "下单",
+            "删除", "清理", "清空", "截图", "截屏", "关闭", "退出", "添加", "新建", "创建",
+            "帮我", "帮", "帮忙", "自动", "操作", "执行", "路线", "去.*路", "打车", "叫车"
+        )
+        // 去掉空格后匹配
+        val normalized = message.replace(" ", "")
+        return keywords.any { kw ->
+            if (kw.contains(".*")) {
+                Regex(kw).containsMatchIn(normalized)
+            } else {
+                normalized.contains(kw)
+            }
+        }
+    }
+
+    /**
+     * 检测模型回复文本是否包含"执行意图"短语。
+     * 如"正在为您查询"/"帮您打开"/"即将执行"等，表明模型本应执行操作却错误地输出了文本。
+     */
+    private fun looksLikeExecutionIntent(message: String): Boolean {
+        val phrases = listOf("正在为您", "帮您", "为您", "即将", "马上", "正在查询", "正在打开", "正在执行", "正在搜索")
+        return phrases.any { message.contains(it) }
     }
 
     /**

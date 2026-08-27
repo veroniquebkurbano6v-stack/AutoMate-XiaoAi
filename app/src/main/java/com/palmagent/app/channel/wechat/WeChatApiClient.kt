@@ -80,10 +80,10 @@ class WeChatApiClient(
                 val code = response.code
                 val rawText = response.body?.string() ?: ""
                 if (code !in 200..299) {
-                    Log.e(TAG, "$label: HTTP $code, body=${rawText.take(200)}")
+                    Log.e(TAG, "$label: HTTP $code, body=${rawText.take(600)}")
                     null
                 } else {
-                    Log.d(TAG, "$label OK [$code] body=${rawText.take(200)}")
+                    Log.d(TAG, "$label OK [$code] body=${rawText.take(600)}")
                     rawText
                 }
             }
@@ -104,10 +104,9 @@ class WeChatApiClient(
             add("base_info", JsonObject().apply { addProperty("channel_version", CHANNEL_VERSION) })
         }
         val rawText = apiFetch("ilink/bot/getupdates", body, longPollClient, "getUpdates")
-        if (rawText == null) {
-            return GetUpdatesResp(ret = 0, msgs = emptyList(), getUpdatesBuf = getUpdatesBuf)
-        }
-        if (rawText.isEmpty()) return GetUpdatesResp(ret = 0, msgs = emptyList(), getUpdatesBuf = getUpdatesBuf)
+        // 返回 null 让 pollingLoop 触发 RECONNECT_DELAY_MS 退避，避免异常时死循环
+        if (rawText == null) return null
+        if (rawText.isEmpty()) return null
 
         return try {
             val json = gson.fromJson(rawText, JsonObject::class.java)
@@ -139,10 +138,12 @@ class WeChatApiClient(
 
         val body = JsonObject().apply {
             add("msg", msgBody)
-            add("base_info", JsonObject().apply { addProperty("channel_version", CHANNEL_VERSION) })
         }
+        Log.d(TAG, "sendMessage REQ: ${body.toString().take(600)}")
         val rawText = apiFetch("ilink/bot/sendmessage", body, apiClient, "sendMessage")
             ?: return -1
+
+        Log.d(TAG, "sendMessage RESP: ${rawText.take(600)}")
 
         return try {
             val resp = gson.fromJson(rawText, JsonObject::class.java)
@@ -199,12 +200,55 @@ class WeChatApiClient(
         }
     }
 
-    fun setTypingStatus(userId: String, status: Int): Boolean {
+    private var typingTicketCache: String? = null
+
+    fun getConfig(userId: String, contextToken: String?): String? {
         val body = JsonObject().apply {
-            addProperty("user_id", userId)
-            addProperty("status", status)
+            addProperty("ilink_user_id", userId)
+            if (!contextToken.isNullOrEmpty()) {
+                addProperty("context_token", contextToken)
+            }
+            add("base_info", JsonObject().apply { addProperty("channel_version", CHANNEL_VERSION) })
         }
-        val rawText = apiFetch("ilink/bot/settypingstatus", body, apiClient, "setTypingStatus")
+        val rawText = apiFetch("ilink/bot/getconfig", body, apiClient, "getConfig") ?: return null
+        if (rawText.isEmpty()) return null
+        return try {
+            val json = gson.fromJson(rawText, JsonObject::class.java)
+            val ticket = json.get("typing_ticket")?.asString
+            if (ticket.isNullOrEmpty()) {
+                Log.w(TAG, "getConfig: typing_ticket为空")
+                null
+            } else ticket
+        } catch (e: Exception) {
+            Log.e(TAG, "getConfig解析失败", e)
+            null
+        }
+    }
+
+    fun setTypingStatus(userId: String, contextToken: String?, status: Int): Boolean {
+        // 获取 typing_ticket（缓存，ticket 可能过期，失败时清空重试一次）
+        var ticket = typingTicketCache
+        if (ticket.isNullOrEmpty()) {
+            ticket = getConfig(userId, contextToken)
+            if (ticket.isNullOrEmpty()) {
+                Log.w(TAG, "setTypingStatus: 无法获取typing_ticket，跳过")
+                return false
+            }
+            typingTicketCache = ticket
+        }
+
+        val body = JsonObject().apply {
+            addProperty("ilink_user_id", userId)
+            addProperty("typing_ticket", ticket)
+            addProperty("status", status)
+            add("base_info", JsonObject().apply { addProperty("channel_version", CHANNEL_VERSION) })
+        }
+        val rawText = apiFetch("ilink/bot/sendtyping", body, apiClient, "sendTyping")
+        // 404/错误时清空缓存，下次重新获取
+        if (rawText == null) {
+            Log.w(TAG, "sendTyping失败，清空typing_ticket缓存")
+            typingTicketCache = null
+        }
         return rawText != null
     }
 

@@ -3,6 +3,8 @@ package com.palmagent.app.agent
 import android.graphics.Bitmap
 import android.util.Log
 import com.palmagent.app.LiveLogBuffer
+import com.palmagent.app.channel.TaskChannelHolder
+import com.palmagent.app.channel.wechat.WeChatDecisionRouter
 import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.QuestionAnswer
 import com.palmagent.app.model.ScreenInfo
@@ -512,6 +514,21 @@ class ActionExecutor @Inject constructor(
         val guideText = action.description.ifBlank { "模型需要您进行手动操作" }
         AgentLogger.log(AgentLogger.LogType.DECISION, "请求用户手动操作: $guideText")
 
+        // 微信通道：通过微信文本消息发送操作指引，等待用户回复
+        if (TaskChannelHolder.isWeChat()) {
+            val router = WeChatDecisionRouter.instance
+            if (router != null) {
+                val completed = router.requestUserActionViaWeChat(guideText)
+                return if (!completed) {
+                    ToolResult.error("用户拒绝了操作")
+                } else {
+                    ToolResult.success("用户已完成操作: $guideText")
+                }
+            }
+            Log.w("ActionExecutor", "微信通道但 WeChatDecisionRouter 未初始化，回退到本地交互")
+        }
+
+        // 本地通道：原有悬浮窗逻辑
         return try {
             val completed = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
                 com.palmagent.app.floating.FloatingProgressManager.showUserGuide(

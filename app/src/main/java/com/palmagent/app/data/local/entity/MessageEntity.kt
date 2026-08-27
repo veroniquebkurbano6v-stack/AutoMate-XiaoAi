@@ -31,5 +31,7 @@ data class MessageEntity(
     val isUser: Boolean,
     val timestamp: Long,
     val status: String,
-    val questions: List<Question>?
+    val questions: List<Question>?,
+    /** 消息来源："LOCAL"=本地输入，"WECHAT"=微信通道 */
+    val source: String = "LOCAL"
 )

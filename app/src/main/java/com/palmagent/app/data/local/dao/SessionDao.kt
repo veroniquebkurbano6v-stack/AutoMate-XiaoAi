@@ -16,7 +16,8 @@ data class SessionWithPreview(
     val name: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val preview: String?
+    val preview: String?,
+    val source: String = "LOCAL"
 )
 
 @Dao
@@ -39,7 +40,7 @@ interface SessionDao {
     @Query(
         """
         SELECT cs.id AS id, cs.name AS name, cs.createdAt AS createdAt, cs.updatedAt AS updatedAt,
-               cm.content AS preview
+               cm.content AS preview, cs.source AS source
         FROM chat_session cs
         LEFT JOIN chat_message cm ON cm.id = (
             SELECT id FROM chat_message WHERE sessionId = cs.id ORDER BY timestamp DESC LIMIT 1
@@ -53,7 +54,7 @@ interface SessionDao {
     @Query(
         """
         SELECT cs.id AS id, cs.name AS name, cs.createdAt AS createdAt, cs.updatedAt AS updatedAt,
-               cm.content AS preview
+               cm.content AS preview, cs.source AS source
         FROM chat_session cs
         LEFT JOIN chat_message cm ON cm.id = (
             SELECT id FROM chat_message WHERE sessionId = cs.id ORDER BY timestamp DESC LIMIT 1

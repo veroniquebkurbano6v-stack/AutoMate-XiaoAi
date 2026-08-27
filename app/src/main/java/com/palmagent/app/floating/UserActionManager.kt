@@ -6,20 +6,32 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
 import com.palmagent.app.AgentApplication
+import com.palmagent.app.channel.TaskChannelHolder
+import com.palmagent.app.channel.wechat.WeChatDecisionRouter
 import com.palmagent.app.floating.UserActionManager.UserActionMode
 import com.palmagent.app.floating.UserActionManager.UserActionRequest
 import com.palmagent.app.floating.UserActionManager.UserActionResult
 import com.palmagent.app.floating.UserActionManager.UserActionResponse
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * 用户操作管理器
  *
  * 协调悬浮窗面板、系统通知，统一管理所有需要用户介入的场景。
  * 无超时限制，等待用户操作直到用户主动完成/跳过/取消。
+ *
+ * 通道适配（v4.0）：根据消息来源自动切换交互逻辑：
+ * - LOCAL：走原有本地交互逻辑（悬浮窗弹窗、系统通知）
+ * - WECHAT：走微信文本消息交互逻辑（通过微信发送操作指引、接收用户文本回复）
  */
 object UserActionManager {
 
     private const val TAG = "UserActionManager"
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // 数据结构定义
     enum class UserActionMode {
@@ -51,9 +63,43 @@ object UserActionManager {
     private var isExpanded = false
 
     /**
-     * 请求用户进行手动操作
+     * 请求用户进行手动操作，根据消息来源自动切换交互逻辑
+     *
+     * - LOCAL：显示悬浮窗操作面板 + 系统通知（原有逻辑）
+     * - WECHAT：通过微信文本消息发送操作指引，等待用户文本回复
      */
     fun requestUserAction(request: UserActionRequest, onResult: (UserActionResponse) -> Unit) {
+        // 微信通道：走微信文本消息交互
+        if (TaskChannelHolder.isWeChat()) {
+            val router = WeChatDecisionRouter.instance
+            if (router != null) {
+                startTime = System.currentTimeMillis()
+                scope.launch {
+                    try {
+                        val guideText = buildString {
+                            append(request.title)
+                            if (request.steps.isNotEmpty()) {
+                                append("\n")
+                                request.steps.forEachIndexed { i, step ->
+                                    append("${i + 1}. $step\n")
+                                }
+                            }
+                        }
+                        val completed = router.requestUserActionViaWeChat(guideText)
+                        val elapsed = (System.currentTimeMillis() - startTime) / 1000
+                        val result = if (completed) UserActionResult.DONE else UserActionResult.CANCEL
+                        onResult(UserActionResponse(result, elapsed))
+                    } catch (e: Exception) {
+                        Log.e(TAG, "微信 requestUserAction 异常: ${e.message}")
+                        onResult(UserActionResponse(UserActionResult.CANCEL, 0))
+                    }
+                }
+                return
+            }
+            Log.w(TAG, "微信通道但 WeChatDecisionRouter 未初始化，回退到本地交互")
+        }
+
+        // 本地通道：原有悬浮窗逻辑
         cancel() // 取消之前的请求
         currentRequest = request
         currentCallback = onResult

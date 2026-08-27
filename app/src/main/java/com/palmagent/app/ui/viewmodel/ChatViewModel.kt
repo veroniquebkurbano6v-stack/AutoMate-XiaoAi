@@ -45,11 +45,11 @@ class ChatViewModel @Inject constructor(
         chatRepository.getSessionsSnapshot()
 
     /** 创建新会话并设为当前，返回新会话 id（同步返回，异步入库） */
-    fun createSession(): String {
+    fun createSession(source: String = "LOCAL"): String {
         val id = UUID.randomUUID().toString()
         _currentSessionId.value = id
         viewModelScope.launch {
-            chatRepository.createSession(id)
+            chatRepository.createSession(id, source = source)
         }
         return id
     }
@@ -78,7 +78,7 @@ class ChatViewModel @Inject constructor(
     fun persistMessage(sessionId: String, message: ChatMessage) {
         viewModelScope.launch {
             // 先确保会话存在（幂等）：防止异步 createSession 未完成时外键约束失败
-            chatRepository.ensureSessionExists(sessionId)
+            chatRepository.ensureSessionExists(sessionId, source = message.source)
             chatRepository.insertMessage(MessageMapper.uiToEntity(message, sessionId))
             chatRepository.touchSession(sessionId)
             autoNameSessionIfNeeded(sessionId, message)

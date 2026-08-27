@@ -25,6 +25,18 @@
             android:textSize="14sp"
             android:textStyle="bold" />
 
+        <!-- 微信来源标识：仅微信通道会话显示 -->
+        <TextView
+            android:id="@+id/tvWechatBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/bg_wechat_badge"
+            android:text="微信"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/tvSessionTime"
             android:layout_width="wrap_content"

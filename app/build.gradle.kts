@@ -20,11 +20,16 @@ fun getLocalProperty(key: String, default: String): String {
     return localProperties.getProperty(key, default)
 }
 
+// Redirect build output to avoid corrupted NTFS directory entries in the project folder.
+// Must stay on the same drive (C:) to avoid KSP cross-root path errors.
+project.buildDir = file("C:/Users/H1314/.build_cache/AutoMate-XiaoAi/app")
+
 android {
     namespace = "com.palmagent.app"
     compileSdk {
         version = release(36)
     }
+    buildToolsVersion = "37.0.0"
 
     defaultConfig {
         applicationId = "com.palmagent.app"

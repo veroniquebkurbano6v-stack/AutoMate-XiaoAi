@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  微信来源标识徽章背景
+  - 绿色圆角矩形，用于会话列表和消息项中标记微信通道来源
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#07C160" />
+    <corners android:radius="3dp" />
+    <padding
+        android:left="4dp"
+        android:top="1dp"
+        android:right="4dp"
+        android:bottom="1dp" />
+</shape>

@@ -11,6 +11,7 @@ import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.service.TtsManager
 import com.palmagent.app.channel.Channel
 import com.palmagent.app.channel.ChannelManager
+import com.palmagent.app.channel.TaskChannelHolder
 import com.palmagent.app.tool.ToolResult
 import com.palmagent.app.utils.KVUtils
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +57,10 @@ class TaskOrchestrator @Inject constructor(
     @Volatile
     var taskStateListener: TaskStateListener? = null
 
+    /** 微信通道任务完成回调：由 WeChatDecisionRouter 注册，用于持久化最终回复并重置状态 */
+    @Volatile
+    var weChatTaskFinishedCallback: ((String) -> Unit)? = null
+
     private val scope = CoroutineScope(Dispatchers.IO)
 
     fun tryAcquireTask(messageID: String, channel: Channel): Boolean {
@@ -82,6 +87,8 @@ class TaskOrchestrator @Inject constructor(
             currentMessageID = null
             isCancelled = false
         }
+        // 重置全局通道持有器
+        TaskChannelHolder.reset()
     }
 
     fun isHoldingTask(messageID: String): Boolean {
@@ -142,6 +149,8 @@ class TaskOrchestrator @Inject constructor(
     }
 
     fun startNewTask(channel: Channel, task: String, messageID: String, plan: Plan? = null) {
+        // 设置全局通道持有器，供 AskUserManager / ActionExecutor 判断交互来源
+        TaskChannelHolder.activeChannel = channel
         scope.launch {
             try {
                 if (channel != Channel.LOCAL) {
@@ -281,6 +290,8 @@ class TaskOrchestrator @Inject constructor(
         if (shouldReportToWeChat(channel)) {
             ChannelManager.sendMessage(channel, msg, messageID)
             ChannelManager.flushMessages(channel)
+            // 通知 WeChatDecisionRouter 持久化最终回复并重置状态
+            weChatTaskFinishedCallback?.invoke(msg)
         } else if (channel == Channel.LOCAL) {
             // v3.2 LOCAL 渠道：任务完成时强制展开悬浮窗到 IDLE，显示 lastModelMessage
             FloatingProgressManager.setIdleState()

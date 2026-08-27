@@ -29,20 +29,21 @@ class ChatRepository @Inject constructor(
         sessionDao.getAllWithPreview()
 
     /** 若会话不存在则创建（幂等）：防止异步 createSession 未完成时消息写入触发外键异常 */
-    suspend fun ensureSessionExists(id: String) {
+    suspend fun ensureSessionExists(id: String, source: String = "LOCAL") {
         if (!sessionDao.exists(id)) {
-            createSession(id)
+            createSession(id, source = source)
         }
     }
 
     /** 新建会话（默认标题"新会话"），返回完整会话实体 */
-    suspend fun createSession(id: String, name: String = "新会话"): SessionEntity {
+    suspend fun createSession(id: String, name: String = "新会话", source: String = "LOCAL"): SessionEntity {
         val now = System.currentTimeMillis()
         val session = SessionEntity(
             id = id,
             name = name,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            source = source
         )
         sessionDao.insert(session)
         return session

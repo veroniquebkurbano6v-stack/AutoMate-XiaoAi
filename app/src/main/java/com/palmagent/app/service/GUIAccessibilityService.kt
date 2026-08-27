@@ -993,7 +993,7 @@ class GUIAccessibilityService : AccessibilityService() {
         val screenshot = takeScreenshot() ?: return null
         try {
             val ocrResults = RapidOcrService.extractTextWithBboxes(screenshot)
-            val pasteKeywords = listOf("粘贴", "贴上", "Paste", "PASTE", "paste")
+            val pasteKeywords = listOf("粘贴", "贴上", "粘貼", "貼上", "Paste", "PASTE", "paste")
             for (keyword in pasteKeywords) {
                 // 精确匹配（忽略大小写）
                 val exact = ocrResults.find { it.text.equals(keyword, ignoreCase = true) }

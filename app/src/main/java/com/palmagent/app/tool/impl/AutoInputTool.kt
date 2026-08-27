@@ -67,7 +67,7 @@ class AutoInputTool : BaseTool() {
         /** 第5步回退点击输入框后，等待上下文菜单弹出的间隔 */
         private const val MENU_POPUP_DELAY = 800L
 
-        private val PASTE_KEYWORDS = listOf("粘贴", "贴上", "Paste", "PASTE", "paste")
+        private val PASTE_KEYWORDS = listOf("粘贴", "贴上", "粘貼", "貼上", "Paste", "PASTE", "paste")
 
         /**
          * 输入完成后默认尝试点击的按钮关键词（顺序敏感）：
@@ -75,7 +75,7 @@ class AutoInputTool : BaseTool() {
          * 第二优先：发送 / Send
          * 严格 equals 匹配（忽略大小写），'联网搜索'/'重新发送' 不命中
          */
-        private val BUTTON_KEYWORDS = listOf("搜索", "Search", "发送", "Send")
+        private val BUTTON_KEYWORDS = listOf("搜索", "搜尋", "Search", "发送", "傳送", "Send")
     }
 
     private data class InputState(

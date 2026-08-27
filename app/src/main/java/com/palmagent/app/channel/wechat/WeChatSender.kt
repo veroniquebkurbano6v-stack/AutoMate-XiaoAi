@@ -35,18 +35,16 @@ class WeChatSender(
         }
 
         val msgBody = JsonObject().apply {
-            addProperty("from_user_id", fromUserId())
             addProperty("to_user_id", toUserId())
-            addProperty("client_id", randomId())
-            addProperty("msg_type", MessageType.BOT)
+            addProperty("message_type", MessageType.BOT)
             addProperty("message_state", MessageState.FINISH)
-            add("item_list", itemList)
             if (!contextToken.isNullOrEmpty()) {
                 addProperty("context_token", contextToken)
             }
+            add("item_list", itemList)
         }
 
-        Log.d(TAG, "发送文本消息: ${text.take(50)}...")
+        Log.d(TAG, "发送文本消息: ${text.take(50)}..., toUser=${toUserId().takeLast(16)}, contextToken=${if (contextToken.isNullOrEmpty()) "NULL" else contextToken!!.takeLast(12)}")
         val ret = client.sendMessage(msgBody)
         if (ret != 0) {
             // 不可恢复错误：参数错误(-2)、权限不足(-4) 不重试
@@ -90,22 +88,21 @@ class WeChatSender(
         }
 
         val msgBody = JsonObject().apply {
-            addProperty("from_user_id", fromUserId())
             addProperty("to_user_id", toUserId())
-            addProperty("client_id", randomId())
-            addProperty("msg_type", MessageType.BOT)
-            add("item_list", itemList)
+            addProperty("message_type", MessageType.BOT)
+            addProperty("message_state", MessageState.FINISH)
             if (!contextToken.isNullOrEmpty()) {
                 addProperty("context_token", contextToken)
             }
+            add("item_list", itemList)
         }
 
         return client.sendMessage(msgBody) == 0
     }
 
-    fun setTypingStatus(isTyping: Boolean): Boolean {
+    fun setTypingStatus(isTyping: Boolean, contextToken: String? = null): Boolean {
         val status = if (isTyping) TypingStatus.TYPING else TypingStatus.CANCEL
-        return client.setTypingStatus(toUserId(), status)
+        return client.setTypingStatus(toUserId(), contextToken, status)
     }
 
     private fun randomId(): String {

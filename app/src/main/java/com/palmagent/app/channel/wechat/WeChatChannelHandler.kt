@@ -38,7 +38,7 @@ class WeChatChannelHandler(
     private var toUserId = ""
     private var lastContextToken: String? = null
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var messageListener: ((String, String) -> Unit)? = null
 
@@ -49,6 +49,9 @@ class WeChatChannelHandler(
     override fun start() {
         if (running) return
         running = true
+
+        // 重建 scope（stop 时已 cancel 旧 scope）
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
         val token = KVUtils.getWechatBotToken()
         if (token.isBlank()) {
@@ -100,13 +103,13 @@ class WeChatChannelHandler(
     }
 
     override fun setTypingStatus(isTyping: Boolean): Boolean {
-        return sender?.setTypingStatus(isTyping) ?: false
+        return sender?.setTypingStatus(isTyping, lastContextToken) ?: false
     }
 
     private fun handleIncomingMessage(msg: WeChatMessage) {
         scope.launch {
             try {
-                Log.d(TAG, "收到原始消息: from=${msg.fromUserId.takeLast(16)}, type=${msg.messageType}, state=${msg.messageState}, items=${msg.itemList?.size ?: 0}, sessionId=${msg.sessionId?.takeLast(8)}")
+                Log.d(TAG, "收到原始消息: from=${msg.fromUserId.takeLast(16)}, type=${msg.messageType}, state=${msg.messageState}, items=${msg.itemList?.size ?: 0}, sessionId=${msg.sessionId?.takeLast(8)}, contextToken=${if (msg.contextToken.isNullOrEmpty()) "NULL" else msg.contextToken!!.takeLast(12)}")
 
                 if (msg.fromUserId.isNotEmpty()) {
                     toUserId = msg.fromUserId

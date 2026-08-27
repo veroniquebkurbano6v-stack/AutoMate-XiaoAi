@@ -41,6 +41,8 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
 import com.palmagent.app.R
 import com.palmagent.app.BuildConfig
+import com.palmagent.app.channel.ChannelManager
+import com.palmagent.app.channel.Channel
 import com.palmagent.app.channel.wechat.AuthResult
 import com.palmagent.app.channel.wechat.WeChatApiClient
 import com.palmagent.app.service.AccessibilityServiceHelper
@@ -1811,13 +1813,16 @@ class SettingsActivity : AppCompatActivity() {
         val wechatActionText = findViewById<TextView>(R.id.wechat_action_text)
         val wechatIcon = findViewById<ImageView>(R.id.wechat_status_icon)
 
-        // 开发中：锁死微信通道（扫码绑定功能未完成），固定显示"开发中"，点击仅提示不进入绑定流程
-        wechatStatusText.text = "开发中"
-        wechatStatusText.setTextColor(0xFFE53935.toInt())
-        wechatActionText.text = "敬请期待"
-        wechatIcon.setImageResource(android.R.drawable.presence_offline)
+        val isBound = KVUtils.getWechatBotToken().isNotBlank()
+        refreshWeChatUI(wechatStatusText, wechatActionText, wechatIcon, isBound)
+
         wechatMenu.setOnClickListener {
-            Toast.makeText(this, "微信通道开发中，敬请期待", Toast.LENGTH_SHORT).show()
+            val currentlyBound = KVUtils.getWechatBotToken().isNotBlank()
+            if (currentlyBound) {
+                showWechatLogoutDialog(wechatStatusText, wechatActionText, wechatIcon)
+            } else {
+                startQrCodeLogin(wechatStatusText, wechatActionText, wechatIcon)
+            }
         }
     }
 
@@ -1981,6 +1986,10 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun saveWeChatAuth(auth: AuthResult) {
         viewModel.saveWechatAuth(auth.botToken, auth.baseUrl, auth.botId, auth.userId)
+        // 重启微信通道使新 token 生效
+        ChannelManager.stop(Channel.WECHAT)
+        ChannelManager.start(Channel.WECHAT)
+        Log.i("SettingsActivity", "微信通道已重启, botId=${auth.botId}")
     }
 
     // ==================== 一键诊断 ====================

@@ -106,17 +106,23 @@ class ChatAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DIFF_CALLB
 
     class UserViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textMessage: TextView = itemView.findViewById(R.id.textMessage)
+        private val tvWechatBadge: TextView = itemView.findViewById(R.id.tvWechatBadge)
 
         fun bind(message: ChatMessage) {
             textMessage.text = message.content
+            // 微信来源用户消息显示绿色"微信"标识
+            tvWechatBadge.visibility = if (message.source == "WECHAT") View.VISIBLE else View.GONE
         }
     }
 
     class AIViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textMessage: TextView = itemView.findViewById(R.id.textMessage)
+        private val tvWechatBadge: TextView = itemView.findViewById(R.id.tvWechatBadge)
 
         fun bind(message: ChatMessage) {
             textMessage.text = message.content
+            // 微信来源AI消息显示绿色"微信"标识
+            tvWechatBadge.visibility = if (message.source == "WECHAT") View.VISIBLE else View.GONE
         }
     }
 
@@ -133,6 +139,7 @@ class ChatAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DIFF_CALLB
         private val btnNext: ImageButton = itemView.findViewById(R.id.btnNext)
         private val containerQuestion: FrameLayout = itemView.findViewById(R.id.containerQuestion)
         private val btnSubmit: android.widget.Button = itemView.findViewById(R.id.btnSubmit)
+        private val tvWechatBadge: TextView = itemView.findViewById(R.id.tvWechatBadge)
 
         // 当前问题索引
         private var currentIdx = 0
@@ -143,6 +150,9 @@ class ChatAdapter : ListAdapter<ChatMessage, RecyclerView.ViewHolder>(DIFF_CALLB
 
         fun bind(message: ChatMessage) {
             val context = itemView.context
+
+            // 微信来源问题卡显示绿色"微信"标识
+            tvWechatBadge.visibility = if (message.source == "WECHAT") View.VISIBLE else View.GONE
 
             // 概述
             if (message.content.isNotBlank()) {
