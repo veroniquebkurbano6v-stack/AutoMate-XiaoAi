@@ -42,7 +42,8 @@ class PromptBuilderToolConsistencyTest {
     /** 注册在 ToolRegistry 但有意不在执行提示词中暴露的工具（决策模型/内部使用） */
     private val intentionallyHidden = setOf(
         "list_apps", "get_screen_info",
-        "amap_search", "amap_nearby", "amap_directions", "amap_weather"
+        "amap_search", "amap_nearby", "amap_directions", "amap_weather",
+        "long_press"  // 执行模型不再使用 long_press（从统一入口隐藏）
     )
 
     /** 提示词"输出格式"区以行首 "- 字段:" 形式出现的 JSON 字段名（非工具） */

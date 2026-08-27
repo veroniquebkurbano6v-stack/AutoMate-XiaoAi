@@ -57,7 +57,7 @@ ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false)
 - coordinate/coordinate_end(坐标): 一律用数组 [x, y]（先x后y），如 tap 示例 {"type":"tap","coordinate":[976,2376],"description":"点击去结算按钮"}
 - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
 - visual_question(必填): 本轮动作后想从下轮屏幕描述确认的问题（如"当前界面是美团App吗？"）；确实无需确认时写""
-- repeat/interval_ms(可选): 重复操作 N 次（1-10，间隔500-2000ms，仅tap/long_press/swipe）
+- repeat/interval_ms(可选): 重复操作 N 次（1-10，间隔500-2000ms，仅tap/swipe）
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
@@ -114,7 +114,7 @@ ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = true)}
 - coordinate/coordinate_end(坐标): 一律用数组 [x, y]（先x后y），如 tap 示例 {"type":"tap","coordinate":[976,2376],"description":"点击去结算按钮"}
 - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
 - visual_question(必填): 本轮动作后想从下轮屏幕描述确认的问题（如"当前界面是美团App吗？"）；确实无需确认时写""
-- repeat/interval_ms(可选): 重复操作 N 次（1-10，间隔500-2000ms，仅tap/long_press/swipe）
+- repeat/interval_ms(可选): 重复操作 N 次（1-10，间隔500-2000ms，仅tap/swipe）
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。

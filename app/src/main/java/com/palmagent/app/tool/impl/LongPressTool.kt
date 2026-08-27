@@ -7,6 +7,9 @@ import com.palmagent.app.tool.ToolResult
 class LongPressTool : BaseTool() {
     override fun getName(): String = "long_press"
 
+    /** 执行模型不再使用 long_press：从统一执行工具入口隐藏（与 amap_* 等内部工具一致），描述/检索候选均不出现 */
+    override fun isExposedToExecutionModel(): Boolean = false
+
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter("x", "integer", "Long press X coordinate", true),
         ToolParameter("y", "integer", "Long press Y coordinate", true),
