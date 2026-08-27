@@ -7,6 +7,7 @@ import android.util.Base64
 import android.util.Log
 import com.palmagent.app.LiveLogBuffer
 import com.palmagent.app.model.Coordinate
+import com.palmagent.app.tool.ToolRegistry
 import com.palmagent.app.utils.BitmapPool
 import com.palmagent.app.utils.KVUtils
 import kotlinx.coroutines.Dispatchers
@@ -488,34 +489,6 @@ object GuiOwlService {
         }
     }
 
-    // ============ 官方手机端 System Prompt（阿里云百炼 GUI-Plus 推荐） ============
-
-    private val MOBILE_SYSTEM_PROMPT = """# Tools
-
-You may call one or more functions to assist with the user query.
-
-You are provided with function signatures within <tools></tools> XML tags:
-<tools>
-{"type": "function", "function": {"name": "mobile_use", "description": "Use a touchscreen to interact with a mobile device, and take screenshots.\\n* This is an interface to a mobile device with touchscreen. You can perform actions like clicking, typing, swiping, etc.\\n* Some applications may take time to start or process actions, so you may need to wait and take successive screenshots to see the results of your actions.\\n* The screen's resolution is 1000x1000.\\n* Make sure to click any buttons, links, icons, etc with the cursor tip in the center of the element. Don't click boxes on their edges unless asked.", "parameters": {"properties": {"action": {"description": "The action to perform. The available actions are:\\n* `key`: Perform a key event on the mobile device.\\n    - This supports adb's `keyevent` syntax.\\n    - Examples: \"volume_up\", \"volume_down\", \"power\", \"camera\", \"clear\".\\n* `click`: Click the point on the screen with coordinate (x, y).\\n* `long_press`: Press the point on the screen with coordinate (x, y) for specified seconds.\\n* `swipe`: Swipe from the starting point with coordinate (x, y) to the end point with coordinates2 (x2, y2).\\n* `type`: Input the specified text into the activated input box.\\n* `system_button`: Press the system button.\\n* `open`: Open an app on the device.\\n* `wait`: Wait specified seconds for the change to happen.\\n* `answer`: Terminate the current task and output the answer.\\n* `interact`: Resolve the blocking window by interacting with the user.\\n* `terminate`: Terminate the current task and report its completion status.", "enum": ["key", "click", "long_press", "swipe", "type", "system_button", "open", "wait", "answer", "interact", "terminate"], "type": "string"}, "coordinate": {"description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to. Required only by `action=click`, `action=long_press`, and `action=swipe`.", "type": "array"}, "coordinate2": {"description": "(x, y): The x (pixels from the left edge) and y (pixels from the top edge) coordinates to move the mouse to. Required only by `action=swipe`.", "type": "array"}, "text": {"description": "Required only by `action=key`, `action=type`, `action=open`, `action=answer`,and `action=interact`.", "type": "string"}, "time": {"description": "The seconds to wait. Required only by `action=long_press` and `action=wait`.", "type": "number"}, "button": {"description": "Back means returning to the previous interface, Home means returning to the desktop, Menu means opening the application background menu, and Enter means pressing the enter. Required only by `action=system_button`", "enum": ["Back", "Home", "Menu", "Enter"], "type": "string"}, "status": {"description": "The status of the task. Required only by `action=terminate`.", "type": "string", "enum": ["success", "failure"]}}, "required": ["action"], "type": "object"}, "args_format": "Format the arguments as a JSON object."}}
-</tools>
-
-For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:
-<tool_call>
-{"name": <function-name>, "arguments": <args-json-object>}
-</tool_call>
-
-# Response format
-
-Response format for every step:
-1) Action: a short imperative describing what to do in the UI.
-2) A single <tool_call>...</tool_call> block containing only the JSON: {"name": <function-name>, "arguments": <args-json-object>}.
-
-Rules:
-- Output exactly in the order: Action, <tool_call>.
-- Be brief: one for Action.
-- Do not output anything else outside those two parts.
-- If finishing, use action=terminate in the tool call."""
-
     /**
      * 定位模式：专用定位 prompt（不复用官方通用 MOBILE_SYSTEM_PROMPT——其动作空间含 open/type/answer 等
      * 无坐标动作，与"定位必须返回坐标"的用途冲突，是"响应中未找到有效坐标"反复重试的根因，经真实 API 实测确认）。
@@ -535,8 +508,33 @@ Rules:
         - 指令是"打开/输入/搜索"等复合操作时，仍只返回应点击元素的坐标，不要输出打开或输入动作。
     """.trimIndent()
 
-    /** 决策模式：使用官方手机端 System Prompt，用户指令含完整任务 */
-    private fun buildDecideSystemPrompt(): String = MOBILE_SYSTEM_PROMPT
+    /**
+     * 决策模式：统一动作协议（与文本执行模型一致）——注入 ToolRegistry 统一工具描述，
+     * 视觉模型直接输出统一 JSON action（不再使用 GUI-Plus mobile_use 动作体系，删除了 GuiOwlActionAdapter 桥接）。
+     */
+    private fun buildDecideSystemPrompt(): String = """
+        # 角色
+        你是手机屏幕上的 GUI 操作决策助手。给定屏幕截图与用户任务，输出下一步要执行的动作。
+
+        # 工具（动作空间，与文本执行模型统一）
+        ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false)}
+
+        # 输出格式（严格遵循）
+        只输出一个 JSON 对象（不要输出任何其他内容，不要用 tool_calls），字段：
+        - type: 动作名（只能来自上方工具列表中的工具名，如 tap/swipe/auto_input/open_app/finish）
+        - 各动作参数：见上方工具描述（coordinate 一律用数组 [x,y]，[0,1000] 归一化坐标，x 先 y 后）
+        - description: 本动作的简短说明
+        示例：
+        {"type":"tap","coordinate":[500,400],"description":"点击搜索框"}
+        {"type":"auto_input","text":"高血压","description":"输入搜索关键词"}
+        {"type":"swipe","direction":"up","description":"向上滑动查看更多"}
+        {"type":"finish","description":"任务已完成","text":"用户接下来可查看挂号方式"}
+
+        # 规则
+        - 一次只输出一个动作；动作执行后看下一张截图再决定下一步。
+        - 需要输入文本时用 auto_input（内置定位+输入+确认，一步完成）。
+        - 任务完成时输出 finish（description=完成摘要, text=用户接下来做什么）。
+    """.trimIndent()
 
     /** 元素甄别模式：只输出 JSON，不输出 tool_call */
     private fun buildExistsSystemPrompt(): String = """
@@ -675,6 +673,17 @@ Rules:
         }.getOrNull()
     }
 
+    /** 容错提取统一 JSON action：优先 <tool_call> 包裹（extractToolCall），其次提取文本中首个 {...} JSON 对象 */
+    private fun extractActionJson(content: String): JSONObject? {
+        extractToolCall(content)?.let { return it }
+        val start = content.indexOf('{')
+        val end = content.lastIndexOf('}')
+        if (start >= 0 && end > start) {
+            return runCatching { JSONObject(content.substring(start, end + 1)) }.getOrNull()
+        }
+        return null
+    }
+
     // internal 供同模块单测调用（GuiOwlServiceGroundingTest），模拟执行模型 GUI 定位请求的响应解析
     internal fun parseGroundingResponse(
         content: String,
@@ -725,8 +734,9 @@ Rules:
         durationMs: Long
     ): DecideResult {
         return try {
-            val args = extractToolCall(content)
-            val action = normalizeAction(args?.optString("action", "") ?: "")
+            // 统一动作协议：模型输出纯 JSON action（{"type":...,"coordinate":[...]}），容错兼容 <tool_call> 包裹
+            val json = extractActionJson(content)
+            val action = json?.optString("type", "")?.trim().orEmpty()
             if (action.isBlank()) {
                 return DecideResult(
                     success = false,
@@ -737,7 +747,7 @@ Rules:
             }
 
             var coordinate: Coordinate? = null
-            val coordinateArr = args?.optJSONArray("coordinate")
+            val coordinateArr = json?.optJSONArray("coordinate")
             if (coordinateArr != null && coordinateArr.length() >= 2) {
                 val pixel = scaleCoordinate(
                     coordinateArr.optDouble(0, 0.0), coordinateArr.optDouble(1, 0.0),
@@ -747,8 +757,8 @@ Rules:
             }
 
             var coordinateEnd: Coordinate? = null
-            // 官方手机端 System Prompt 使用 coordinate2 而非 coordinate_end
-            val endArr = args?.optJSONArray("coordinate2") ?: args?.optJSONArray("coordinate_end")
+            // 统一协议兼容 coordinate_end 与 coordinate2 两种字段名
+            val endArr = json?.optJSONArray("coordinate_end") ?: json?.optJSONArray("coordinate2")
             if (endArr != null && endArr.length() >= 2) {
                 val pixel = scaleCoordinate(
                     endArr.optDouble(0, 0.0), endArr.optDouble(1, 0.0),
@@ -757,12 +767,7 @@ Rules:
                 coordinateEnd = Coordinate(pixel.x, pixel.y)
             }
 
-            var text: String? = null
-            if (action == "type" || action == "open" || action == "answer") {
-                text = args?.optString("text", null)
-            } else if (action == "system_button") {
-                text = args?.optString("button", null) ?: args?.optString("name", null) ?: "back"
-            }
+            val text = json?.optString("text", null)
 
             DecideResult(
                 success = true,

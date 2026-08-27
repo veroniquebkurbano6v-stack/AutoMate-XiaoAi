@@ -18,7 +18,6 @@ import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.service.AIService
 import com.palmagent.app.service.GUIAccessibilityService
-import com.palmagent.app.service.GuiOwlActionAdapter
 import com.palmagent.app.service.GuiOwlService
 import com.palmagent.app.service.PromptBuilder
 import com.palmagent.app.service.ToolResultCache
@@ -839,9 +838,16 @@ class DefaultAgentService @Inject constructor(
             return null
         }
 
-        // 4. 将决策结果适配为 AgentAction
+        // 4. 统一动作协议：result.action 已是文本执行模型工具名（type），直接构造 AgentAction（不再走 GuiOwlActionAdapter 桥接）
         return try {
-            val action = GuiOwlActionAdapter.adapt(result)
+            val action = AgentAction(
+                type = result.action,
+                coordinate = result.coordinate,
+                coordinateEnd = result.coordinateEnd,
+                text = result.text,
+                description = "VL决策: ${result.action}",
+                confidence = 1.0f
+            )
             Log.d(TAG, "VL决策: ${action.type} - ${action.description}")
             VisionDecisionResult(action, result.rawResponse, vlUserPrompt)
         } catch (e: Exception) {
