@@ -260,6 +260,14 @@ object WebSearchService {
                 if (result == null) {
                     SearchOutcome(success = false, error = "博查响应解析失败", durationMs = elapsedMs)
                 } else {
+                    // ai 端点结果可观测：成功含 answer 长度；端点返回但聚合答案缺失时告警（解释"博查AI答案"日志缺失）
+                    if (ai) {
+                        if (result.answer.isNullOrBlank()) {
+                            Log.w(TAG, "ai-search 响应无 answer 字段（端点返回但聚合答案缺失）: query=${query.take(60)}, elapsed=${elapsedMs}ms")
+                        } else {
+                            Log.d(TAG, "ai-search 成功: answer=${result.answer.length}字, 结果=${result.results.size}条, elapsed=${elapsedMs}ms")
+                        }
+                    }
                     SearchOutcome(success = true, result = result, durationMs = elapsedMs)
                 }
             }

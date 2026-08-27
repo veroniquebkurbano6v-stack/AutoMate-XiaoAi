@@ -210,4 +210,28 @@ class WebSearchServiceParserTest {
         assertEquals("F", result.results[0].title)
         assertNull("回退形态不从顶层取 summary 作为 answer（保持 messages 契约）", result.answer)
     }
+
+    // ==================== ai-search 真实端点响应黄金样本（2026-08-27 实测） ====================
+
+    /**
+     * 用真实端点响应（src/test/resources/ai_search_real_response.json，2026-08-27 实测保存）
+     * 验证：ai-search 端点正常返回时，parseAiSearchResponse 能解析出 answer（AI 聚合答案）
+     * 与网页来源——即"ai 端点正常返回"可被解析链路观察到（answer 非空即端点返回正常）。
+     */
+    @Test
+    fun `ai_search_真实端点响应_解析出answer与来源`() {
+        val stream = javaClass.getResourceAsStream("/ai_search_real_response.json")
+        assertNotNull("黄金样本资源应存在", stream)
+        val body = stream!!.readBytes().toString(Charsets.UTF_8)
+
+        val result = WebSearchService.parseAiSearchResponse("东莞市虎门中医院线上挂号的方式有哪些", body, 1L)
+        assertNotNull("真实 ai-search 响应应解析成功", result)
+        result!!
+        assertTrue("应解析出网页来源", result.results.isNotEmpty())
+        assertTrue("应解析出 AI 聚合答案（answer 非空）", !result.answer.isNullOrBlank())
+        assertTrue(
+            "answer 应包含目标医院信息（真实端点返回内容）",
+            result.answer!!.contains("东莞市虎门中医院") || result.answer!!.contains("公众号")
+        )
+    }
 }

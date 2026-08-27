@@ -68,6 +68,8 @@ class DecisionDialogService {
         // 工具真实结果由「事实台账」承载（同参数去重、跨请求持久化），不随轮次线性堆积，
         // 从源头控制决策上下文膨胀。
         private const val MASK_KEEP_ROUNDS = 1
+        /** 跨请求对话历史滑窗：只注入最近 N 条（早期关键结论已由台账/工作区承载，历史可安全裁剪避免线性膨胀） */
+        private const val HISTORY_WINDOW = 6
         // 台账聚合注入预算（字符/轮）：防"单条不超但并发多条"撑爆上下文，超预算最旧条目直接淘汰
         private const val MAX_LEDGER_BLOCK_CHARS = 3000
         // 台账历史 token 预算：台账注入系统提示词，取上下文窗口 ~10-20%（保守）
@@ -76,8 +78,6 @@ class DecisionDialogService {
         private const val LEDGER_PROTECTED_RECENT = 5
         // fetch_result 单次取回显示上限（字符）：防止撑爆本轮上下文，需要更多可多次调用
         private const val FETCH_OUTPUT_MAX_CHARS = 4000
-        // 被观察掩码替换的占位文本
-        private const val OBSERVATION_MASK_PLACEHOLDER = "[工具结果已掩码，见下方『事实台账』]"
         // 工作区最大字符数（约 800 token 上限的兜底）：防止模型超长写入导致工作区自身膨胀
         private const val WORKSPACE_MAX_CHARS = 2000
 
@@ -104,8 +104,8 @@ class DecisionDialogService {
 你是智能设备操作系统的"意图路由与规划层（Router & Planner）"。职责：理解用户意图，用工具获取上下文，输出供下游执行模型使用的结构化 Plan（JSON）；查询/闲聊类直接回复用户。
 
 ### 核心红线
-1. 禁止越界拒绝：你是路由非执行者。任务再复杂/敏感（人脸/密码/支付）都必须生成 Plan；执行模型负责拦截敏感操作，你不得以"无法操作/能力有限/安全限制"拒绝。
-2. 追问边界：信息可推断→直接出 Plan 不追问；意图或执行方式歧义（点外卖/导航/自提/在线买/随口说）→必须 ask_questions 澄清，禁止自行选一种执行。已提供不重问；主观偏好用默认；同一问题最多问 1 次。
+1. 禁止越界拒绝：你是路由非执行者，任何任务（含敏感）都必须生成 Plan；执行模型负责拦截敏感操作，你不得以"无法操作/能力有限/安全限制"拒绝。
+2. 追问边界：可推断不追问；执行方式歧义（点外卖/导航/自提等）必须 ask_questions 澄清，禁自行选一种。已提供不重问；主观偏好用默认；同一问题最多问 1 次。
 3. 禁止捏造：不得凭训练知识猜设备上的 App 名/包名/UI 路径。操作类 Plan 具体目标（医院/餐厅名）必须来自 amap_nearby 结果或用户明确指定，绝不使用 kb SOP 示例名；无则用通用操作常识。
 
 ### 任务工作区与事实台账
@@ -113,14 +113,15 @@ class DecisionDialogService {
 1. 每轮工具调用后调 workspace_update，把关键结论精简写入工作区（覆盖式）：已确认 App+包名、kb_read 的 SOP 要点（UI 变体/异常处理）、list_apps/amap 中要记住的目标实体、待办。
 2. 工具结果自动写入「事实台账」（同参数去重、只执行一次，只展示预览）；更早轮次结果被框架掩码。生成 Plan 优先读工作区与台账，勿重调同参数工具、勿依赖已掩码的历史结果。台账预览不足以决策时，可用 fetch_result 按 ref（见台账每行 [ref] 前缀）取回完整结果，超长内容用 offset 分页取回。
 3. 工作区精简（≤800 token）：只写结论，不复制工具原始输出。
+4. 取回后必须提炼（fetch_result → workspace_update）：取回完整结果后立即写入提炼结论，示例：fetch_result(ref=fx-xxx) 取回 → workspace_update(content="目标医院：东莞市人民医院，支持微信小程序预约挂号")；禁止取回后不提炼、禁止重复取回同一 ref。
 
 ### 工具调用与决策工作流（信息收集管道）
 每次收到用户请求，严格按以下管道顺序执行，禁止跳步、禁止重复调用同一工具：
 1. **意图分类（先于一切）**：闲聊/愿望（"想喝奶茶""好累"）→禁工具、禁 Plan，输出 {"status":"need_more_info","message":"<自然语言回复，可顺带询问是否需要帮忙>"}；查询类（"附近有什么医院""天气"）→用 amap_*/web_search 获取答案后同样 need_more_info 回答，不执行。操作-明确（"导航到X""发微信给张三"）→进 2-6；操作-模糊（"买杯奶茶"未说外卖/自提/导航）→先 ask_questions 澄清执行方式，禁不澄清直接选一种执行。
 2. **应用环境确认（list_apps，操作必调）**：先调 list_apps 确认已装相关 App，一次传入多个关键词（"点奶茶"→["美团","淘宝闪购"]）。⚠️指定 App 未装红线：用户明确指定了 App（"用淘宝闪购…""打开微信…"）但 list_apps 显示未装——禁止擅用同类型替代、禁止 Plan 声称"已确认替代"，必须调 ask_questions 告知"XX未安装"并给替代项（同类型/网页版/换方式/放弃）；仅泛化表述（"点个外卖"）才可自选。未装就在 Plan 如实描述，绝不瞎编包名。
 3. **知识库校验（kb_read，仅操作）**：按 list_apps 已装候选 App 逐个查，一次一 App，query=意图+App名，app_filter=该 App，候选最多 3 个。⚠️三禁：禁跳过 list_apps 直查；禁不带 app_filter 全量查；禁对同 App 重复调。kb 只是"怎么做"的操作手册非意图证据，意图只能来自用户原话/历史/澄清。
-4. **补充信息（按需）**：地理/路线/天气→amap_*（请求含"附近/周边/就近"且为查询或导航附近目标时用 amap_nearby）；实时信息（新闻/股价/价格/动态）→先 web_search 再答防幻觉。
-5. **追问（操作必做一次）**：调用前自问"还有什么没问"，硬性未知打包一次（1-4问，每问2-6选项，UI 自动追加"其他"勿生成）。只决定"问什么"不问"问不问"，自查四项：①历史已提供→不重问 ②主观偏好可默认→并默认项 ③可 kb/list/amap 补全→先调工具再问 ④执行方式不唯一→必须问。有硬性未知问具体，无则也调一次 ask_questions 用"确认型问题"复述方案。禁止跳过直接 ready，除非用户本轮已说"随便/你定/直接执行"。
+4. **补充信息（按需）+ 能力类事实必须检索验证**：地理/路线/天气→amap_*（请求含"附近/周边/就近"且为查询或导航附近目标时用 amap_nearby）；实时信息（新闻/股价/价格/动态）→先 web_search 再答防幻觉。⚠️**能力类事实强制验证**：涉及具体医院/机构/商户且需确认其线上服务能力（能否线上挂号、有无公众号/小程序/官网/外送等）时，必须先 web_search(mode=ai) 查"<目标名> 线上挂号 方式 / 是否支持线上"，拿检索证据说话后再回答或出 Plan；禁止把"能力未知"当用户偏好直接抛 ask_questions，禁止凭训练知识断言目标的服务能力。查询类"附近有什么医院"拿到 amap 列表后，若用户意图是挂号就医，同样须对候选医院做能力验证再回答。
+5. **追问（操作必做一次）**：调用前自问"还有什么没问"，硬性未知打包一次（1-4问，每问2-6选项，UI 自动追加"其他"勿生成）。只决定"问什么"不问"问不问"，自查四项：①历史已提供→不重问 ②主观偏好可默认→并默认项 ③可 kb/list/amap 补全→先调工具再问 ④执行方式不唯一→必须问。有硬性未知问具体，无则也调一次 ask_questions 用"确认型问题"复述方案。fetch_result 取回后未提炼进工作区即追问，视为违规。禁止跳过直接 ready，除非用户本轮已说"随便/你定/直接执行"。
 6. **生成 Plan**：用户已答/确认或按例外跳过后，立即输出 ready，停止调工具。
 
 ### Plan 生成规范
@@ -140,13 +141,13 @@ Plan 是传给执行模型的分步骤指引，输出结构化 JSON 对象（非
 执行模型内置可"一步完成多操作"的快捷工具，只有写进 Plan 的 tool_hint 才被可靠触发。命中以下场景必须在对应步骤标注：
 - **auto_input**：一步完成"定位输入框→输入→自动点搜索/确认"。适用"输入关键词/地址后触发搜索确认"的步骤（如 App 内搜索商品/医院/联系人）。写法 "auto_input: <输入文本>；<按钮特征>"。
 - **select_spec**：自动遍历规格表单（份量/辣度/尺寸/颜色/口味/数量等）逐项选取并确认。适用外卖/购物/预约多规格。写法 "select_spec"（规格由执行模型读屏，不列举）。
-⚠️tool_hint 只标"动作类型+关键参数"，界面元素由执行模型识别；纯点击/滚动/导航不适用则不填。
+⚠️tool_hint 只标"动作类型+关键参数"，界面元素由执行模型识别；不适用则不填。
 
 ### 输出紧凑度（防截断，步骤数不限）
-步骤数不设上限（可超 10 步）但每步紧凑：goal≤15字只写动作；success_criteria 只留执行模型判断所需最小信息（界面状态/元素变体/异常处理），禁复述目标/客套；禁输出 JSON 外任何文字。
+步骤数不设上限（可超 10 步）但每步紧凑：goal≤15字只写动作；success_criteria 只留执行模型判断所需最小信息（界面状态/元素变体/异常处理），禁复述目标/客套。
 
-Plan 示例（预约挂号）：
-{"status":"ready","intent":"operate","plan":{"requirement":"用户需要为本人预约东莞市人民医院呼吸内科的挂号","goal":"通过微信服务号预约东莞市人民医院呼吸内科","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入微信主页，底部有聊天/通讯录/发现/我四个Tab；如果微信未安装，提示用户","supervised":false},{"order":2,"goal":"搜索并进入医院服务号","success_criteria":"进入服务号主页，底部有菜单栏，常见叫法有就医服务/服务平台/智慧医院/诊疗服务；搜索无结果则提示用户确认医院名称","supervised":false,"tool_hint":"auto_input: 医院服务号；搜索按钮"}]},"user_summary":"通过微信服务号预约东莞市人民医院呼吸内科"}
+Plan 示例（预约挂号，单步）：
+{"status":"ready","intent":"operate","plan":{"requirement":"为本人预约东莞市人民医院呼吸内科挂号","goal":"通过微信服务号预约呼吸内科","steps":[{"order":1,"goal":"搜索并进入医院服务号","success_criteria":"进入服务号主页，底部菜单栏（就医服务/服务平台等）；无结果则提示用户确认医院名","supervised":false,"tool_hint":"auto_input: 医院服务号；搜索按钮"}]},"user_summary":"通过微信服务号预约挂号"}
 
 ### user_summary 规范
 - 面向用户的一句话摘要，不超过 30 字，含目标 App + 核心操作（如"通过微信预约挂号"、"在淘宝搜索商品"）
@@ -156,7 +157,7 @@ Plan 示例（预约挂号）：
 - 操作-明确：必须先调一次 ask_questions（有未知问具体，无未知用确认型），收到回答/确认后输出 ready JSON：{"status":"ready","intent":"operate","plan":{"requirement":"<需求>","goal":"<目标>","steps":[{"order":1,"goal":"<步骤目标>","success_criteria":"<完成标志>","supervised":false}]},"user_summary":"<摘要>"}
 - 闲聊/愿望/查询类（不执行）：{"status":"need_more_info","message":"<真正回复用户的自然语言文字>"}
 - 操作-模糊 或 执行方式歧义：必须调用 ask_questions（禁止输出 questions 文本字段）
-⚠️ **操作红线**：操作禁输裸文本 need_more_info（无 questions）。操作出口只有 ready JSON 或 ask_questions；转发 ready 前须至少调一次 ask_questions，除非用户本轮已说"随便/你定/直接执行"。
+⚠️ **操作红线**：操作禁输裸文本 need_more_info（无 questions）。操作出口只有 ready JSON 或 ask_questions；转发 ready 前须至少调一次 ask_questions（用户已说"随便/你定/直接执行"除外）。
 
 最后一行（必须遵守）：输出必须是严格的 JSON 对象或一次工具调用；禁止用 markdown 代码块包裹 JSON，禁止输出 JSON 之外的任何解释文字。
 """
@@ -230,7 +231,9 @@ Plan 示例（预约挂号）：
         val messages = mutableListOf<Map<String, Any>>(
             mapOf("role" to "system", "content" to SYSTEM_PROMPT)
         )
-        for (msg in history) {
+        // 历史滑窗：只注入最近 HISTORY_WINDOW 条（跨请求历史；早期关键结论已由台账/工作区承载，避免线性膨胀）
+        val windowedHistory = if (history.size > HISTORY_WINDOW) history.takeLast(HISTORY_WINDOW) else history
+        for (msg in windowedHistory) {
             val role = if (msg.isUser) "user" else "assistant"
             messages.add(mapOf("role" to role, "content" to msg.content))
         }
@@ -276,6 +279,10 @@ Plan 示例（预约挂号）：
         // 工具去重只由内存台账按 sessionId 隔离承担；磁盘仅存全文供 fetch_result 取回，
         // 不作为去重命中依据（避免跨会话复用旧结果）。computeIfAbsent 保证原子创建。
         val state = sessionStates.computeIfAbsent(sessionId) { SessionDecisionState() }
+        // 幂等去重：同一次决策调用内已取回过的 ref（fetch_result），单次调用生命周期（每次 chat 新建）——
+        // 防止模型反复取回同一 ref 撑大上下文；重复取回返回台账预览占位并告警（提示先 workspace_update 提炼）
+        val fetchedRefs = mutableSetOf<String>()
+        var repeatedFetchCount = 0
         while (round < MAX_TOOL_ROUNDS) {
             round++
 
@@ -293,7 +300,7 @@ Plan 示例（预约挂号）：
             // 注入事实台账（去重后的工具结果）到消息流末尾，供模型读取而非重复调用
             injectLedger(messages, state)
 
-            Log.d(TAG, "上下文视图: workspace=${state.workspace.length}字符, 台账=${state.ledger.size}条, 掩码保留最近${MASK_KEEP_ROUNDS}轮, messages=${messages.size}条")
+            Log.d(TAG, "上下文视图: workspace=${state.workspace.length}字符, 台账=${state.ledger.size}条, 滑窗保留最近${MASK_KEEP_ROUNDS}轮, messages=${messages.size}条, 总字符≈${messages.sumOf { it.toString().length }}, 重复fetch=$repeatedFetchCount")
 
             // 工具选择策略：始终 auto，让 LLM 按触发式 prompt 自主决定
             // kb_read 工具仅在 KB 启用时由 buildToolsJson 注入到 tools 列表
@@ -523,6 +530,17 @@ Plan 示例（预约挂号）：
                     val offset = parseOffset(args)
                     var fetched: String? = null
                     if (ref.isNotEmpty()) {
+                        // 幂等去重：同一决策调用内同一 ref 已取回过 → 返回台账预览占位（可执行），不重复注入完整内容
+                        if (!fetchedRefs.add(ref)) {
+                            repeatedFetchCount++
+                            val row = state.ledger.values.firstOrNull { it.ref == ref }
+                            val preview = row?.preview?.take(200).orEmpty()
+                            Log.w(TAG, "决策模型重复 fetch ref=$ref（未写工作区提炼，累计 $repeatedFetchCount 次）")
+                            LiveLogBuffer.append("⚠️ [幂等] 重复取回 ref=$ref（请先 workspace_update 提炼关键结论）")
+                            val placeholder = "【ref=$ref 已在本决策内取回过，完整内容见上轮；请先 workspace_update 提炼关键结论后再继续】\n台账预览：$preview"
+                            messages.add(mapOf("role" to "tool", "tool_call_id" to id, "content" to placeholder))
+                            continue
+                        }
                         val disk = ToolResultCache.get(ref)
                         if (disk == null) {
                             val row = state.ledger.values.firstOrNull { it.ref == ref }
@@ -635,21 +653,18 @@ Plan 示例（预约挂号）：
                 i++
             }
         }
-        // 掩码最早超出保留量的轮（保留最近 keepLastRounds 轮原文）
-        val maskCount = maxOf(0, rounds.size - keepLastRounds)
-        for (idx in 0 until maskCount) {
-            val range = rounds[idx]
-            // rounds.add(i until j) 中的 IntRange 实际为 [first, last=j-1]；
-            // 用闭区间覆盖 assistant 之后的所有 role=tool 消息（tool_call_id 在 last 内）
-            for (k in range.first + 1 .. range.last) {
-                val msg = messages[k]
-                if (msg["role"] == "tool") {
-                    messages[k] = msg.toMutableMap().apply { this["content"] = OBSERVATION_MASK_PLACEHOLDER }
-                }
+        // 滑窗裁剪：最早超出保留量的轮次【成对移除】（assistant tool_calls + 对应 tool 结果），
+        // 工具调用参数与结果均已由事实台账/工作区承载，移除安全；保留最近 keepLastRounds 轮原文。
+        // 相比"掩码 tool 结果"更进一步：messages 不再随轮次线性增长（有界）。
+        val removeCount = maxOf(0, rounds.size - keepLastRounds)
+        if (removeCount > 0) {
+            val indices = rounds.take(removeCount)
+                .flatMap { it.first..it.last }   // 含 assistant 索引与全部 tool 结果索引，成对完整移除
+                .sortedDescending()               // 从后往前移除避免索引漂移
+            for (k in indices) {
+                messages.removeAt(k)
             }
-        }
-        if (maskCount > 0) {
-            LiveLogBuffer.append("🧹 [掩码] 掩码 ${maskCount} 轮旧工具结果（保留最近 $keepLastRounds 轮原文）")
+            LiveLogBuffer.append("🧹 [滑窗] 移除 ${removeCount} 轮旧工具往返（保留最近 $keepLastRounds 轮原文）")
         }
     }
 
@@ -803,7 +818,9 @@ Plan 示例（预约挂号）：
             val query = args["query"]?.toString() ?: ""
             if (query.isBlank()) return "错误：query 参数不能为空"
             val count = (args["count"] as? Number)?.toInt() ?: 5
-            val result = WebSearchService.search(query, count)
+            // mode 透传（web/ai，非法回退 web）：决策侧能力类验证（如医院线上挂号）用 ai 聚合答案
+            val mode = args["mode"]?.toString()?.lowercase()?.takeIf { it in setOf("web", "ai") } ?: "web"
+            val result = WebSearchService.search(query, count, mode)
             if (result.success) result.content else "搜索失败：${result.error}"
         } catch (e: Exception) {
             Log.e(TAG, "执行 web_search 工具异常", e)
@@ -1195,7 +1212,8 @@ Plan 示例（预约挂号）：
             "function" to mapOf(
                 "name" to "fetch_result",
                 "description" to "按 ref 取回已缓存工具结果的完整内容（list_apps/kb_read/amap_*/web_search 等）。" +
-                    "事实台账只展示预览，需要完整结果时用本工具分页取回：每次返回约4000字符，超过时用 offset 继续取下一段。",
+                    "事实台账只展示预览，需要完整结果时用本工具分页取回：每次返回约4000字符，超过时用 offset 继续取下一段。" +
+                    "⚠️取回后必须立即用 workspace_update 提炼关键结论；同一 ref 已取回过即禁止再次取回。",
                 "parameters" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
@@ -1269,12 +1287,13 @@ Plan 示例（预约挂号）：
             "type" to "function",
             "function" to mapOf(
                 "name" to "web_search",
-                "description" to "联网搜实时信息（新闻/价格/天气/动态等）。涉及实时/近期事件先搜后答，勿凭训练知识回答实时问题。",
+                "description" to "联网搜实时信息（新闻/价格/天气/动态等）。涉及实时/近期事件先搜后答，勿凭训练知识回答实时问题。查医院/机构/商户的线上服务能力（能否线上挂号、有无公众号/小程序/官网等）时也必须调用并 mode=ai 获取聚合答案与来源。",
                 "parameters" to mapOf(
                     "type" to "object",
                     "properties" to mapOf(
                         "query" to mapOf("type" to "string", "description" to "搜索关键词"),
-                        "count" to mapOf("type" to "integer", "description" to "返回结果数，默认5", "default" to 5)
+                        "count" to mapOf("type" to "integer", "description" to "返回结果数，默认5", "default" to 5),
+                        "mode" to mapOf("type" to "string", "enum" to listOf("web", "ai"), "description" to "检索模式：web=网页检索(默认,成本低)；ai=AI聚合答案+来源(需要直接结论时用,如医院/机构线上服务能力)")
                     ),
                     "required" to listOf("query")
                 )

@@ -229,7 +229,7 @@ class DecisionDialogServiceTest {
     // ===== Case 7: 工具结果超过保留轮数后，早期工具消息被框架掩码（保留最近 1 轮原文） =====
 
     @Test
-    fun `chat 工具结果超过保留轮数后 早期工具结果被掩码为占位符`() = runBlocking {
+    fun `chat 工具结果超过保留轮数后 早期工具往返被滑窗成对移除`() = runBlocking {
         // 连续 3 轮调用 list_apps（产生 3 轮工具消息），第 4 次返回 ready
         repeat(3) {
             testInterceptor.responses.add(
@@ -247,21 +247,23 @@ class DecisionDialogServiceTest {
         val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
 
         assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
-        // 第 4 次请求发送前，框架对旧轮次工具结果执行"观察掩码"（MASK_KEEP_ROUNDS=1）：
-        // 更早轮次的 role=tool 内容被替换为占位符（不删除消息，保证 tool_calls/tool 配对），最近 1 轮保留原文。
+        // 第 4 次请求发送前，框架对旧轮次工具往返执行"滑窗移除"（MASK_KEEP_ROUNDS=1）：
+        // 更早轮次的 (assistant tool_calls + tool 结果) 成对移除（调用参数与结果已由事实台账承载），
+        // 最近 1 轮保留原文——messages 有界，不随轮次线性增长。
         val fourthBody = testInterceptor.capturedBodies[3]
         val fourthJson = gson.fromJson(fourthBody, JsonObject::class.java)
         val messages = fourthJson.getAsJsonArray("messages")
-        var masked = 0
+        var toolCallRounds = 0
         var keptRaw = 0
         messages.forEach { msgElem ->
             val obj = msgElem.asJsonObject
+            if (obj.get("role").asString == "assistant" && obj.has("tool_calls")) toolCallRounds++
             if (obj.get("role").asString == "tool") {
-                if (obj.get("content").asString.contains("工具结果已掩码")) masked++ else keptRaw++
+                if (!obj.get("content").asString.contains("工具结果已掩码")) keptRaw++
             }
         }
-        // 3 轮工具消息都在（掩码而非移除，保证配对协议），其中 2 轮旧结果为占位符、最近 1 轮保留原文
-        assertEquals("旧轮次应被掩码", 2, masked)
+        // 滑窗移除：3 轮工具往返只剩最近 1 轮（成对保留原文，无占位符），旧轮次整轮移除
+        assertEquals("旧轮次应被整轮移除（仅剩最近1轮工具调用）", 1, toolCallRounds)
         assertEquals("最近1轮应保留原文", 1, keptRaw)
     }
 
@@ -489,6 +491,49 @@ class DecisionDialogServiceTest {
             "usage":{"prompt_tokens":10,"completion_tokens":20,"total_tokens":30}
         }
         """.trimIndent()
+    }
+
+    // ===== fetch_result 幂等去重：同一 ref 二次取回返回台账预览占位 =====
+
+    @Test
+    fun `chat fetch_result同一ref二次取回 返回幂等占位不重复注入完整内容`() = runBlocking {
+        // 第 1 轮：fetch_result(ref=fx-test-1)；第 2 轮：同一 ref 再次 fetch；第 3 轮：ready
+        testInterceptor.responses.add(
+            mockOpenAiToolCallResponse(
+                toolName = "fetch_result",
+                toolArgs = """{"ref":"fx-test-1"}""",
+                toolCallId = "call_fetch1"
+            )
+        )
+        testInterceptor.responses.add(
+            mockOpenAiToolCallResponse(
+                toolName = "fetch_result",
+                toolArgs = """{"ref":"fx-test-1"}""",
+                toolCallId = "call_fetch2"
+            )
+        )
+        testInterceptor.responses.add(
+            mockOpenAiResponse("""{"status":"ready","plan":{"requirement":"帮我挂号","goal":"打开微信挂号","steps":[{"order":1,"goal":"打开微信","success_criteria":"进入主页","supervised":false}]}}""")
+        )
+
+        val result = dialogService.chat("帮我挂号", emptyList(), "test-session")
+
+        assertTrue("应返回 Ready: $result", result is DecisionDialogService.DialogResult.Ready)
+        // 第 3 次请求（第 2 轮 fetch 之后发送）的 messages 中应含幂等占位：
+        // 同一 ref 二次取回返回台账预览占位，不重复注入完整取回内容
+        val thirdBody = testInterceptor.capturedBodies[2]
+        val thirdJson = gson.fromJson(thirdBody, JsonObject::class.java)
+        val messages = thirdJson.getAsJsonArray("messages")
+        var placeholderCount = 0
+        messages.forEach { msgElem ->
+            val obj = msgElem.asJsonObject
+            if (obj.get("role").asString == "tool" &&
+                obj.get("content").asString.contains("已在本决策内取回过")
+            ) {
+                placeholderCount++
+            }
+        }
+        assertEquals("同 ref 二次取回应返回幂等占位", 1, placeholderCount)
     }
 
     private fun mockOpenAiToolCallResponse(toolName: String, toolArgs: String, toolCallId: String): String {
