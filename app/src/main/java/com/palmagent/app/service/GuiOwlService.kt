@@ -46,9 +46,9 @@ object GuiOwlService {
     private const val MAX_IMAGE_DIMENSION = 4096
     private const val MAX_PIXELS = 12845056 // 官方 vl_high_resolution_images=true 的固定像素上限：客户端不预压缩，真实屏幕均低于此值按原图直传（无重采样信息损失）
     private const val WRITE_TIMEOUT_MS = 10_000L
-    /** 视觉执行（DECIDE）超时：默认 20 秒（防止请求挂起长时间无响应，实机曾第一轮无响应等 120s） */
-    internal const val DECIDE_TIMEOUT_MS = 20_000L
-    /** DECIDE 连接超时：10 秒——与 read 差异化，实机从超时耗时区分（≤10s=连接层/网络问题；10-20s=响应慢/服务端处理） */
+    /** 视觉执行（DECIDE）超时：默认 30 秒（大图推理 10-30s 量级；仍可防请求挂起长时间无响应） */
+    internal const val DECIDE_TIMEOUT_MS = 30_000L
+    /** DECIDE 连接超时：10 秒——与 read 差异化，实机从超时耗时区分（≤10s=连接层/网络问题；10-30s=响应慢/服务端处理） */
     internal const val DECIDE_CONNECT_TIMEOUT_MS = 10_000L
 
     data class ScreenSize(val width: Int, val height: Int)
@@ -433,13 +433,16 @@ object GuiOwlService {
 
         val baseUrl = KVUtils.getGuiOwlApiUrl().trimEnd('/')
         val chatUrl = "$baseUrl/chat/completions"
+        // 诊断日志：确认实际请求域名（专属域名 or DashScope）——实机超时排查用（覆盖 DECIDE/DESCRIBE/GROUND/QA 所有模式）
+        Log.d(TAG, "GUI-Plus url=$chatUrl")
 
         val requestBody = JSONObject().apply {
             put("model", KVUtils.getGuiOwlModel())
             put("messages", buildMessages(text, payload, screenWidth, screenHeight, mode))
             put("vl_high_resolution_images", true)
-            // enable_thinking 已关闭：思考模式最大输入仅 5209 token，DECIDE 输入（图 3700 + prompt ~2000）超限会被截断，
-            // 导致模型收不到完整上下文（progress 规则缺失/决策退化）；非思考模式输入上限 253952 完全够用
+            // 显式禁用思考模式：gui-plus-2026-02-26 是混合思考模型，实测不传 enable_thinking 时服务端默认开启思考
+            // （返回 reasoning_content、响应更慢、输出预算被占用）；只有显式 false 才真正关闭
+            put("enable_thinking", false)
         }.toString().toRequestBody("application/json".toMediaType())
 
         val httpRequest = Request.Builder()
@@ -538,26 +541,23 @@ object GuiOwlService {
         你是手机屏幕上的 GUI 操作决策助手。给定屏幕截图与用户任务，输出下一步要执行的动作。
 
         # 工具（动作空间，与文本执行模型统一）
-        ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false, hideLocate = true)}
+        ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false, hideVisionUnused = true)}
+
+        # 规则（最高优先级，前置）
+        - **progress.completed_steps 只增不减**（系统单调维护），禁止删减已完成项；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps。
+        - **动作前先确认当前界面**：先看截图确认当前前台应用/页面；若任务或步骤要求的目标界面尚未打开，必须先 open_app 打开目标应用，**禁止在非目标界面直接 auto_input/type/点击**（会把输入误送给当前前台 App）。
+        - **涉及个人信息填写必须 request_user_action**：姓名/身份证号/手机号/住址/支付账号等表单字段——若 Plan/上下文无用户明确提供的数据，禁止编造填写，必须停下让用户输入（request_user_action），用户填完继续。
 
         # 输出格式（严格遵循）
         只输出一个 JSON 对象（不要输出任何其他内容，不要用 tool_calls），字段：
         - type: 动作名（只能来自上方工具列表中的工具名，如 tap/swipe/auto_input/open_app/finish）
         - 各动作参数：见上方工具描述（coordinate 一律用数组 [x,y]，[0,1000] 归一化坐标，x 先 y 后）
         - description: 本动作的简短说明
-        - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
+        - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余步骤"],"status":"in_progress"}
         示例：
         {"type":"tap","coordinate":[500,400],"description":"点击搜索框"}
         {"type":"auto_input","text":"高血压","description":"输入搜索关键词"}
-        {"type":"swipe","direction":"up","description":"向上滑动查看更多"}
         {"type":"finish","description":"任务已完成","text":"用户接下来可查看挂号方式","progress":{"current_step":"任务完成","completed_steps":["打开浏览器","输入网址"],"remaining_steps":[],"status":"completed"}}
-
-        # 规则
-        - 一次只输出一个动作；动作执行后看下一张截图再决定下一步。
-        - **progress.completed_steps 只增不减**（系统单调维护），禁止删减已完成项；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps。
-        - **动作前先确认当前界面**：先看截图确认当前前台应用/页面；若任务或步骤要求的目标界面（如浏览器、目标 App 页面）尚未打开，必须先 open_app 打开目标应用，**禁止在非目标界面直接 auto_input/type/点击**（会把输入误送给当前前台 App）。
-        - 需要输入文本时用 auto_input（内置定位+输入+确认，一步完成）。
-        - 任务完成时输出 finish（description=完成摘要, text=用户接下来做什么）。
     """.trimIndent()
 
     /** 元素甄别模式：只输出 JSON，不输出 tool_call */
@@ -588,6 +588,7 @@ object GuiOwlService {
 - 只描述可见的UI元素（按钮、输入框、列表项、图标、文本标签等），不要判断页面类型
 - 每个区域控制在25字以内
 - 如果某区域无UI元素，写"无"
+- **若屏幕包含表单（输入框/下拉/勾选等），必须逐项说明每个字段名与占位符**（如"输入框：姓名（请输入姓名）"），含表单的区域可突破25字限制
 - 只输出上述三行，不要任何额外内容
 
 【示例输出】
@@ -909,11 +910,13 @@ object GuiOwlService {
             var height = srcBitmap.height
 
             val pixels = width * height
-            if (pixels > MAX_PIXELS) {
-                val scale = Math.sqrt(MAX_PIXELS.toDouble() / pixels.toDouble())
+            // 预处理降采样：像素超过上限（KVUtils 可配，默认 150 万）时按比例缩放——加速服务端推理且保留足够细节
+            val maxPixels = KVUtils.getGuiOwlImageMaxPixels()
+            if (pixels > maxPixels) {
+                val scale = Math.sqrt(maxPixels.toDouble() / pixels.toDouble())
                 width = (width * scale).toInt().coerceAtLeast(1)
                 height = (height * scale).toInt().coerceAtLeast(1)
-                Log.d(TAG, "缩放图片: ${srcBitmap.width}x${srcBitmap.height} -> ${width}x${height}")
+                Log.d(TAG, "缩放图片: ${srcBitmap.width}x${srcBitmap.height} -> ${width}x${height}（上限 ${maxPixels} 像素）")
             }
 
             if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {

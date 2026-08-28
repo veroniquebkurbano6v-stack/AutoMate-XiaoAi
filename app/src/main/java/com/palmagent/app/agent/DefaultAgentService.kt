@@ -825,7 +825,7 @@ class DefaultAgentService @Inject constructor(
         }
 
         // 1. 构建 VL User Prompt
-        val vlUserPrompt = buildVisionUserPrompt(userPrompt, actionHistory, llmProgress, scratchpad.toList(), planContext, failureSummary, transientSearchSection)
+        val vlUserPrompt = buildVisionUserPrompt(userPrompt, actionHistory, llmProgress, planContext, failureSummary, transientSearchSection)
 
         // 2. 获取屏幕尺寸
         val screenSize = getScreenSize()
@@ -869,7 +869,6 @@ class DefaultAgentService @Inject constructor(
         userPrompt: String,
         actionHistory: List<ActionRecord>,
         progress: com.palmagent.app.model.TaskProgress?,
-        scratchpad: List<ScratchpadEntry> = emptyList(),
         planContext: Plan? = null,
         failureSummary: String = "",
         transientSearch: String? = null
@@ -897,24 +896,12 @@ class DefaultAgentService @Inject constructor(
             appendLine()
         }
 
-        // 工作记忆（Scratchpad — 跨轮保留的搜索结果）
-        if (scratchpad.isNotEmpty()) {
-            appendLine("【工作记忆】")
-            scratchpad.forEach { entry ->
-                appendLine("  [${entry.id}] ${entry.source}: ${entry.content.take(200)}")
-            }
-            appendLine()
-        }
-
-        
-
         // 最近操作历史
         if (actionHistory.isNotEmpty()) {
             appendLine("【最近操作回顾】")
-            for (record in actionHistory.takeLast(5)) {
+            for (record in actionHistory.takeLast(3)) {
                 val status = if (record.success) "✓" else "✗"
-                val timeInfo = if (record.executionTimeMs > 0) " (${record.executionTimeMs}ms)" else ""
-                appendLine("  第${record.round}轮: $status ${record.actionType} ${record.description} → ${record.resultSummary}$timeInfo")
+                appendLine("  第${record.round}轮: $status ${record.actionType} ${record.description} → ${record.resultSummary}")
             }
             appendLine()
         }

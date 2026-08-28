@@ -974,6 +974,32 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <!-- 自启动管理（MIUI 专用：允许自启动防止后台清理导致无障碍被关） -->
+            <LinearLayout
+                android:id="@+id/cardAutoStart"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_blockage_panel"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="自启动管理"
+                    android:textColor="#1A1A1A"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="允许自启动，防止后台清理导致无障碍服务被关"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
             <!-- 位置权限 -->
             <LinearLayout
                 android:id="@+id/cardLocation"

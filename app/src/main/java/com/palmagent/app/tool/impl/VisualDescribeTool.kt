@@ -31,11 +31,13 @@ class VisualDescribeTool : BaseTool() {
 
     override fun getDescriptionEN(): String =
         "Ask VLM a question about the current screen. Replaces exists/page_match/describe/ask. " +
-        "Examples: 'Is there a search button?', 'What page is this?', 'Describe the screen', 'Where is the send button?'"
+        "Examples: 'Is there a search button?', 'What page is this?', 'Describe the screen', 'Where is the send button?' " +
+        "If the screen contains a form (input fields/dropdowns/checkboxes), describe each field name and placeholder."
 
     override fun getDescriptionCN(): String =
         "向VLM视觉模型提问关于当前屏幕的问题。替代exists/page_match/describe/ask。 " +
-        "示例：'有没有搜索按钮？'、'当前是什么页面？'、'描述屏幕内容'、'发送按钮在哪里？'"
+        "示例：'有没有搜索按钮？'、'当前是什么页面？'、'描述屏幕内容'、'发送按钮在哪里？'。 " +
+        "若屏幕包含表单（输入框/下拉/勾选等），必须逐项说明每个字段名与占位符。"
 
     override fun getDisplayName(): String = "视觉描述"
 

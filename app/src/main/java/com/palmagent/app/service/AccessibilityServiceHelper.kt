@@ -45,8 +45,43 @@ object AccessibilityServiceHelper {
      * 说明：MIUI 后台清理/Android 14 崩溃禁用会把无障碍服务关闭，需引导用户
      * 重新开启 + 添加白名单（自启动/电池优化/省电策略）。
      */
+    /** MIUI/小米 ROM 检测：无障碍服务易被 MIUI 后台清理/省电策略自动关闭 */
+    fun isMiui(): Boolean = android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+
+    /** 打开 MIUI 自启动管理设置页（失败回退安全中心组件，再失败 Toast 提示） */
+    fun openAutoStartSettings(activity: android.app.Activity) {
+        runCatching {
+            activity.startActivity(android.content.Intent("miui.intent.action.OP_AUTO_START"))
+        }.onFailure {
+            try {
+                activity.startActivity(
+                    android.content.Intent().setClassName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                    )
+                )
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(
+                    activity, "请到系统设置-应用-自启动管理中允许本应用自启动",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /** 请求忽略电池优化（加入电池优化白名单） */
+    fun requestIgnoreBatteryOptimizations(activity: android.app.Activity) {
+        val powerManager = activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        if (!powerManager.isIgnoringBatteryOptimizations(activity.packageName)) {
+            @Suppress("DEPRECATION")
+            val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = android.net.Uri.parse("package:${activity.packageName}")
+            activity.startActivity(intent)
+        }
+    }
+
     fun showAccessibilityGuideDialog(activity: android.app.Activity) {
-        val miui = android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+        val miui = isMiui()
         val message = buildString {
             append("无障碍权限在应用退后台时被系统自动关闭，通常原因：\n")
             append("1. 系统省电策略/后台清理回收了无障碍服务\n")
@@ -59,21 +94,23 @@ object AccessibilityServiceHelper {
             }
             append("\n设置完成后回到本应用重新开启「视觉执行/自动化」相关功能。")
         }
+        // 列表式引导：一次列出所有需要的权限设置入口（无障碍 / 自启动(MIUI) / 电池优化 / 不再提醒）
+        val items = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+        items.add("无障碍服务设置")
+        actions.add { activity.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        if (miui) {
+            items.add("自启动管理")
+            actions.add { openAutoStartSettings(activity) }
+        }
+        items.add("电池优化")
+        actions.add { requestIgnoreBatteryOptimizations(activity) }
+        items.add("不再提醒")
+        actions.add { com.palmagent.app.utils.KVUtils.setAccessibilityRemindDisabled(true) }
         android.app.AlertDialog.Builder(activity)
             .setTitle(if (miui) "无障碍与后台保活（MIUI）" else "无障碍与后台保活")
             .setMessage(message)
-            .setPositiveButton("无障碍服务设置") { _, _ ->
-                activity.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
-            }
-            .setNeutralButton("电池优化") { _, _ ->
-                val powerManager = activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
-                if (!powerManager.isIgnoringBatteryOptimizations(activity.packageName)) {
-                    @Suppress("DEPRECATION")
-                    val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-                    intent.data = android.net.Uri.parse("package:${activity.packageName}")
-                    activity.startActivity(intent)
-                }
-            }
+            .setItems(items.toTypedArray()) { _, which -> actions[which].invoke() }
             .setNegativeButton("关闭", null)
             .show()
     }

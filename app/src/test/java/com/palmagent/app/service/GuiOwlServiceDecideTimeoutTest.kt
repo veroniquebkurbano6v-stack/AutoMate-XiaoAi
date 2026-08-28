@@ -16,10 +16,10 @@ import org.junit.Test
 class GuiOwlServiceDecideTimeoutTest {
 
     @Test
-    fun `DECIDE 超时机制必须保持 20 秒`() {
+    fun `DECIDE 超时机制必须保持 30 秒`() {
         assertEquals(
-            "视觉执行超时必须为 20 秒（防止回归到 120 秒导致请求挂起 2 分钟无响应）",
-            20_000L,
+            "视觉执行超时必须为 30 秒（大图推理 10-30s 量级；防止回归到 120 秒导致请求挂起 2 分钟无响应）",
+            30_000L,
             GuiOwlService.DECIDE_TIMEOUT_MS
         )
     }

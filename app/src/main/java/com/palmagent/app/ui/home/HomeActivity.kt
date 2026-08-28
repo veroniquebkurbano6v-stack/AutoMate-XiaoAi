@@ -247,11 +247,13 @@ class HomeActivity : ComponentActivity() {
             val tvModeText = findViewById<TextView>(R.id.tvModeText)
             updateModeSwitchUI(modeContainer, modeDot, tvModeText)
         } catch (_: Exception) { }
-        // 无障碍自动引导：服务被系统（MIUI 后台清理/Android 14 崩溃禁用）关闭时自动弹引导（24h 间隔防打扰）
+        // 无障碍自动恢复/引导：服务被系统（MIUI 后台清理/Android 14 崩溃禁用）关闭时——
+        // ① 先尝试编程自动恢复（WRITE_SECURE_SETTINGS，已授权设备静默自愈，无需用户操作）
+        // ② 恢复失败（无权限）且用户未选"不再提醒" → 弹引导（每次冷启动检测，不再 24h 间隔）
         if (!com.palmagent.app.service.AccessibilityServiceHelper.isAccessibilityServiceEnabled(this)) {
-            val lastRemindTs = com.palmagent.app.utils.KVUtils.getAccessibilityRemindTs()
-            if (System.currentTimeMillis() - lastRemindTs > 24 * 60 * 60 * 1000L) {
-                com.palmagent.app.utils.KVUtils.setAccessibilityRemindTs(System.currentTimeMillis())
+            val restored = com.palmagent.app.service.AccessibilityServiceHelper.ensureServiceEnabled(this)
+            Log.d(TAG, "无障碍未开启，尝试自动恢复: $restored")
+            if (!restored && !com.palmagent.app.utils.KVUtils.getAccessibilityRemindDisabled()) {
                 com.palmagent.app.service.AccessibilityServiceHelper.showAccessibilityGuideDialog(this)
             }
         }
