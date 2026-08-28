@@ -97,6 +97,16 @@ class GUIAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        try {
+            handleAccessibilityEvent(event)
+        } catch (e: Exception) {
+            // 入口级兜底：任何未捕获异常不崩溃服务（Android 14 崩溃 2 次会被系统自动禁用无障碍权限）
+            Log.w(TAG, "onAccessibilityEvent 异常兜底: ${e.message}")
+        }
+    }
+
+    /** onAccessibilityEvent 原函数体（入口级 try-catch 由上层包裹） */
+    private fun handleAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
         // TalkBack 兼容：当 AI 正在操作时，跳过非关键事件处理，减少与 TalkBack 的资源竞争

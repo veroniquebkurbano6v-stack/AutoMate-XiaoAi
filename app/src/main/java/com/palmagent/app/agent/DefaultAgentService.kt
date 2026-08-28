@@ -18,7 +18,6 @@ import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.service.AIService
 import com.palmagent.app.service.GUIAccessibilityService
-import com.palmagent.app.service.GuiOwlActionAdapter
 import com.palmagent.app.service.GuiOwlService
 import com.palmagent.app.service.PromptBuilder
 import com.palmagent.app.service.ToolResultCache
@@ -279,6 +278,7 @@ class DefaultAgentService @Inject constructor(
                     // 提取 LLM 自管理的任务进度，注入下一轮上下文
                     if (finalAction.progress != null) {
                         llmProgress = finalAction.progress
+                        Log.d(TAG, "LLM进度: ${finalAction.progress.currentStep} | 已完成: ${finalAction.progress.completedSteps}")
                     }
 
                     // VL 模式：WEB_SEARCH 处理（完整结果缓存 + 摘要仅本轮注入，不写工作区）
@@ -825,7 +825,7 @@ class DefaultAgentService @Inject constructor(
         }
 
         // 1. 构建 VL User Prompt
-        val vlUserPrompt = buildVisionUserPrompt(userPrompt, actionHistory, llmProgress, scratchpad.toList(), planContext, failureSummary, transientSearchSection)
+        val vlUserPrompt = buildVisionUserPrompt(userPrompt, actionHistory, llmProgress, planContext, failureSummary, transientSearchSection)
 
         // 2. 获取屏幕尺寸
         val screenSize = getScreenSize()
@@ -839,9 +839,18 @@ class DefaultAgentService @Inject constructor(
             return null
         }
 
-        // 4. 将决策结果适配为 AgentAction
+        // 4. 统一动作协议：result.action 已是文本执行模型工具名（type），直接构造 AgentAction（不再走 GuiOwlActionAdapter 桥接）
         return try {
-            val action = GuiOwlActionAdapter.adapt(result)
+            val action = AgentAction(
+                type = result.action,
+                coordinate = result.coordinate,
+                coordinateEnd = result.coordinateEnd,
+                text = result.text,
+                direction = result.direction,
+                description = result.description ?: "VL决策: ${result.action}",
+                progress = result.progress,
+                confidence = 1.0f
+            )
             Log.d(TAG, "VL决策: ${action.type} - ${action.description}")
             VisionDecisionResult(action, result.rawResponse, vlUserPrompt)
         } catch (e: Exception) {
@@ -860,7 +869,6 @@ class DefaultAgentService @Inject constructor(
         userPrompt: String,
         actionHistory: List<ActionRecord>,
         progress: com.palmagent.app.model.TaskProgress?,
-        scratchpad: List<ScratchpadEntry> = emptyList(),
         planContext: Plan? = null,
         failureSummary: String = "",
         transientSearch: String? = null
@@ -888,24 +896,12 @@ class DefaultAgentService @Inject constructor(
             appendLine()
         }
 
-        // 工作记忆（Scratchpad — 跨轮保留的搜索结果）
-        if (scratchpad.isNotEmpty()) {
-            appendLine("【工作记忆】")
-            scratchpad.forEach { entry ->
-                appendLine("  [${entry.id}] ${entry.source}: ${entry.content.take(200)}")
-            }
-            appendLine()
-        }
-
-        
-
         // 最近操作历史
         if (actionHistory.isNotEmpty()) {
             appendLine("【最近操作回顾】")
-            for (record in actionHistory.takeLast(5)) {
+            for (record in actionHistory.takeLast(3)) {
                 val status = if (record.success) "✓" else "✗"
-                val timeInfo = if (record.executionTimeMs > 0) " (${record.executionTimeMs}ms)" else ""
-                appendLine("  第${record.round}轮: $status ${record.actionType} ${record.description} → ${record.resultSummary}$timeInfo")
+                appendLine("  第${record.round}轮: $status ${record.actionType} ${record.description} → ${record.resultSummary}")
             }
             appendLine()
         }

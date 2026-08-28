@@ -62,6 +62,8 @@ android {
         // 执行模型联网搜索（博查 API + DuckDuckGo 兜底）
         buildConfigField("boolean", "EXECUTION_ENABLE_SEARCH", getLocalProperty("EXECUTION_ENABLE_SEARCH", "true"))
         buildConfigField("String", "BOCHA_API_KEY", "\"${getLocalProperty("BOCHA_API_KEY", "")}\"")
+        buildConfigField("String", "GUI_OWL_API_KEY", "\"${getLocalProperty("GUI_OWL_API_KEY", "")}\"")
+        buildConfigField("String", "GUI_OWL_API_URL", "\"${getLocalProperty("GUI_OWL_API_URL", "")}\"")
 
         // 阿里云百炼 DashScope API Key（GUI-Plus 界面交互模型）
         // 未单独配置时回退使用 LLM_API_KEY（同为百炼 Key，共用账号额度）

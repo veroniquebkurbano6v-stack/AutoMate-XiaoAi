@@ -41,6 +41,11 @@ object KVUtils {
     private const val KEY_GUI_OWL_ENABLED = "KEY_GUI_OWL_ENABLED"
     private const val KEY_GUI_OWL_CONNECT_TIMEOUT = "KEY_GUI_OWL_CONNECT_TIMEOUT"
     private const val KEY_GUI_OWL_READ_TIMEOUT = "KEY_GUI_OWL_READ_TIMEOUT"
+    private const val KEY_GUI_OWL_DECIDE_TIMEOUT = "KEY_GUI_OWL_DECIDE_TIMEOUT"
+    private const val KEY_GUI_OWL_API_URL = "KEY_GUI_OWL_API_URL"
+    private const val KEY_GUI_OWL_IMAGE_MAX_PIXELS = "KEY_GUI_OWL_IMAGE_MAX_PIXELS"
+    private const val KEY_ACCESSIBILITY_REMIND_TS = "KEY_ACCESSIBILITY_REMIND_TS"
+    private const val KEY_ACCESSIBILITY_REMIND_DISABLED = "KEY_ACCESSIBILITY_REMIND_DISABLED"
     private const val KEY_GUI_OWL_MAX_RETRIES = "KEY_GUI_OWL_MAX_RETRIES"
     private const val KEY_GUI_OWL_RETRY_DELAY_MS = "KEY_GUI_OWL_RETRY_DELAY_MS"
 
@@ -200,11 +205,21 @@ object KVUtils {
     fun setOcrEngineType(value: String) = edit { putString(KEY_OCR_ENGINE, value) }
 
     // GUI-Plus（阿里云百炼）界面交互模型配置
-    // 基地址固定为百炼 DashScope OpenAI 兼容端点；
+    // 基地址默认百炼 DashScope OpenAI 兼容端点；可配置为业务空间专属域名
+    // https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1（官方推荐：性能/稳定性更优，请求超时上限 3600s）
     // Key 优先级：SharedPreferences（设置界面）> BuildConfig（local.properties）
-    fun getGuiOwlApiUrl(): String = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    fun getGuiOwlApiUrl(): String = getString(KEY_GUI_OWL_API_URL).ifEmpty {
+        com.palmagent.app.BuildConfig.GUI_OWL_API_URL.ifEmpty {
+            "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        }
+    }
+    fun setGuiOwlApiUrl(value: String) = edit { putString(KEY_GUI_OWL_API_URL, value) }
+    // GUI-OWL 图片像素上限（预处理降采样）：默认 150 万——服务端推理快约一倍且细节充足（GROUND/OCR 可用）；
+    // 可调大（如 12845056=官方 true 模式上限，原图直传）或调小（如 100 万更快速）
+    fun getGuiOwlImageMaxPixels(): Long = getString(KEY_GUI_OWL_IMAGE_MAX_PIXELS).toLongOrNull() ?: 1_500_000L
+    fun setGuiOwlImageMaxPixels(value: Long) = edit { putString(KEY_GUI_OWL_IMAGE_MAX_PIXELS, value.toString()) }
     fun getGuiOwlApiKey(): String = getString(KEY_GUI_OWL_API_KEY).ifEmpty {
-        com.palmagent.app.BuildConfig.DASHSCOPE_API_KEY
+        com.palmagent.app.BuildConfig.GUI_OWL_API_KEY.ifEmpty { com.palmagent.app.BuildConfig.DASHSCOPE_API_KEY }
     }
     fun setGuiOwlApiKey(value: String) = edit { putString(KEY_GUI_OWL_API_KEY, value) }
     fun getGuiOwlModel(): String = getString(KEY_GUI_OWL_MODEL).ifEmpty { "gui-plus-2026-02-26" }
@@ -215,6 +230,15 @@ object KVUtils {
     fun setGuiOwlConnectTimeout(value: Long) = edit { putString(KEY_GUI_OWL_CONNECT_TIMEOUT, value.toString()) }
     fun getGuiOwlReadTimeout(): Long = getString(KEY_GUI_OWL_READ_TIMEOUT).toLongOrNull() ?: 120_000L
     fun setGuiOwlReadTimeout(value: Long) = edit { putString(KEY_GUI_OWL_READ_TIMEOUT, value.toString()) }
+    // 视觉执行（DECIDE）超时：默认 30 秒（大图推理 10-30s 量级，20s 曾频繁误超时；仍可防请求挂起长时间无响应）
+    fun getGuiOwlDecideTimeout(): Long = getString(KEY_GUI_OWL_DECIDE_TIMEOUT).toLongOrNull() ?: 30_000L
+    fun setGuiOwlDecideTimeout(value: Long) = edit { putString(KEY_GUI_OWL_DECIDE_TIMEOUT, value.toString()) }
+    // 无障碍引导上次提醒时间戳（启动自动弹引导的 24h 间隔防打扰）
+    fun getAccessibilityRemindTs(): Long = getString(KEY_ACCESSIBILITY_REMIND_TS).toLongOrNull() ?: 0L
+    fun setAccessibilityRemindTs(value: Long) = edit { putString(KEY_ACCESSIBILITY_REMIND_TS, value.toString()) }
+    // 无障碍引导"不再提醒"开关（用户手动选择后不再自动弹引导；设置页菜单入口仍可用）
+    fun getAccessibilityRemindDisabled(): Boolean = getBoolean(KEY_ACCESSIBILITY_REMIND_DISABLED)
+    fun setAccessibilityRemindDisabled(value: Boolean) = edit { putBoolean(KEY_ACCESSIBILITY_REMIND_DISABLED, value) }
     fun getGuiOwlMaxRetries(): Int = getString(KEY_GUI_OWL_MAX_RETRIES).toIntOrNull() ?: 2
     fun setGuiOwlMaxRetries(value: Int) = edit { putString(KEY_GUI_OWL_MAX_RETRIES, value.toString()) }
     fun getGuiOwlRetryDelayMs(): Long = getString(KEY_GUI_OWL_RETRY_DELAY_MS).toLongOrNull() ?: 1500L

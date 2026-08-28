@@ -110,6 +110,8 @@ class SettingsActivity : AppCompatActivity() {
         setupKeyboardVlmConfig()
         setupVisionModeSwitch()
         setupGuiOwlConfig()
+        setupAccessibilityGuide()
+        setupAutoStartPermission()
         setupAmapMcpConfig()
         setupPlannerConfig()
         
@@ -1302,6 +1304,9 @@ class SettingsActivity : AppCompatActivity() {
         val switch = findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.switch_vision_mode)
         switch.isChecked = KVUtils.isVisionModeEnabled()
         switch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked && KVUtils.getGuiOwlApiKey().isBlank()) {
+                Toast.makeText(this, "请先在 GUI-Plus 配置中填写 API Key（否则视觉执行将失败）", Toast.LENGTH_SHORT).show()
+            }
             KVUtils.setVisionModeEnabled(isChecked)
             com.palmagent.app.LiveLogBuffer.append("VL模式: ${if (isChecked) "开启" else "关闭"}")
         }
@@ -1310,6 +1315,22 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupGuiOwlConfig() {
         val guiOwlMenu = findViewById<LinearLayout>(R.id.menu_gui_owl_config)
         guiOwlMenu?.setOnClickListener { showGuiOwlConfigDialog() }
+    }
+
+    /** 无障碍与后台保活引导入口（退后台被自动关闭权限时的自救指引） */
+    private fun setupAccessibilityGuide() {
+        val guideMenu = findViewById<LinearLayout>(R.id.menu_accessibility_guide)
+        guideMenu?.setOnClickListener { AccessibilityServiceHelper.showAccessibilityGuideDialog(this) }
+    }
+
+    /** 自启动管理（MIUI 专用）：跳 MIUI 自启动设置页；非 MIUI 隐藏该卡片 */
+    private fun setupAutoStartPermission() {
+        val card = findViewById<LinearLayout>(R.id.cardAutoStart) ?: return
+        if (!AccessibilityServiceHelper.isMiui()) {
+            card.visibility = View.GONE
+            return
+        }
+        card.setOnClickListener { AccessibilityServiceHelper.openAutoStartSettings(this) }
     }
 
     @SuppressLint("SetTextI18n")
@@ -1368,6 +1389,28 @@ class SettingsActivity : AppCompatActivity() {
             ).apply { bottomMargin = 4 }
         }
         layout.addView(apiKeyEdit)
+
+        // API 地址（默认百炼 DashScope；可填业务空间专属域名，官方推荐性能/稳定性更优）
+        val apiUrlLabel = TextView(this).apply {
+            text = "API 地址（留空则用默认百炼端点）"
+            textSize = 14f
+            setTextColor(0xFF333333.toInt())
+            setPadding(0, 20, 0, 8)
+        }
+        layout.addView(apiUrlLabel)
+
+        val apiUrlEdit = EditText(this).apply {
+            hint = "https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
+            setText(KVUtils.getGuiOwlApiUrl())
+            setTextSize(14f)
+            setPadding(24, 20, 24, 20)
+            setBackgroundResource(R.drawable.bg_input_field)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = 4 }
+        }
+        layout.addView(apiUrlEdit)
 
         val testButton = Button(this).apply {
             text = "测试连通性"
@@ -1492,6 +1535,9 @@ class SettingsActivity : AppCompatActivity() {
                 if (newKey.isNotEmpty()) {
                     KVUtils.setGuiOwlApiKey(newKey)
                 }
+                // 保存 API 地址（留空则恢复默认百炼端点；可填业务空间专属域名）
+                val newUrl = apiUrlEdit.text.toString().trim()
+                KVUtils.setGuiOwlApiUrl(newUrl)
                 viewModel.saveGuiOwlConfig()
                 refreshGuiOwlConfigDisplay()
                 Toast.makeText(this, "GUI-Plus配置已保存", Toast.LENGTH_SHORT).show()

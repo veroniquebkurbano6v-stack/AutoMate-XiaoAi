@@ -139,9 +139,11 @@ Plan 是传给执行模型的分步骤指引，输出结构化 JSON 对象（非
 
 ### 执行模型快捷工具（tool_hint）
 执行模型内置可"一步完成多操作"的快捷工具，只有写进 Plan 的 tool_hint 才被可靠触发。命中以下场景必须在对应步骤标注：
+- **open_app**：打开目标应用（浏览器/微信/医院App等），写法 "open_app: <应用名>"。⚠️ **跨应用/需先进入目标应用的操作，第一步必须标 open_app**——如"打开浏览器访问官网"必须拆为 步骤1="open_app 打开浏览器"（tool_hint: "open_app: 浏览器"）+ 步骤2="输入官网地址"（tool_hint: "auto_input: <网址或医院名>；搜索/确认按钮"），**禁止把 auto_input 直接作为第一步**（执行模型在非目标界面直接输入会把文本误输入到当前前台 App）。
 - **auto_input**：一步完成"定位输入框→输入→自动点搜索/确认"。适用"输入关键词/地址后触发搜索确认"的步骤（如 App 内搜索商品/医院/联系人）。写法 "auto_input: <输入文本>；<按钮特征>"。
 - **select_spec**：自动遍历规格表单（份量/辣度/尺寸/颜色/口味/数量等）逐项选取并确认。适用外卖/购物/预约多规格。写法 "select_spec"（规格由执行模型读屏，不列举）。
 ⚠️tool_hint 只标"动作类型+关键参数"，界面元素由执行模型识别；不适用则不填。
+⚠️ **Plan 步骤必须原子化**：一个步骤只对应一个工具（一个 tool_hint）；"先打开应用再操作"等复合动作必须拆成多个连续步骤（open_app 步骤排最前），禁止把两个工具合并进一个步骤的 tool_hint。
 
 ### 输出紧凑度（防截断，步骤数不限）
 步骤数不设上限（可超 10 步）但每步紧凑：goal≤15字只写动作；success_criteria 只留执行模型判断所需最小信息（界面状态/元素变体/异常处理），禁复述目标/客套。
@@ -283,6 +285,8 @@ Plan 示例（预约挂号，单步）：
         // 防止模型反复取回同一 ref 撑大上下文；重复取回返回台账预览占位并告警（提示先 workspace_update 提炼）
         val fetchedRefs = mutableSetOf<String>()
         var repeatedFetchCount = 0
+        // ask_questions 工具参数解析失败连续计数：错误作为 tool result 回填给模型修正（业界做法），超过 3 次才中断
+        var askQuestionsParseFailures = 0
         while (round < MAX_TOOL_ROUNDS) {
             round++
 
@@ -308,7 +312,7 @@ Plan 示例（预约挂号，单步）：
 
             LiveLogBuffer.append("🔁 决策模型推理（第${round}轮/${MAX_TOOL_ROUNDS}）")
             Log.d(TAG, "决策推理 第${round}轮/${MAX_TOOL_ROUNDS}")
-            val (content, toolCalls, truncated) = callApiWithTools(apiUrl, apiKey, model, messages, toolChoiceJson, nextMaxTokens)
+            val (content, reasoningContent, toolCalls, truncated) = callApiWithTools(apiUrl, apiKey, model, messages, toolChoiceJson, nextMaxTokens)
                 ?: run {
                     LiveLogBuffer.append("❌ 决策模型调用失败")
                     return DialogResult.Error("决策模型调用失败，请查看日志")
@@ -324,7 +328,13 @@ Plan 示例（预约挂号，单步）：
                     (result.message.contains("Malformed") || result.message.contains("Unterminated"))
                 if ((truncated || truncationError) && !truncateRetried) {
                     LiveLogBuffer.append("⚠️ [决策] 输出疑似截断，追加续写重试")
-                    messages.add(mapOf("role" to "assistant", "content" to content))
+                    messages.add(
+                        buildMap {
+                            put("role", "assistant")
+                            put("content", content)
+                            reasoningContent?.let { put("reasoning_content", it) }
+                        }
+                    )
                     messages.add(mapOf("role" to "user", "content" to TRUNCATED_CONTINUE_PROMPT))
                     truncateRetried = true
                     nextMaxTokens = (MAX_TOKENS * 1.5).toInt()
@@ -337,7 +347,13 @@ Plan 示例（预约挂号，单步）：
                     result is DialogResult.NeedMoreInfo && result.questions == null
                 ) {
                     LiveLogBuffer.append("⚠️ [决策] 操作任务返回无问题追问（格式违规），追加纠错重试")
-                    messages.add(mapOf("role" to "assistant", "content" to content))
+                    messages.add(
+                        buildMap {
+                            put("role", "assistant")
+                            put("content", content)
+                            reasoningContent?.let { put("reasoning_content", it) }
+                        }
+                    )
                     messages.add(mapOf("role" to "user", "content" to FORMAT_CORRECTION_PROMPT))
                     formatRetried = true
                     continue
@@ -386,8 +402,40 @@ Plan 示例（预约挂号，单步）：
                 val args = askQuestionsCall["arguments"] as? Map<String, Any> ?: emptyMap()
                 val questions = parseQuestionsFromToolArgs(args)
                 if (questions.isEmpty()) {
-                    LiveLogBuffer.append("❌ [决策] ask_questions 工具参数解析失败")
-                    return DialogResult.Error("ask_questions 工具参数解析失败，模型未按规范输出 questions 数组")
+                    askQuestionsParseFailures++
+                    if (askQuestionsParseFailures > 3) {
+                        LiveLogBuffer.append("❌ [决策] ask_questions 工具参数解析失败（连续${askQuestionsParseFailures}次）")
+                        return DialogResult.Error("ask_questions 工具参数解析失败，模型未按规范输出 questions 数组")
+                    }
+                    // 业界做法（OpenAI 错误文本进 tool 消息 / Anthropic 错误即 prompt / LangChain 错误 ToolMessage）：
+                    // 错误作为 tool result 回填给模型，让模型下一轮自行修正重试，而非中断整个任务
+                    LiveLogBuffer.append("⚠️ [决策] ask_questions 工具参数解析失败（第${askQuestionsParseFailures}次），回填错误让模型修正")
+                    val errAssistantCalls = listOf(
+                        mapOf(
+                            "id" to (askQuestionsCall["id"] ?: "call_ask"),
+                            "type" to "function",
+                            "function" to mapOf(
+                                "name" to "ask_questions",
+                                "arguments" to gson.toJson(args)
+                            )
+                        )
+                    )
+                    messages.add(
+                        buildMap {
+                            put("role", "assistant")
+                            put("content", content)
+                            reasoningContent?.let { put("reasoning_content", it) }
+                            put("tool_calls", errAssistantCalls)
+                        }
+                    )
+                    messages.add(
+                        mapOf(
+                            "role" to "tool",
+                            "tool_call_id" to (askQuestionsCall["id"] ?: "call_ask"),
+                            "content" to "❌ 工具参数解析失败：ask_questions 需要 questions 数组，每项须含非空 question 与至少2个 options（每项为 {\"label\":\"...\"} 对象）；请按规范重新输出 ask_questions 工具调用"
+                        )
+                    )
+                    continue
                 }
                 LiveLogBuffer.append("❓ [决策] 模型追问 ${questions.size} 个问题，进行自检")
                 Log.d(TAG, "决策模型调用 ask_questions 工具：${questions.size} 个问题，即将自检是否有遗漏")
@@ -417,11 +465,12 @@ Plan 示例（预约挂号，单步）：
                     )
                 }
                 messages.add(
-                    mapOf(
-                        "role" to "assistant",
-                        "content" to content,
-                        "tool_calls" to assistantCalls
-                    )
+                    buildMap {
+                        put("role", "assistant")
+                        put("content", content)
+                        reasoningContent?.let { put("reasoning_content", it) }
+                        put("tool_calls", assistantCalls)
+                    }
                 )
                 // workspace_update 的 tool 结果（配对；落库已在拦截前提前完成）
                 if (wsCall != null) {
@@ -452,7 +501,7 @@ Plan 示例（预约挂号，单步）：
                 )
 
                 // 再调一次模型，让模型自检
-                val (_, selfCheckToolCalls, _) = callApiWithTools(
+                val (_, _, selfCheckToolCalls, _) = callApiWithTools(
                     apiUrl, apiKey, model, messages, "\"auto\""
                 ) ?: return DialogResult.NeedMoreInfo(
                     message = "请回答以下问题",
@@ -481,22 +530,26 @@ Plan 示例（预约挂号，单步）：
                 )
             }
 
-            // 工具循环：把 assistant 的 tool_calls 消息加入历史
+            // 工具循环：把 assistant 的 tool_calls 消息加入历史（含 reasoning_content 回传，DeepSeek 思考模式必需）
             messages.add(
-                mapOf(
-                    "role" to "assistant",
-                    "content" to content,
-                    "tool_calls" to toolCalls.map { tc ->
-                        mapOf(
-                            "id" to tc["id"]!!,
-                            "type" to "function",
-                            "function" to mapOf(
-                                "name" to tc["name"]!!,
-                                "arguments" to gson.toJson(tc["arguments"])
+                buildMap {
+                    put("role", "assistant")
+                    put("content", content)
+                    reasoningContent?.let { put("reasoning_content", it) }
+                    put(
+                        "tool_calls",
+                        toolCalls.map { tc ->
+                            mapOf(
+                                "id" to tc["id"]!!,
+                                "type" to "function",
+                                "function" to mapOf(
+                                    "name" to tc["name"]!!,
+                                    "arguments" to gson.toJson(tc["arguments"])
+                                )
                             )
-                        )
-                    }
-                )
+                        }
+                    )
+                }
             )
 
             // 逐个执行工具，结果以 role=tool 追加到 messages
@@ -845,6 +898,14 @@ Plan 示例（预约挂号，单步）：
      * - toolChoiceJson 控制工具选择策略：auto 让模型按触发式 prompt 自主决定
      * - 解析响应 message.content 和 message.tool_calls
      */
+    /** 决策模型调用结果：content + reasoning_content（DeepSeek 思考模式回传必需）+ tool_calls + 截断标记 */
+    private data class CallResult(
+        val content: String,
+        val reasoningContent: String?,
+        val toolCalls: List<Map<String, Any>>,
+        val truncated: Boolean
+    )
+
     private fun callApiWithTools(
         apiUrl: String,
         apiKey: String,
@@ -852,7 +913,7 @@ Plan 示例（预约挂号，单步）：
         messages: List<Map<String, Any>>,
         toolChoiceJson: String = "\"auto\"",
         maxTokens: Int = MAX_TOKENS
-    ): Triple<String, List<Map<String, Any>>, Boolean>? {
+    ): CallResult? {
         return try {
             // 先尝试启用 JSON 模式（response_format: json_object，由 API 层保证输出合法 JSON，
             // 避免模型输出裸文本/代码块导致解析失败）；若 API 不支持则回退为普通请求重试
@@ -879,6 +940,8 @@ Plan 示例（预约挂号，单步）：
 
             val messageObj = choices[0].asJsonObject.getAsJsonObject("message")
             val content = messageObj.get("content")?.asString ?: ""
+            // DeepSeek 思考模式要求：assistant 的 reasoning_content 必须在后续请求中回传，否则 HTTP 400
+            val reasoningContent = messageObj.get("reasoning_content")?.takeIf { !it.isJsonNull }?.asString
             // 截断检测（三路信号，不依赖单一 finish_reason）：
             // ① finish_reason="length"（API 报告的截断）
             // ② usage.completion_tokens 达到 max_tokens（部分网关不报 length，但 usage 仍会顶格）
@@ -890,6 +953,8 @@ Plan 示例（预约挂号，单步）：
             val truncated = finishReason == "length" ||
                 (completionTokens > 0 && completionTokens >= MAX_TOKENS) ||
                 isLikelyTruncated(content)
+            // 诊断日志：每次决策响应都记录 finish_reason/usage（区分 length 顶格 vs 响应体截断 vs 正常）
+            Log.d(TAG, "决策响应统计: finish_reason='$finishReason', completion_tokens=$completionTokens/$maxTokens, content=${content.length}字符")
             if (truncated) {
                 Log.w(TAG, "决策对话输出疑似截断（finish_reason='$finishReason', completion_tokens=$completionTokens/${MAX_TOKENS}, content 长度=${content.length}）")
             }
@@ -919,7 +984,7 @@ Plan 示例（预约挂号，单步）：
                 }
             }
 
-            Triple(content, toolCalls, truncated)
+            CallResult(content, reasoningContent, toolCalls, truncated)
         } catch (e: java.net.SocketTimeoutException) {
             Log.e(TAG, "决策对话(带工具)请求超时", e)
             null
@@ -1406,7 +1471,8 @@ Plan 示例（预约挂号，单步）：
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "解析决策对话响应失败: ${e.message}")
+            // 诊断：JSON 未闭合（MalformedJsonException: Unterminated object）时记录原始输出长度与前 200 字符，判断截断类型（length 顶格 vs 响应体截断）
+            Log.e(TAG, "解析决策对话响应失败: ${e.message} | 输出长度=${jsonStr.length} | 前200字符: ${jsonStr.take(200)}")
             DialogResult.Error("解析决策模型响应失败: ${e.message ?: "未知错误"}")
         }
     }

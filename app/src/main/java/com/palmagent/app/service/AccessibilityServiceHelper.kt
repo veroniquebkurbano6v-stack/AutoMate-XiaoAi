@@ -24,6 +24,98 @@ object AccessibilityServiceHelper {
     }
 
     /**
+     * 检查无障碍服务是否已开启（标准 API：AccessibilityManager 的启用服务列表）
+     *
+     * 用于启动引导：无障碍被系统（MIUI 后台清理/Android 14 崩溃禁用）关闭时，
+     * 引导用户重新开启 + 添加白名单（自启动/电池优化/省电策略）。
+     */
+    fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager ?: return false
+        val expected = android.content.ComponentName(context, GUIAccessibilityService::class.java)
+        return am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any {
+                it.resolveInfo.serviceInfo.packageName == expected.packageName &&
+                    it.resolveInfo.serviceInfo.name == expected.className
+            }
+    }
+
+    /**
+     * 弹出无障碍与后台保活引导对话框（设置页菜单 + 启动自动检测共用）
+     *
+     * 说明：MIUI 后台清理/Android 14 崩溃禁用会把无障碍服务关闭，需引导用户
+     * 重新开启 + 添加白名单（自启动/电池优化/省电策略）。
+     */
+    /** MIUI/小米 ROM 检测：无障碍服务易被 MIUI 后台清理/省电策略自动关闭 */
+    fun isMiui(): Boolean = android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+
+    /** 打开 MIUI 自启动管理设置页（失败回退安全中心组件，再失败 Toast 提示） */
+    fun openAutoStartSettings(activity: android.app.Activity) {
+        runCatching {
+            activity.startActivity(android.content.Intent("miui.intent.action.OP_AUTO_START"))
+        }.onFailure {
+            try {
+                activity.startActivity(
+                    android.content.Intent().setClassName(
+                        "com.miui.securitycenter",
+                        "com.miui.permcenter.autostart.AutoStartManagementActivity"
+                    )
+                )
+            } catch (_: Exception) {
+                android.widget.Toast.makeText(
+                    activity, "请到系统设置-应用-自启动管理中允许本应用自启动",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    /** 请求忽略电池优化（加入电池优化白名单） */
+    fun requestIgnoreBatteryOptimizations(activity: android.app.Activity) {
+        val powerManager = activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        if (!powerManager.isIgnoringBatteryOptimizations(activity.packageName)) {
+            @Suppress("DEPRECATION")
+            val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+            intent.data = android.net.Uri.parse("package:${activity.packageName}")
+            activity.startActivity(intent)
+        }
+    }
+
+    fun showAccessibilityGuideDialog(activity: android.app.Activity) {
+        val miui = isMiui()
+        val message = buildString {
+            append("无障碍权限在应用退后台时被系统自动关闭，通常原因：\n")
+            append("1. 系统省电策略/后台清理回收了无障碍服务\n")
+            append("2. 服务异常导致系统主动禁用（Android 14 起崩溃 2 次即自动禁用）\n")
+            if (miui) {
+                append("\nMIUI 请完成以下白名单设置（一次性解决）：\n")
+                append("   • 自启动管理 = 允许\n")
+                append("   • 电池优化 = 无限制\n")
+                append("   • 省电策略 = 无限制\n")
+            }
+            append("\n设置完成后回到本应用重新开启「视觉执行/自动化」相关功能。")
+        }
+        // 列表式引导：一次列出所有需要的权限设置入口（无障碍 / 自启动(MIUI) / 电池优化 / 不再提醒）
+        val items = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+        items.add("无障碍服务设置")
+        actions.add { activity.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+        if (miui) {
+            items.add("自启动管理")
+            actions.add { openAutoStartSettings(activity) }
+        }
+        items.add("电池优化")
+        actions.add { requestIgnoreBatteryOptimizations(activity) }
+        items.add("不再提醒")
+        actions.add { com.palmagent.app.utils.KVUtils.setAccessibilityRemindDisabled(true) }
+        android.app.AlertDialog.Builder(activity)
+            .setTitle(if (miui) "无障碍与后台保活（MIUI）" else "无障碍与后台保活")
+            .setMessage(message)
+            .setItems(items.toTypedArray()) { _, which -> actions[which].invoke() }
+            .setNegativeButton("关闭", null)
+            .show()
+    }
+
+    /**
      * 通过 WRITE_SECURE_SETTINGS 编程启用无障碍服务
      *
      * 原理：直接写入 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES，

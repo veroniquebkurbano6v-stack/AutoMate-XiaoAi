@@ -606,11 +606,11 @@ class AutoInputTool : BaseTool() {
         val locateScreenshot: Bitmap? = takeScreenshot()
         if (locateScreenshot == null) return Result.failure(IllegalStateException("第4步失败: 无法获取屏幕截图"))
 
-        // 定位指令：键盘已弹出时输入框被顶到键盘正上方且被压缩（占位文字消失、仅剩光标），
-        // 必须给 GUI-Plus 明确位置锚点（"键盘正上方"），否则模型无法确认目标而不返回坐标；
+        // 定位指令：键盘已弹出时输入框被顶起且被压缩（占位文字消失、仅剩光标），
+        // 用"屏幕上方的文本输入框"描述（不提及键盘，避免模型误定位到键盘候选词栏）；
         // 键盘未弹出时按 isTextInputBox 布尔语义生成常规描述
         val locateInstruction = if (state.keyboardDetected) {
-            "点击键盘正上方的文本输入框（输入光标所在位置），用于输入文字；不要点击键盘按键"
+            "点击屏幕上方的文本输入框，用于输入文字"
         } else if (isTextInputBox != null) {
             buildGroundInstruction(isTextInputBox)
         } else {

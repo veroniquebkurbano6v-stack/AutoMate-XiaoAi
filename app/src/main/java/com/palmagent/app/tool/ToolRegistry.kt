@@ -80,13 +80,18 @@ object ToolRegistry {
      * @param isVision 视觉模式（精简部分不适合视觉模型使用的工具）
      * @param isComplex 复杂模式（隐藏 ask_user 工具）
      */
-    fun getExecutionToolDescriptions(isVision: Boolean, isComplex: Boolean): String {
+    fun getExecutionToolDescriptions(isVision: Boolean, isComplex: Boolean, hideVisionUnused: Boolean = false): String {
         val sb = StringBuilder()
         val filtered = getExecutionTools()
             .filter { tool ->
-                when (tool.getName()) {
-                    "tap", "visual_describe", "select_spec" -> !isVision
-                    else -> true
+                when {
+                    // 视觉执行模式隐藏 locate/web_search/visual_describe：减轻 VL 模型上下文压力（文本执行模型不受影响；
+                    // App 内部 GROUND 定位链（如 AutoInputTool）直接调用 GroundService，不走此工具描述表）
+                    hideVisionUnused && (tool.getName() == "locate" || tool.getName() == "web_search" || tool.getName() == "visual_describe") -> false
+                    else -> when (tool.getName()) {
+                        "tap", "visual_describe", "select_spec" -> !isVision
+                        else -> true
+                    }
                 }
             }
 
@@ -106,7 +111,13 @@ object ToolRegistry {
             "任务控制" to buildList {
                 if (!isComplex) add(ASK_USER_DESCRIPTION)
             },
-            "信息查询" to listOf(FETCH_RESULT_DESCRIPTION, FORGET_DESCRIPTION)
+            "信息查询" to buildList {
+                // web_search 配套协议（fetch_result/forget）：视觉模式隐藏 web_search 时一并隐藏
+                if (!hideVisionUnused) {
+                    add(FETCH_RESULT_DESCRIPTION)
+                    add(FORGET_DESCRIPTION)
+                }
+            }
         )
 
         for ((groupName, toolNames) in groups) {
