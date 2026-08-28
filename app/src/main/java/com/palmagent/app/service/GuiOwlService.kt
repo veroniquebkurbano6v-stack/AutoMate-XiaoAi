@@ -44,8 +44,12 @@ object GuiOwlService {
     private const val TAG = "GuiOwl"
     private const val JPEG_QUALITY = 40
     private const val MAX_IMAGE_DIMENSION = 4096
-    private const val MAX_PIXELS = 1500000
+    private const val MAX_PIXELS = 12845056 // 官方 vl_high_resolution_images=true 的固定像素上限：客户端不预压缩，真实屏幕均低于此值按原图直传（无重采样信息损失）
     private const val WRITE_TIMEOUT_MS = 10_000L
+    /** 视觉执行（DECIDE）超时：默认 20 秒（防止请求挂起长时间无响应，实机曾第一轮无响应等 120s） */
+    internal const val DECIDE_TIMEOUT_MS = 20_000L
+    /** DECIDE 连接超时：10 秒——与 read 差异化，实机从超时耗时区分（≤10s=连接层/网络问题；10-20s=响应慢/服务端处理） */
+    internal const val DECIDE_CONNECT_TIMEOUT_MS = 10_000L
 
     data class ScreenSize(val width: Int, val height: Int)
 
@@ -71,6 +75,8 @@ object GuiOwlService {
         val direction: String? = null,
         /** 统一协议动作描述（模型输出，透传到 AgentAction 供 actionHistory/日志审计） */
         val description: String? = null,
+        /** 统一协议任务进度（模型自维护，与文本执行模型一致：completed_steps 只增不减） */
+        val progress: com.palmagent.app.model.TaskProgress? = null,
         val rawResponse: String = "",
         val error: String? = null,
         val durationMs: Long = 0
@@ -120,6 +126,15 @@ object GuiOwlService {
             .connectTimeout(KVUtils.getGuiOwlConnectTimeout(), TimeUnit.MILLISECONDS)
             .readTimeout(KVUtils.getGuiOwlReadTimeout(), TimeUnit.MILLISECONDS)
             .writeTimeout(WRITE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .build()
+    }
+
+    /** 视觉执行（DECIDE）专用超时 client：connect 10 秒 + read 可配（默认 20 秒）
+     *  connect/read 差异化：≤10s 超时 = 连接层（手机网络问题）；10-20s 超时 = 响应慢（服务端处理）——用于实机定位超时归属 */
+    private val decideClient: OkHttpClient by lazy {
+        client.newBuilder()
+            .connectTimeout(DECIDE_CONNECT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            .readTimeout(KVUtils.getGuiOwlDecideTimeout(), TimeUnit.MILLISECONDS)
             .build()
     }
 
@@ -353,7 +368,8 @@ object GuiOwlService {
                     payload = payload,
                     screenWidth = screenWidth,
                     screenHeight = screenHeight,
-                    mode = PromptMode.DECIDE
+                    mode = PromptMode.DECIDE,
+                    client = decideClient
                 )
 
                 val result = parseDecideResponse(
@@ -362,7 +378,8 @@ object GuiOwlService {
                 if (result.success) {
                     LiveLogBuffer.append(
                         "🎯 GUI-Plus[DECIDE]成功: ${result.action} " +
-                            "(${result.coordinate?.x},${result.coordinate?.y}) ${result.durationMs}ms"
+                            "(${result.coordinate?.x},${result.coordinate?.y}) ${result.durationMs}ms" +
+                            if (result.progress != null) " | progress: 已完成=${result.progress.completedSteps}" else ""
                     )
                     return@withContext result
                 }
@@ -370,7 +387,7 @@ object GuiOwlService {
                 Log.w(TAG, "[DECIDE]失败(尝试$attempt): $lastErrorMsg")
                 LiveLogBuffer.append("❌ GUI-Plus[DECIDE]失败: $lastErrorMsg")
             } catch (e: java.net.SocketTimeoutException) {
-                lastErrorMsg = "请求超时: ${e.message}"
+                lastErrorMsg = "视觉请求超时(${DECIDE_TIMEOUT_MS / 1000}秒): ${e.message}"
                 Log.e(TAG, "[DECIDE]超时(尝试$attempt): ${e.message}")
                 LiveLogBuffer.append("⚠ GUI-Plus[DECIDE]超时(尝试$attempt)")
             } catch (e: java.net.ConnectException) {
@@ -408,7 +425,8 @@ object GuiOwlService {
         payload: ImagePayload,
         screenWidth: Int,
         screenHeight: Int,
-        mode: PromptMode
+        mode: PromptMode,
+        client: OkHttpClient = this.client
     ): String {
         val apiKey = KVUtils.getGuiOwlApiKey()
         require(apiKey.isNotBlank()) { "百炼 API Key 未配置" }
@@ -420,9 +438,8 @@ object GuiOwlService {
             put("model", KVUtils.getGuiOwlModel())
             put("messages", buildMessages(text, payload, screenWidth, screenHeight, mode))
             put("vl_high_resolution_images", true)
-            if (mode == PromptMode.DECIDE) {
-                put("enable_thinking", true)
-            }
+            // enable_thinking 已关闭：思考模式最大输入仅 5209 token，DECIDE 输入（图 3700 + prompt ~2000）超限会被截断，
+            // 导致模型收不到完整上下文（progress 规则缺失/决策退化）；非思考模式输入上限 253952 完全够用
         }.toString().toRequestBody("application/json".toMediaType())
 
         val httpRequest = Request.Builder()
@@ -521,21 +538,23 @@ object GuiOwlService {
         你是手机屏幕上的 GUI 操作决策助手。给定屏幕截图与用户任务，输出下一步要执行的动作。
 
         # 工具（动作空间，与文本执行模型统一）
-        ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false)}
+        ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false, hideLocate = true)}
 
         # 输出格式（严格遵循）
         只输出一个 JSON 对象（不要输出任何其他内容，不要用 tool_calls），字段：
         - type: 动作名（只能来自上方工具列表中的工具名，如 tap/swipe/auto_input/open_app/finish）
         - 各动作参数：见上方工具描述（coordinate 一律用数组 [x,y]，[0,1000] 归一化坐标，x 先 y 后）
         - description: 本动作的简短说明
+        - progress(必填): {"current_step":"当前步骤","completed_steps":["已完成,只增不减"],"remaining_steps":["剩余,引用Plan步骤N"],"status":"in_progress"}
         示例：
         {"type":"tap","coordinate":[500,400],"description":"点击搜索框"}
         {"type":"auto_input","text":"高血压","description":"输入搜索关键词"}
         {"type":"swipe","direction":"up","description":"向上滑动查看更多"}
-        {"type":"finish","description":"任务已完成","text":"用户接下来可查看挂号方式"}
+        {"type":"finish","description":"任务已完成","text":"用户接下来可查看挂号方式","progress":{"current_step":"任务完成","completed_steps":["打开浏览器","输入网址"],"remaining_steps":[],"status":"completed"}}
 
         # 规则
         - 一次只输出一个动作；动作执行后看下一张截图再决定下一步。
+        - **progress.completed_steps 只增不减**（系统单调维护），禁止删减已完成项；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps。
         - **动作前先确认当前界面**：先看截图确认当前前台应用/页面；若任务或步骤要求的目标界面（如浏览器、目标 App 页面）尚未打开，必须先 open_app 打开目标应用，**禁止在非目标界面直接 auto_input/type/点击**（会把输入误送给当前前台 App）。
         - 需要输入文本时用 auto_input（内置定位+输入+确认，一步完成）。
         - 任务完成时输出 finish（description=完成摘要, text=用户接下来做什么）。
@@ -776,6 +795,19 @@ object GuiOwlService {
             val direction = json?.optString("direction", null)?.lowercase()
                 ?.takeIf { it in setOf("up", "down", "left", "right", "custom") }
             val description = json?.optString("description", null)
+            // 统一协议任务进度（模型自维护）：current_step/completed_steps/remaining_steps/status（与 ActionParser 解析对齐）
+            val progress = json?.optJSONObject("progress")?.let { pj ->
+                fun strArr(name: String): List<String> {
+                    val arr = pj.optJSONArray(name) ?: return emptyList()
+                    return (0 until arr.length()).map { arr.optString(it) }
+                }
+                com.palmagent.app.model.TaskProgress(
+                    currentStep = pj.optString("current_step", "").ifBlank { null },
+                    completedSteps = strArr("completed_steps"),
+                    remainingSteps = strArr("remaining_steps"),
+                    status = pj.optString("status", "in_progress")
+                )
+            }
 
             DecideResult(
                 success = true,
@@ -785,6 +817,7 @@ object GuiOwlService {
                 text = text,
                 direction = direction,
                 description = description,
+                progress = progress,
                 rawResponse = content,
                 durationMs = durationMs
             )

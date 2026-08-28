@@ -278,6 +278,7 @@ class DefaultAgentService @Inject constructor(
                     // 提取 LLM 自管理的任务进度，注入下一轮上下文
                     if (finalAction.progress != null) {
                         llmProgress = finalAction.progress
+                        Log.d(TAG, "LLM进度: ${finalAction.progress.currentStep} | 已完成: ${finalAction.progress.completedSteps}")
                     }
 
                     // VL 模式：WEB_SEARCH 处理（完整结果缓存 + 摘要仅本轮注入，不写工作区）
@@ -847,6 +848,7 @@ class DefaultAgentService @Inject constructor(
                 text = result.text,
                 direction = result.direction,
                 description = result.description ?: "VL决策: ${result.action}",
+                progress = result.progress,
                 confidence = 1.0f
             )
             Log.d(TAG, "VL决策: ${action.type} - ${action.description}")

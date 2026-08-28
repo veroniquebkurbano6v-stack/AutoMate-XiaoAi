@@ -41,6 +41,8 @@ object KVUtils {
     private const val KEY_GUI_OWL_ENABLED = "KEY_GUI_OWL_ENABLED"
     private const val KEY_GUI_OWL_CONNECT_TIMEOUT = "KEY_GUI_OWL_CONNECT_TIMEOUT"
     private const val KEY_GUI_OWL_READ_TIMEOUT = "KEY_GUI_OWL_READ_TIMEOUT"
+    private const val KEY_GUI_OWL_DECIDE_TIMEOUT = "KEY_GUI_OWL_DECIDE_TIMEOUT"
+    private const val KEY_ACCESSIBILITY_REMIND_TS = "KEY_ACCESSIBILITY_REMIND_TS"
     private const val KEY_GUI_OWL_MAX_RETRIES = "KEY_GUI_OWL_MAX_RETRIES"
     private const val KEY_GUI_OWL_RETRY_DELAY_MS = "KEY_GUI_OWL_RETRY_DELAY_MS"
 
@@ -215,6 +217,12 @@ object KVUtils {
     fun setGuiOwlConnectTimeout(value: Long) = edit { putString(KEY_GUI_OWL_CONNECT_TIMEOUT, value.toString()) }
     fun getGuiOwlReadTimeout(): Long = getString(KEY_GUI_OWL_READ_TIMEOUT).toLongOrNull() ?: 120_000L
     fun setGuiOwlReadTimeout(value: Long) = edit { putString(KEY_GUI_OWL_READ_TIMEOUT, value.toString()) }
+    // 视觉执行（DECIDE）超时：默认 20 秒，防止请求挂起长时间无响应（实机曾出现第一轮无响应、readTimeout=120s 等 2 分钟）
+    fun getGuiOwlDecideTimeout(): Long = getString(KEY_GUI_OWL_DECIDE_TIMEOUT).toLongOrNull() ?: 20_000L
+    fun setGuiOwlDecideTimeout(value: Long) = edit { putString(KEY_GUI_OWL_DECIDE_TIMEOUT, value.toString()) }
+    // 无障碍引导上次提醒时间戳（启动自动弹引导的 24h 间隔防打扰）
+    fun getAccessibilityRemindTs(): Long = getString(KEY_ACCESSIBILITY_REMIND_TS).toLongOrNull() ?: 0L
+    fun setAccessibilityRemindTs(value: Long) = edit { putString(KEY_ACCESSIBILITY_REMIND_TS, value.toString()) }
     fun getGuiOwlMaxRetries(): Int = getString(KEY_GUI_OWL_MAX_RETRIES).toIntOrNull() ?: 2
     fun setGuiOwlMaxRetries(value: Int) = edit { putString(KEY_GUI_OWL_MAX_RETRIES, value.toString()) }
     fun getGuiOwlRetryDelayMs(): Long = getString(KEY_GUI_OWL_RETRY_DELAY_MS).toLongOrNull() ?: 1500L

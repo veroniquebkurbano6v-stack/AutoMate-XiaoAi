@@ -110,6 +110,7 @@ class SettingsActivity : AppCompatActivity() {
         setupKeyboardVlmConfig()
         setupVisionModeSwitch()
         setupGuiOwlConfig()
+        setupAccessibilityGuide()
         setupAmapMcpConfig()
         setupPlannerConfig()
         
@@ -1313,6 +1314,12 @@ class SettingsActivity : AppCompatActivity() {
     private fun setupGuiOwlConfig() {
         val guiOwlMenu = findViewById<LinearLayout>(R.id.menu_gui_owl_config)
         guiOwlMenu?.setOnClickListener { showGuiOwlConfigDialog() }
+    }
+
+    /** 无障碍与后台保活引导入口（退后台被自动关闭权限时的自救指引） */
+    private fun setupAccessibilityGuide() {
+        val guideMenu = findViewById<LinearLayout>(R.id.menu_accessibility_guide)
+        guideMenu?.setOnClickListener { AccessibilityServiceHelper.showAccessibilityGuideDialog(this) }
     }
 
     @SuppressLint("SetTextI18n")

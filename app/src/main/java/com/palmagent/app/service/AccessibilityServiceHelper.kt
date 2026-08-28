@@ -24,6 +24,61 @@ object AccessibilityServiceHelper {
     }
 
     /**
+     * 检查无障碍服务是否已开启（标准 API：AccessibilityManager 的启用服务列表）
+     *
+     * 用于启动引导：无障碍被系统（MIUI 后台清理/Android 14 崩溃禁用）关闭时，
+     * 引导用户重新开启 + 添加白名单（自启动/电池优化/省电策略）。
+     */
+    fun isAccessibilityServiceEnabled(context: Context): Boolean {
+        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager ?: return false
+        val expected = android.content.ComponentName(context, GUIAccessibilityService::class.java)
+        return am.getEnabledAccessibilityServiceList(android.accessibilityservice.AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any {
+                it.resolveInfo.serviceInfo.packageName == expected.packageName &&
+                    it.resolveInfo.serviceInfo.name == expected.className
+            }
+    }
+
+    /**
+     * 弹出无障碍与后台保活引导对话框（设置页菜单 + 启动自动检测共用）
+     *
+     * 说明：MIUI 后台清理/Android 14 崩溃禁用会把无障碍服务关闭，需引导用户
+     * 重新开启 + 添加白名单（自启动/电池优化/省电策略）。
+     */
+    fun showAccessibilityGuideDialog(activity: android.app.Activity) {
+        val miui = android.os.Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)
+        val message = buildString {
+            append("无障碍权限在应用退后台时被系统自动关闭，通常原因：\n")
+            append("1. 系统省电策略/后台清理回收了无障碍服务\n")
+            append("2. 服务异常导致系统主动禁用（Android 14 起崩溃 2 次即自动禁用）\n")
+            if (miui) {
+                append("\nMIUI 请完成以下白名单设置（一次性解决）：\n")
+                append("   • 自启动管理 = 允许\n")
+                append("   • 电池优化 = 无限制\n")
+                append("   • 省电策略 = 无限制\n")
+            }
+            append("\n设置完成后回到本应用重新开启「视觉执行/自动化」相关功能。")
+        }
+        android.app.AlertDialog.Builder(activity)
+            .setTitle(if (miui) "无障碍与后台保活（MIUI）" else "无障碍与后台保活")
+            .setMessage(message)
+            .setPositiveButton("无障碍服务设置") { _, _ ->
+                activity.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+            .setNeutralButton("电池优化") { _, _ ->
+                val powerManager = activity.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                if (!powerManager.isIgnoringBatteryOptimizations(activity.packageName)) {
+                    @Suppress("DEPRECATION")
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    intent.data = android.net.Uri.parse("package:${activity.packageName}")
+                    activity.startActivity(intent)
+                }
+            }
+            .setNegativeButton("关闭", null)
+            .show()
+    }
+
+    /**
      * 通过 WRITE_SECURE_SETTINGS 编程启用无障碍服务
      *
      * 原理：直接写入 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES，

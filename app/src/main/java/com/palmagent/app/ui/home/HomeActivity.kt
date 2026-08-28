@@ -247,6 +247,14 @@ class HomeActivity : ComponentActivity() {
             val tvModeText = findViewById<TextView>(R.id.tvModeText)
             updateModeSwitchUI(modeContainer, modeDot, tvModeText)
         } catch (_: Exception) { }
+        // 无障碍自动引导：服务被系统（MIUI 后台清理/Android 14 崩溃禁用）关闭时自动弹引导（24h 间隔防打扰）
+        if (!com.palmagent.app.service.AccessibilityServiceHelper.isAccessibilityServiceEnabled(this)) {
+            val lastRemindTs = com.palmagent.app.utils.KVUtils.getAccessibilityRemindTs()
+            if (System.currentTimeMillis() - lastRemindTs > 24 * 60 * 60 * 1000L) {
+                com.palmagent.app.utils.KVUtils.setAccessibilityRemindTs(System.currentTimeMillis())
+                com.palmagent.app.service.AccessibilityServiceHelper.showAccessibilityGuideDialog(this)
+            }
+        }
         startStatusCheck()
     }
 

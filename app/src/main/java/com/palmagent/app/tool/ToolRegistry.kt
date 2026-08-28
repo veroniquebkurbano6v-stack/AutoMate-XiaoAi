@@ -80,13 +80,18 @@ object ToolRegistry {
      * @param isVision 视觉模式（精简部分不适合视觉模型使用的工具）
      * @param isComplex 复杂模式（隐藏 ask_user 工具）
      */
-    fun getExecutionToolDescriptions(isVision: Boolean, isComplex: Boolean): String {
+    fun getExecutionToolDescriptions(isVision: Boolean, isComplex: Boolean, hideLocate: Boolean = false): String {
         val sb = StringBuilder()
         val filtered = getExecutionTools()
             .filter { tool ->
-                when (tool.getName()) {
-                    "tap", "visual_describe", "select_spec" -> !isVision
-                    else -> true
+                when {
+                    // 视觉执行模式隐藏 locate：减轻 VL 模型上下文压力（文本执行模型不受影响；
+                    // App 内部 GROUND 定位链（如 AutoInputTool）直接调用 GroundService，不走此工具描述表）
+                    hideLocate && tool.getName() == "locate" -> false
+                    else -> when (tool.getName()) {
+                        "tap", "visual_describe", "select_spec" -> !isVision
+                        else -> true
+                    }
                 }
             }
 
