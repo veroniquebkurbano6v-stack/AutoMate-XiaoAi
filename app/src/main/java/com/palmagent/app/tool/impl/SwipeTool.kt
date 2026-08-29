@@ -19,6 +19,9 @@ import kotlinx.coroutines.delay
  */
 class SwipeTool : BaseTool() {
 
+    /** 不暴露给文本执行模型（容器滚轮滑动改由 container_swipe 自适配；通用滑动后续另行设计）——VL 视觉模式保留 */
+    override fun isExposedToExecutionModel(): Boolean = false
+
     companion object {
         private const val TAG = "SwipeTool"
         /** 方向模式未指定 distance 时的默认滑动距离占主轴长度的比例（方案一：一屏的80%） */

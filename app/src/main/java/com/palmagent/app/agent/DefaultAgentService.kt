@@ -91,6 +91,20 @@ class DefaultAgentService @Inject constructor(
 
     private val actionHistory = mutableListOf<ActionRecord>()
     private var waitConsecutiveCount = 0
+
+    // Plan 进度窗口：已完成步骤数（单调合并——只增不减——含提前标记校准）
+    private var planCompletedCount = 0
+
+    // Plan 进度窗口：执行模型 current_step（活性修订感知——窗口位置匹配用）
+    private var planCurrentStep: String? = null
+
+    /** 已完成步骤数（校准：current_step 与 completed_steps 末项相同 → 当前步被提前标记，减 1） */
+    private fun calibratedCompleted(p: com.palmagent.app.model.TaskProgress?): Int {
+        if (p == null) return 0
+        val size = p.completedSteps.size
+        if (size == 0) return 0
+        return if (p.currentStep == p.completedSteps.last()) size - 1 else size
+    }
     /** 决策模型生成的结构化任务计划，注入到每轮决策上下文 */
     private var planContext: Plan? = null
     /** LLM 自管理的任务进度（上一轮输出，注入下一轮上下文） */
@@ -110,6 +124,14 @@ class DefaultAgentService @Inject constructor(
     /** 最近一次触发压缩的轮次（节流，避免每轮调用压缩模型） */
     private var lastCompactRound = 0
     private val failureCompactor = FailureCompactor()
+
+    /** P1-1：Running Summary——滚出滑动窗口的早期操作历史压缩摘要（跨轮注入上下文） */
+    @Volatile
+    private var runningSummary: String = ""
+    /** 滚出滑动窗口、待压缩的早期操作记录（压缩完成后清空） */
+    private val earlyHistory = mutableListOf<ActionRecord>()
+    /** 最近一次触发运行摘要压缩的轮次（节流） */
+    private var lastRunningCompactRound = 0
 
     /** v3.2: ASK_USER 截图复用——缓存上一轮 capture，ASK_USER 后下一轮跳过截图 */
     @Volatile
@@ -145,6 +167,9 @@ class DefaultAgentService @Inject constructor(
         failedActions.clear()
         failureSummary = ""
         lastCompactRound = 0
+        runningSummary = ""
+        earlyHistory.clear()
+        lastRunningCompactRound = 0
 
         GUIAccessibilityService.instance?.markAgentAction()
         AgentLogger.beginTask(
@@ -278,6 +303,8 @@ class DefaultAgentService @Inject constructor(
                     // 提取 LLM 自管理的任务进度，注入下一轮上下文
                     if (finalAction.progress != null) {
                         llmProgress = finalAction.progress
+                        planCompletedCount = maxOf(planCompletedCount, calibratedCompleted(llmProgress))
+                        planCurrentStep = llmProgress?.currentStep
                         Log.d(TAG, "LLM进度: ${finalAction.progress.currentStep} | 已完成: ${finalAction.progress.completedSteps}")
                     }
 
@@ -449,6 +476,9 @@ class DefaultAgentService @Inject constructor(
                             waitConsecutiveCount = waitConsecutiveCount,
                             config = config,
                             planContext = planContext,
+                            planCompletedCount = planCompletedCount,
+                            planCurrentStep = planCurrentStep,
+                            compactedSummary = runningSummary,
                             failureSummary = failureSummary,
                             llmProgress = llmProgress,
                             scratchpad = scratchpad.toList()
@@ -491,6 +521,8 @@ class DefaultAgentService @Inject constructor(
                     // 提取 LLM 自管理的任务进度
                     if (finalAction.progress != null) {
                         llmProgress = finalAction.progress
+                        planCompletedCount = maxOf(planCompletedCount, calibratedCompleted(llmProgress))
+                        planCurrentStep = llmProgress?.currentStep
                         Log.d(TAG, "LLM进度: ${finalAction.progress.currentStep} | 已完成${finalAction.progress.completedSteps.size}步 | 剩余${finalAction.progress.remainingSteps.size}步")
                     }
                     callback.onContent(round, "决策: ${finalAction.type} - ${finalAction.description}")
@@ -573,8 +605,19 @@ class DefaultAgentService @Inject constructor(
                     visualQuestion = finalAction.visualQuestion
                 ))
                 // 限制历史记录数量，丢弃最旧条目释放内存
+                // P1-1：被移出滑动窗口的早期记录收集到 earlyHistory，稍后压缩为运行摘要，避免信息直接丢失
                 while (actionHistory.size > MAX_ACTION_HISTORY) {
-                    actionHistory.removeAt(0)
+                    earlyHistory.add(actionHistory.removeAt(0))
+                }
+                // P1-1：触发运行摘要压缩（节流：累积≥2 且距上次压缩≥3轮；后台执行不阻塞本轮）
+                if (earlyHistory.size >= 2 && round - lastRunningCompactRound >= 3) {
+                    lastRunningCompactRound = round
+                    val snapshot = earlyHistory.toList()
+                    // 主循环线程内立即清空，避免后台协程 clear 与主循环 add 并发
+                    earlyHistory.clear()
+                    coroutineScope.launch {
+                        runningSummary = failureCompactor.compactHistory(userPrompt, runningSummary, snapshot)
+                    }
                 }
 
                 // FailureCompactor：收集失败信息（跨轮保留，不受历史4轮限制）
@@ -825,7 +868,7 @@ class DefaultAgentService @Inject constructor(
         }
 
         // 1. 构建 VL User Prompt
-        val vlUserPrompt = buildVisionUserPrompt(userPrompt, actionHistory, llmProgress, planContext, failureSummary, transientSearchSection)
+        val vlUserPrompt = buildVisionUserPrompt(userPrompt, actionHistory, llmProgress, planContext, failureSummary, transientSearchSection, runningSummary)
 
         // 2. 获取屏幕尺寸
         val screenSize = getScreenSize()
@@ -871,7 +914,8 @@ class DefaultAgentService @Inject constructor(
         progress: com.palmagent.app.model.TaskProgress?,
         planContext: Plan? = null,
         failureSummary: String = "",
-        transientSearch: String? = null
+        transientSearch: String? = null,
+        runningSummary: String = ""
     ): String = buildString {
         appendLine("【用户任务】$userPrompt")
         appendLine()
@@ -886,7 +930,15 @@ class DefaultAgentService @Inject constructor(
         // 双注入修复：正常执行时 planContext 为空，不重复注入同一份 plan
         if (planContext != null) {
             appendLine("【决策模型任务计划】（已经过用户确认，其中目标对象、参数等信息为用户明确提供，无需追问）")
-            appendLine(PlanFormatter.format(planContext))
+            val windowText = PlanFormatter.formatWindow(planContext, planCompletedCount, planCurrentStep)
+            Log.d(TAG, "Plan窗口: ${windowText.take(120).replace("\n", " / ")}")
+            appendLine(windowText)
+            appendLine()
+        }
+
+        // P1-1: 运行摘要（早期操作历史压缩摘要，替代已滚出滑动窗口的完整历史）
+        if (runningSummary.isNotBlank()) {
+            appendLine("【历史摘要】$runningSummary")
             appendLine()
         }
 

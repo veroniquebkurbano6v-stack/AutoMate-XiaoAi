@@ -17,7 +17,8 @@ data class UIElement(
     val isEditable: Boolean = false,
     val isScrollable: Boolean = false,
     val groupInfo: GroupInfo? = null,
-    val isSelected: Boolean = false
+    val isSelected: Boolean = false,
+    val isChecked: Boolean = false
 )
 
 data class Bounds(
@@ -92,7 +93,10 @@ data class AgentAction(
     val clickOnFound: Boolean? = null,
     // 联网搜索字段（仅 WEB_SEARCH 使用）：query=搜索关键词（协议字段，与 text 区分），mode=web/ai 检索模式（默认web）
     val query: String? = null,
-    val mode: String? = null
+    val mode: String? = null,
+    // 目标驱动滑动字段（仅 SWIPE_UNTIL 使用）：container=容器名（选填）、maxSwipes=最大滑动次数（默认5，上限10）
+    val container: String? = null,
+    val maxSwipes: Int? = null
 )
 
 /**

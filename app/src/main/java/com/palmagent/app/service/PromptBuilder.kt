@@ -61,7 +61,8 @@ ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false)
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
-- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"或"工具提示：select_spec"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"；select_spec 自动选规格并确认），不要拆成多次 locate/tap；工具提示中的输入文本优先使用，界面特征仅作参考。
+- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"），不要拆成多次 locate/tap；工具提示中的输入文本优先使用，界面特征仅作参考。
+- **横向滚轮选择**（时间/日期/人数滚轮等）：使用 swipe_until 工具（target=目标可见文本（如"20:00"/"明天"）、container=容器名——从【可横向滑动容器】段选取、max_swipes=最大滑动次数默认5）——工具自动滑动直到目标可见（默认横向左滑，2 次无进展自动换反向；滑动前后自动 EXISTS 检查目标可见性——可见即停）——**模型不控制滑动方向**——若工具返回失败（滑动上限后目标仍不可见）说明目标可能在别的容器/界面——重新规划。禁止用其他工具盲滑。
 - 收尾：finish 前把 remaining_steps 全部并入 completed_steps 并清空、status="completed"。
 
 ## wait 规范
@@ -118,7 +119,8 @@ ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = true)}
 
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
-- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"或"工具提示：select_spec"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"；select_spec 自动选规格并确认），不要拆成多次 locate/tap；工具提示中的输入文本优先使用，界面特征仅作参考。
+- **步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"）时，必须优先使用提示的快捷工具一步完成**（auto_input 一步完成"定位输入框→输入→点搜索/确认"），不要拆成多次 locate/tap；工具提示中的输入文本优先使用，界面特征仅作参考。
+- **横向滚轮选择**（时间/日期/人数滚轮等）：使用 swipe_until 工具（target=目标可见文本（如"20:00"/"明天"）、container=容器名——从【可横向滑动容器】段选取、max_swipes=最大滑动次数默认5）——工具自动滑动直到目标可见（默认横向左滑，2 次无进展自动换反向；滑动前后自动 EXISTS 检查目标可见性——可见即停）——**模型不控制滑动方向**——若工具返回失败（滑动上限后目标仍不可见）说明目标可能在别的容器/界面——重新规划。禁止用其他工具盲滑。
 - 收尾：finish 前把 remaining_steps 全部并入 completed_steps 并清空、status="completed"。
 
 ## wait 规范

@@ -3,6 +3,7 @@ package com.palmagent.app.agent
 import android.util.Log
 import com.google.gson.Gson
 import com.palmagent.app.LiveLogBuffer
+import com.palmagent.app.model.ActionRecord
 import com.palmagent.app.utils.KVUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -53,6 +54,23 @@ class FailureCompactor {
 - 输出纯文本摘要，不要输出 JSON、不要输出 markdown 代码块
 - 严格控制在 300 字以内
 - 不要遗漏会导致模型重复犯错的错误原因（如"目标元素未找到"必须保留具体目标）
+""".trimIndent()
+
+        /** P1-1：运行摘要（Running Summary）压缩提示词——归纳滚出滑动窗口的早期操作历史 */
+        private val RUNNING_SUMMARY_SYSTEM_PROMPT = """
+你是一个 Android 自动化任务的运行摘要器。你收到两部分输入：
+1. 上一版运行摘要（可为空）
+2. 已滚出滑动窗口的早期操作记录（JSON 数组，含轮次/动作类型/描述/成败/结果摘要）
+
+请把两者合并归纳为一段精简的中文运行摘要，必须保留：
+1. 已完成的关键步骤链（动作类型+目标，如"打开微信→搜索医院服务号→进入预约挂号"）
+2. 失败操作及原因（避免重复犯错）
+3. 当前所处阶段或已知上下文
+
+要求：
+- 输出纯文本，不要输出 JSON、不要输出 markdown 代码块
+- 严格控制在 [MAX_CHARS] 字以内
+- 新增记录优先保留，旧摘要可压缩
 """.trimIndent()
     }
 
@@ -136,6 +154,114 @@ class FailureCompactor {
         }?.takeIf { it.isNotBlank() }
             ?.take(maxChars)
             ?: fallbackText(failures, maxChars)
+    }
+
+    /**
+     * P1-1：压缩早期操作历史为运行摘要（Running Summary）。
+     * 输入：已有摘要（可为空）+ 滚出滑动窗口的早期操作记录；输出归纳后的 ≤maxChars 摘要。
+     * 复用与 [compact] 相同的压缩模型配置 / HTTP 客户端 / 超时 / 回退链路。
+     */
+    suspend fun compactHistory(
+        userRequest: String,
+        existingSummary: String,
+        earlyActions: List<ActionRecord>,
+        maxChars: Int = 500
+    ): String {
+        if (earlyActions.isEmpty()) return existingSummary
+
+        val apiKey = KVUtils.getCompactApiKey()
+        val apiUrl = normalizeApiUrl(KVUtils.getCompactApiUrl())
+        val model = KVUtils.getCompactModel()
+
+        // 压缩模型不可用 → 直接回退原始截断（不尝试调用）
+        if (apiKey.isEmpty() || apiUrl.isEmpty()) {
+            Log.w(TAG, "压缩模型未配置，运行摘要回退原始截断")
+            return fallbackHistory(existingSummary, earlyActions, maxChars)
+        }
+
+        val historyJson = gson.toJson(earlyActions.map { it.toCompactEntry() })
+        val userMessage = buildString {
+            appendLine("用户任务：$userRequest")
+            appendLine()
+            if (existingSummary.isNotBlank()) {
+                appendLine("上一版运行摘要：")
+                appendLine(existingSummary)
+                appendLine()
+            }
+            appendLine("早期操作记录：")
+            appendLine(historyJson)
+        }
+        val requestMap = mapOf(
+            "model" to model,
+            "messages" to listOf(
+                mapOf("role" to "system", "content" to RUNNING_SUMMARY_SYSTEM_PROMPT.replace("[MAX_CHARS]", maxChars.toString())),
+                mapOf("role" to "user", "content" to userMessage)
+            ),
+            "temperature" to 0.1,
+            "max_tokens" to 512
+        )
+        val payload = runCatching { gson.toJson(requestMap) }.getOrNull()
+        if (payload == null) return fallbackHistory(existingSummary, earlyActions, maxChars)
+
+        Log.d(TAG, "调用运行摘要压缩: model=$model, 早期记录=${earlyActions.size}条")
+
+        return withTimeoutOrNull(COMPACT_TIMEOUT_MS) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val request = Request.Builder()
+                        .url(apiUrl)
+                        .addHeader("Authorization", "Bearer $apiKey")
+                        .addHeader("Content-Type", "application/json")
+                        .post(payload.toRequestBody(JSON_MEDIA_TYPE.toMediaType()))
+                        .build()
+
+                    client.newCall(request).execute().use { response ->
+                        val body = response.body?.string()
+                        if (!response.isSuccessful || body.isNullOrBlank()) {
+                            Log.w(TAG, "运行摘要压缩失败: HTTP ${response.code}")
+                            null
+                        } else {
+                            val answer = parseContent(body)
+                            if (answer.isBlank()) {
+                                Log.w(TAG, "运行摘要压缩返回空内容")
+                                null
+                            } else {
+                                LiveLogBuffer.append("📦 运行摘要已更新: ${answer.take(60)}...")
+                                answer
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "运行摘要压缩异常: ${e.message}")
+                    null
+                }
+            }
+        }?.takeIf { it.isNotBlank() }
+            ?.take(maxChars)
+            ?: fallbackHistory(existingSummary, earlyActions, maxChars)
+    }
+
+    /** 早期操作记录 → 压缩输入的精简 JSON 条目（收敛输入大小） */
+    private fun ActionRecord.toCompactEntry(): Map<String, Any?> = mapOf(
+        "round" to round,
+        "type" to actionType,
+        "description" to description.take(80),
+        "success" to success,
+        "result" to resultSummary.take(80)
+    )
+
+    /** P1-1：运行摘要回退方案——已有摘要 + 早期记录截断拼接 */
+    private fun fallbackHistory(existingSummary: String, earlyActions: List<ActionRecord>, maxChars: Int): String {
+        val raw = buildString {
+            if (existingSummary.isNotBlank()) {
+                appendLine(existingSummary)
+            }
+            earlyActions.forEach { a ->
+                val status = if (a.success) "✓" else "✗"
+                appendLine("第${a.round}轮: $status ${a.actionType} ${a.description.take(40)} → ${a.resultSummary.take(60)}")
+            }
+        }
+        return raw.take(maxChars)
     }
 
     /**

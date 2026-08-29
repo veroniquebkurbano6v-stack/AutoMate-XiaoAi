@@ -32,6 +32,9 @@ class ScrollUntilTool : BaseTool() {
 
     override fun getName(): String = "scroll_until"
 
+    // 已隐藏：滚动查找改为 gui_agent 托管（文本执行模型看不见图，持续视觉检测操作用 GUI 模型自主完成）
+    override fun isExposedToExecutionModel(): Boolean = false
+
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter(
             "target",

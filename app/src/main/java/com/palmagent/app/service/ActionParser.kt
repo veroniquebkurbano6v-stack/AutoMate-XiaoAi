@@ -71,6 +71,9 @@ object ActionParser {
         val direction: String? = null,
         // 方向模式滑动距离（像素，SWIPE 选填）
         val distance: JsonElement? = null,
+        // 目标驱动滑动（SWIPE_UNTIL 使用）：container=容器名（选填）、max_swipes=最大滑动次数（默认5，上限10）
+        val container: String? = null,
+        val max_swipes: JsonElement? = null,
         // 下一轮屏幕描述想额外确认的问题（透传给 GUI 模型按需回答）
         val visual_question: String? = null,
         // 批量提问结构化字段（ASK_USER 必填，对齐 GitHub Copilot ask_questions）
@@ -254,6 +257,9 @@ object ActionParser {
                     direction = actionJson.direction?.lowercase()
                         ?.takeIf { it in setOf("up", "down", "left", "right", "custom") },
                     distance = parseDistance(actionJson.distance),
+                    container = actionJson.container?.takeIf { it.isNotBlank() },
+                    maxSwipes = actionJson.max_swipes?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isNumber }
+                        ?.asInt?.coerceIn(1, 10),
                     visualQuestion = actionJson.visual_question?.takeIf { it.isNotBlank() },
                     specs = parseSpecsField(actionJson.specs),
                     confirmText = actionJson.confirm_text?.takeIf { it.isNotBlank() },

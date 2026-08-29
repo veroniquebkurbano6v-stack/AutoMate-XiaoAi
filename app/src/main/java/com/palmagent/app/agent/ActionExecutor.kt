@@ -521,6 +521,13 @@ class ActionExecutor @Inject constructor(
             action.intervalMs?.let { params["interval_ms"] = it }
             action.clickOnFound?.let { params["click_on_found"] = it }
         }
+
+        // SWIPE_UNTIL: target → target（复用 targetId——与 scroll_until 同字段）、container → container（选填）、max_swipes → max_swipes
+        if (action.type == "swipe_until") {
+            action.targetId?.takeIf { it.isNotBlank() }?.let { params["target"] = it }
+            action.container?.takeIf { it.isNotBlank() }?.let { params["container"] = it }
+            action.maxSwipes?.let { params["max_swipes"] = it }
+        }
         // =================================================
 
         return params

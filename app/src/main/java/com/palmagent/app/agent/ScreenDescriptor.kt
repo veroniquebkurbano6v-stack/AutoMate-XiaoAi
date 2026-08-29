@@ -12,6 +12,8 @@ import com.palmagent.app.service.GuiOwlService
 import com.palmagent.app.service.RapidOcrService
 import com.palmagent.app.utils.KVUtils
 import com.palmagent.app.utils.recycleSafely
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -56,6 +58,21 @@ class ScreenDescriptor {
         // cleanAccessibilityText 正则（预编译）
         private val PAGE_INDICATOR_PATTERN = Regex("""\d+之\d+[，,]?""")
         private val TRAILING_ROLE_PATTERN = Regex("""[，,]?(按钮|标签|链接)$""")
+
+        // ===== 容器表（container_swipe 锚定数据源——每轮容器识别结果刷新；name → 容器信息）=====
+        data class ContainerInfo(
+            val name: String,
+            val yScreen: Int,      // 屏幕像素 y（容器行中心线）
+            val selected: String   // 当前选中值（滑动效果核对）
+        )
+
+        @Volatile
+        var containerTable: Map<String, ContainerInfo> = emptyMap()
+            private set
+
+        fun updateContainerTable(containers: List<ContainerInfo>) {
+            containerTable = containers.associateBy { it.name }
+        }
     }
 
     /**
@@ -693,9 +710,20 @@ class ScreenDescriptor {
 
         return coroutineScope {
             try {
-                // 提取无障碍树中的"已选"状态信息，注入 VLM prompt
+                // 提取无障碍树中的"已选"状态信息（selected/checked 属性优先——文本"已选"兜底），注入 VLM prompt
                 val selectedHint = screenInfo?.uiElements
-                    ?.mapNotNull { it.text?.takeIf { t -> t.contains("已选") } }
+                    ?.filter { it.isSelected || it.isChecked || (it.text?.contains("已选") == true) }
+                    ?.mapNotNull { el ->
+                        val label = el.text?.takeIf { it.isNotBlank() }
+                            ?: el.contentDescription?.takeIf { it.isNotBlank() }
+                            ?: return@mapNotNull null
+                        val state = when {
+                            el.isChecked -> "（已勾选）"
+                            el.isSelected -> "（已选中）"
+                            else -> ""
+                        }
+                        "$label$state"
+                    }
                     ?.takeIf { it.isNotEmpty() }
                     ?.joinToString("\n") { "  - $it" }
                     ?.let { "\n\n【无障碍已选状态】\n$it" }
@@ -704,6 +732,16 @@ class ScreenDescriptor {
                 val enhancedQuestion = if (selectedHint.isNotEmpty() && visualQuestion != null) {
                     "$visualQuestion$selectedHint"
                 } else visualQuestion
+
+                // 每轮并行容器识别（独立请求——与视觉描述各自专注）：识别可横向滑动容器（[0,1000] 归一化坐标）
+                val containerDeferred = async {
+                    try {
+                        GuiOwlService.recognizeContainers(croppedBmp)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "容器识别失败: ${e.message}")
+                        null
+                    }
+                }
 
                 // 云端 VLM（visualQuestion 非空时按需回答；为空回退固定结构描述）
                 val vlmResult = if (GuiOwlService.isReady) {
@@ -747,6 +785,11 @@ class ScreenDescriptor {
                 }
 
                 if (vlmResult != null && vlmResult.success && vlmResult.answer.isNotBlank()) {
+                    // 容器识别结果（[0,1000]）→ 屏幕像素注入文本（执行模型 swipe 起点直接用）
+                    val containerSection = containerDeferred.await()
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { buildContainerSection(it, croppedBmp.width, croppedBmp.height, cropTopPx) }
+                        ?: ""
                     val desc = buildString {
                         val pkg = screenInfo?.currentPackage
                         if (!pkg.isNullOrBlank()) {
@@ -755,6 +798,7 @@ class ScreenDescriptor {
                             append("【屏幕视觉描述】")
                         }
                         appendLine(vlmResult.answer)
+                        append(containerSection)
                     }
                     lastScreenDescription = desc
                     Log.d(TAG, "VLM屏幕描述: ${vlmResult.answer.take(100)} (${vlmResult.durationMs}ms)")
@@ -768,6 +812,39 @@ class ScreenDescriptor {
                     croppedBmp.recycle()
                 }
             }
+        }
+    }
+
+    /** 容器识别 JSON（新规范 name/y/selected）→ 【可横向滑动容器】注入文本（y 转屏幕像素）+ 更新容器表 */
+    private fun buildContainerSection(
+        containerJson: String,
+        imgWidth: Int,
+        imgHeight: Int,
+        cropTopPx: Int
+    ): String {
+        return try {
+            val arr = JSONArray(containerJson)
+            if (arr.length() == 0) return ""
+            val containers = mutableListOf<ContainerInfo>()
+            val sb = StringBuilder("\n【可横向滑动容器】（屏幕像素 y——container_swipe 按容器名滑动）\n")
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val name = obj.optString("name", "").trim()
+                if (name.isEmpty()) continue
+                val y1000 = obj.optInt("y", -1)
+                if (y1000 < 0) continue
+                val selected = obj.optString("selected", "")
+                val sy = y1000 * imgHeight / 1000 + cropTopPx
+                containers += ContainerInfo(name, sy, selected)
+                sb.append("- $name: y=${sy}px, 当前选中${selected.ifBlank { "无" }}\n")
+            }
+            if (containers.isNotEmpty()) {
+                updateContainerTable(containers)
+            }
+            sb.toString()
+        } catch (e: Exception) {
+            Log.w(TAG, "容器识别结果解析失败: ${e.message}")
+            ""
         }
     }
 

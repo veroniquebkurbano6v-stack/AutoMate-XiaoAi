@@ -41,21 +41,21 @@
       "step_order": 4
     },
     {
-      "goal": "点击日期选择区域中目标预订日期",
+      "goal": "在日期选择区域中横向滑动滚轮选择目标预订日期",
       "expected": "目标预订日期被选中并高亮显示",
-      "action_type": "click",
+      "action_type": "swipe",
       "step_order": 5
     },
     {
-      "goal": "点击时间选择区域中晚上7点的时段选项",
+      "goal": "在时间选择区域中横向滑动滚轮选择目标时段",
       "expected": "晚上7点时段被选中并高亮显示",
-      "action_type": "click",
+      "action_type": "swipe",
       "step_order": 6
     },
     {
-      "goal": "点击用餐人数选择区域中的2人选项",
+      "goal": "在用餐人数选择区域中横向滑动滚轮选择2人选项",
       "expected": "2人用餐选项被选中并高亮显示",
-      "action_type": "click",
+      "action_type": "swipe",
       "step_order": 7
     },
     {
