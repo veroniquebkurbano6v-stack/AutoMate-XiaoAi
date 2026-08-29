@@ -3,6 +3,7 @@ package com.palmagent.app.service
 import android.graphics.Bitmap
 import android.util.Log
 import com.palmagent.app.agent.AgentLogger
+import com.palmagent.app.agent.ContextManager
 import com.palmagent.app.agent.ScratchpadEntry
 import com.palmagent.app.model.AgentAction
 import com.palmagent.app.model.ScreenInfo
@@ -22,6 +23,9 @@ class ToolDecisionEngine(
         private const val MAX_CONSECUTIVE_FAILURES = 3
         /** fetch_result 单次取回显示上限（字符），通用 fx- 条目按此截断 */
         private const val FETCH_OUTPUT_MAX_CHARS = 4000
+        /** P0-1：工具循环累积上下文 token 预算（不含基础 enhancedContext，仅约束工具结果累积部分）。
+         *  超限时丢弃最旧工具结果，防止 5 轮工具结果全文叠加导致上下文无上限膨胀。 */
+        private const val TOOL_CONTEXT_MAX_TOKENS = 2500
 
         /** 解析 web_search 动作的 query + mode：
          *  - query 主取协议字段（action.query），text/description 兜底兼容旧格式；
@@ -58,7 +62,22 @@ class ToolDecisionEngine(
         log("AI决策：${action.type} - ${action.description}")
 
         val toolResults = mutableListOf<ToolCallResult>()
-        var contextFromTools = initialKnowledgeContext
+        // P0-1：工具上下文分段管理。segment[0]=基础上下文（enhancedContext，不裁剪），
+        // 后续每段=一轮工具结果；超预算时丢弃最旧工具段，仅保留最近 N 段，防止无上限膨胀。
+        val contextSegments = mutableListOf(initialKnowledgeContext)
+        fun renderContext(): String =
+            contextSegments.filter { it.isNotBlank() }.joinToString("\n\n").trim()
+        fun appendToolSegment(segment: String) {
+            contextSegments.add(segment)
+            // 仅核算工具结果段（不含基础 enhancedContext），且至少保留 1 个最新工具段（size>2），
+            // 避免本轮关键结果被误丢；超预算时从最旧工具段开始丢弃。
+            while (contextSegments.size > 2) {
+                val toolTokens = contextSegments.drop(1).sumOf { ContextManager.estimateTokensSafe(it) }
+                if (toolTokens <= TOOL_CONTEXT_MAX_TOKENS) break
+                val dropped = contextSegments.removeAt(1)
+                log("工具上下文超预算(${toolTokens}>${TOOL_CONTEXT_MAX_TOKENS})，丢弃最旧工具结果: ${dropped.take(60)}")
+            }
+        }
         var loopCount = 0
         // P2-6 修复：工具循环加 30s 整体 deadline，防止 5×15s=75s 超时
         val loopStartTime = System.currentTimeMillis()
@@ -96,7 +115,7 @@ class ToolDecisionEngine(
                         return DecisionResult(
                             finalAction = action,
                             toolResults = toolResults,
-                            combinedContext = contextFromTools,
+                            combinedContext = renderContext(),
                             scratchpadEntries = scratchpadEntries
                         )
                     }
@@ -115,19 +134,16 @@ class ToolDecisionEngine(
                             success = false,
                             error = "系统拦截：相同调用 $sameCallCount 次"
                         ))
-                        contextFromTools = buildString {
-                            if (contextFromTools.isNotBlank()) {
-                                appendLine(contextFromTools)
-                                appendLine()
-                            }
+                        appendToolSegment(buildString {
                             appendLine("【系统拦截】你已连续 $sameCallCount 次发起完全相同的调用（$callSig），结果不会改变。")
                             appendLine("请立即更换策略：换一个不同的搜索关键词，或根据当前屏幕信息直接输出最终动作（如 FINISH/WAIT）。禁止重复相同调用。")
-                        }
-                        logToolLoopModelInput(userRequest, contextFromTools, round, loopCount)
+                        })
+                        val forcedContext = renderContext()
+                        logToolLoopModelInput(userRequest, forcedContext, round, loopCount)
                         action = aiService.generateAction(
                             userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = contextFromTools,
+                            screenInfo = screenInfo,
+                            knowledgeContext = forcedContext,
                         )
                         continue
                     }
@@ -160,26 +176,27 @@ class ToolDecisionEngine(
                     }
 
                     // 摘要仅本轮注入（模型看后判断需取回的 ref；不写工作区，即看即弃）
-                    val combined = buildString {
-                        if (contextFromTools.isNotBlank()) {
-                            appendLine(contextFromTools)
-                            appendLine()
-                        }
+                    // P0-1：作为独立工具段追加，纳入工具上下文预算
+                    appendToolSegment(
                         if (searchResult.success) {
-                            appendLine(searchResult.summaryText)
-                            appendLine("请判断哪些搜索结果与任务相关：需要查看某条完整内容时输出 fetch_result(ref)；无关信息不必保留。")
+                            buildString {
+                                appendLine(searchResult.summaryText)
+                                appendLine("请判断哪些搜索结果与任务相关：需要查看某条完整内容时输出 fetch_result(ref)；无关信息不必保留。")
+                            }
                         } else {
-                            appendLine("【联网搜索】搜索失败：${searchResult.error}")
-                            appendLine("请根据当前屏幕信息自行判断下一步操作。")
+                            buildString {
+                                appendLine("【联网搜索】搜索失败：${searchResult.error}")
+                                appendLine("请根据当前屏幕信息自行判断下一步操作。")
+                            }
                         }
-                    }
-                    contextFromTools = combined
+                    )
+                    val searchContext = renderContext()
 
-                    logToolLoopModelInput(userRequest, combined, round, loopCount)
+                    logToolLoopModelInput(userRequest, searchContext, round, loopCount)
                     action = aiService.generateAction(
                         userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = combined,
+                        screenInfo = screenInfo,
+                        knowledgeContext = searchContext,
                     )
                 }
 
@@ -195,7 +212,7 @@ class ToolDecisionEngine(
                         return DecisionResult(
                             finalAction = action,
                             toolResults = toolResults,
-                            combinedContext = contextFromTools,
+                            combinedContext = renderContext(),
                             scratchpadEntries = scratchpadEntries
                         )
                     }
@@ -249,21 +266,15 @@ class ToolDecisionEngine(
                         if (recordToolFailure("fetch_result: $ref")) break
                     }
 
-                    // 取回原文仅本轮注入，不写工作区
-                    val combined = buildString {
-                        if (contextFromTools.isNotBlank()) {
-                            appendLine(contextFromTools)
-                            appendLine()
-                        }
-                        appendLine(fetchContent)
-                    }
-                    contextFromTools = combined
+                    // 取回原文仅本轮注入，不写工作区（P0-1：纳入工具上下文预算）
+                    appendToolSegment(fetchContent)
+                    val fetchContext = renderContext()
 
-                    logToolLoopModelInput(userRequest, combined, round, loopCount)
+                    logToolLoopModelInput(userRequest, fetchContext, round, loopCount)
                     action = aiService.generateAction(
                         userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = combined,
+                        screenInfo = screenInfo,
+                        knowledgeContext = fetchContext,
                     )
                 }
 
@@ -283,19 +294,16 @@ class ToolDecisionEngine(
                             success = false,
                             error = "系统拦截：相同调用 $sameCallCount 次"
                         ))
-                        contextFromTools = buildString {
-                            if (contextFromTools.isNotBlank()) {
-                                appendLine(contextFromTools)
-                                appendLine()
-                            }
+                        appendToolSegment(buildString {
                             appendLine("【系统拦截】你已连续 $sameCallCount 次发起完全相同的调用（$callSig），结果不会改变。")
                             appendLine("请立即更换策略：换一个问题，或根据当前屏幕信息直接输出最终动作（如 FINISH/WAIT）。禁止重复相同调用。")
-                        }
-                        logToolLoopModelInput(userRequest, contextFromTools, round, loopCount)
+                        })
+                        val forcedVisualContext = renderContext()
+                        logToolLoopModelInput(userRequest, forcedVisualContext, round, loopCount)
                         action = aiService.generateAction(
                             userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = contextFromTools,
+                            screenInfo = screenInfo,
+                            knowledgeContext = forcedVisualContext,
                         )
                         continue
                     }
@@ -331,24 +339,19 @@ class ToolDecisionEngine(
                                     durationMs = vlmResult.durationMs
                                 ))
 
-                                val combined = buildString {
-                                    if (contextFromTools.isNotBlank()) {
-                                        appendLine(contextFromTools)
-                                        appendLine()
-                                    }
-                                    appendLine(resultContent)
-                                }
+                                // P0-1：作为独立工具段追加，纳入工具上下文预算
+                                appendToolSegment(resultContent)
 
                                 log("视觉描述成功: ${vlmResult.answer.take(100)}，重新请求AI决策...")
                                 LiveLogBuffer.append("✓ 视觉描述成功: ${vlmResult.answer.take(80)}")
 
-                                logToolLoopModelInput(userRequest, combined, round, loopCount)
+                                val visualSuccessContext = renderContext()
+                                logToolLoopModelInput(userRequest, visualSuccessContext, round, loopCount)
                                 action = aiService.generateAction(
                                     userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = combined,
+                                    screenInfo = screenInfo,
+                                    knowledgeContext = visualSuccessContext,
                                 )
-                                contextFromTools = combined
                             } else {
                                 val errorMsg = vlmResult.error ?: "描述失败"
                                 log("视觉描述失败: $errorMsg")
@@ -363,20 +366,14 @@ class ToolDecisionEngine(
                                     durationMs = vlmResult.durationMs
                                 ))
 
-                                val fallbackContext = buildString {
-                                    if (contextFromTools.isNotBlank()) {
-                                        appendLine(contextFromTools)
-                                        appendLine()
-                                    }
-                                    appendLine("视觉描述失败（$errorMsg），请根据当前屏幕信息自行判断下一步操作。")
-                                }
+                                appendToolSegment("视觉描述失败（$errorMsg），请根据当前屏幕信息自行判断下一步操作。")
+                                val fallbackContext = renderContext()
                                 logToolLoopModelInput(userRequest, fallbackContext, round, loopCount)
                                 action = aiService.generateAction(
                                     userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = fallbackContext,
+                                    screenInfo = screenInfo,
+                                    knowledgeContext = fallbackContext,
                                 )
-                                contextFromTools = fallbackContext
                             }
                         } finally {
                             screenshotBmp.recycleSafely()
@@ -393,27 +390,21 @@ class ToolDecisionEngine(
                             error = "无法获取屏幕截图"
                         ))
 
-                        val fallbackContext = buildString {
-                            if (contextFromTools.isNotBlank()) {
-                                appendLine(contextFromTools)
-                                appendLine()
-                            }
-                            appendLine("视觉描述不可用（无法截图），请根据当前屏幕信息自行判断。")
-                        }
-                        logToolLoopModelInput(userRequest, fallbackContext, round, loopCount)
+                        appendToolSegment("视觉描述不可用（无法截图），请根据当前屏幕信息自行判断。")
+                        val noScreenshotContext = renderContext()
+                        logToolLoopModelInput(userRequest, noScreenshotContext, round, loopCount)
                         action = aiService.generateAction(
                             userRequest = userRequest,
-            screenInfo = screenInfo,
-            knowledgeContext = fallbackContext,
+                            screenInfo = screenInfo,
+                            knowledgeContext = noScreenshotContext,
                         )
-                        contextFromTools = fallbackContext
                     }
                 }
 
                 else -> return DecisionResult(
                     finalAction = action,
                     toolResults = toolResults,
-                    combinedContext = contextFromTools,
+                    combinedContext = renderContext(),
                     scratchpadEntries = scratchpadEntries
                 )
             }
@@ -424,7 +415,7 @@ class ToolDecisionEngine(
         return DecisionResult(
             finalAction = action,
             toolResults = toolResults,
-            combinedContext = contextFromTools,
+            combinedContext = renderContext(),
             scratchpadEntries = scratchpadEntries
         )
     }

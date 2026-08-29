@@ -623,7 +623,8 @@ class HomeActivity : ComponentActivity() {
 
                     // v9: 决策模型的 plan 经 PlanFormatter 格式化为文本后传给执行模型
                     // 不再经过规划模型二次压缩，避免 SOP 导航细节在中间层丢失
-                    appCoordinator.sendCommand(PlanFormatter.format(result.plan), result.plan)
+                    // 窗口化：userPrompt 只传任务摘要（不再全文注入 Plan——每轮由进度窗口渲染提供步骤视图）
+                    appCoordinator.sendCommand(PlanFormatter.extractSummary(result.plan), result.plan)
                 }
                 is DialogResult.Error -> {
                     val aiMsg = ChatMessage(content = "出错了：${result.message}", isUser = false)

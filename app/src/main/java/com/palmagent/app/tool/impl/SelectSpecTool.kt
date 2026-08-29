@@ -39,6 +39,9 @@ class SelectSpecTool : BaseTool() {
 
     override fun getName(): String = "select_spec"
 
+    // 已隐藏：规格选取改为 gui_agent 托管（需要持续视觉检测的操作由 GUI 模型自主完成）
+    override fun isExposedToExecutionModel(): Boolean = false
+
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter(
             "specs",

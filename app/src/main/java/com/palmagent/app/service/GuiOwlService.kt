@@ -339,6 +339,32 @@ object GuiOwlService {
             }
         }
 
+    /** 容器识别：识别可横向滑动容器（返回容器 JSON 文本——[0,1000] 归一化坐标；失败返回 null） */
+    suspend fun recognizeContainers(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
+        if (!isReady) {
+            Log.w(TAG, "GUI-Plus[CONTAINER]服务未就绪，跳过")
+            return@withContext null
+        }
+        val payload = compressAndEncodeImage(bitmap)
+        if (payload == null) {
+            Log.w(TAG, "GUI-Plus[CONTAINER]图片编码失败")
+            return@withContext null
+        }
+        return@withContext try {
+            val content = requestChat(
+                text = CONTAINER_PROMPT,
+                payload = payload,
+                screenWidth = payload.width,
+                screenHeight = payload.height,
+                mode = PromptMode.CONTAINER
+            )
+            content.trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "GUI-Plus[CONTAINER]失败: ${e.message}")
+            null
+        }
+    }
+
     suspend fun decide(
         userPrompt: String,
         screenshot: Bitmap,
@@ -414,13 +440,13 @@ object GuiOwlService {
 
     // ============ 云端请求 ============
 
-    private enum class PromptMode { GROUND, DECIDE, EXISTS, DESCRIBE, QA }
+    internal enum class PromptMode { GROUND, DECIDE, EXISTS, DESCRIBE, QA, CONTAINER }
 
     /**
      * 发送一次 GUI-Plus chat/completions 请求，返回 assistant 的 content 文本。
      * 失败时抛出异常（由调用方捕获重试）。
      */
-    private fun requestChat(
+    internal fun requestChat(
         text: String,
         payload: ImagePayload,
         screenWidth: Int,
@@ -440,8 +466,7 @@ object GuiOwlService {
             put("model", KVUtils.getGuiOwlModel())
             put("messages", buildMessages(text, payload, screenWidth, screenHeight, mode))
             put("vl_high_resolution_images", true)
-            // 显式禁用思考模式：gui-plus-2026-02-26 是混合思考模型，实测不传 enable_thinking 时服务端默认开启思考
-            // （返回 reasoning_content、响应更慢、输出预算被占用）；只有显式 false 才真正关闭
+            // 思考模式显式关闭（实测不传 enable_thinking 服务端默认开启思考——响应慢 + 输出预算被占用；DECIDE 输入大可能超思考上限）
             put("enable_thinking", false)
         }.toString().toRequestBody("application/json".toMediaType())
 
@@ -463,7 +488,7 @@ object GuiOwlService {
         }
     }
 
-    /** 从 chat/completions 响应中提取 assistant content；无 choices 时抛异常 */
+    /** 从 chat/completions 响应中提取 assistant 内容；无 choices 时抛异常 */
     private fun extractAssistantContent(responseBody: String): String {
         val json = JSONObject(responseBody)
         val apiError = json.optJSONObject("error")
@@ -471,7 +496,8 @@ object GuiOwlService {
             throw IllegalStateException(apiError.optString("message", "服务端错误"))
         }
         val choices = json.optJSONArray("choices")
-        val content = choices?.optJSONObject(0)?.optJSONObject("message")?.optString("content", "")
+        val message = choices?.optJSONObject(0)?.optJSONObject("message")
+        val content = message?.optString("content", "")
         if (content.isNullOrBlank()) {
             throw IllegalStateException("响应为空")
         }
@@ -491,6 +517,7 @@ object GuiOwlService {
             PromptMode.EXISTS -> buildExistsSystemPrompt()
             PromptMode.DESCRIBE -> buildDescribeSystemPrompt()
             PromptMode.QA -> buildQaSystemPrompt()
+            PromptMode.CONTAINER -> CONTAINER_PROMPT
         }
         return JSONArray().apply {
             put(JSONObject().apply {
@@ -577,6 +604,12 @@ object GuiOwlService {
 """.trimIndent()
 
     /** 屏幕描述提示词（自 VlmService 迁移）：上/中/下描述 + 方案C 广告判定附加段 */
+    /** 容器识别 prompt：识别可横向滑动容器（结构化 JSON——name/y/type/selected——[0,1000] y——测试实证模型完全遵守） */
+    internal const val CONTAINER_PROMPT = """请仔细识别该手机屏幕截图中的所有【可横向滑动/拖动的内容行】（横向滚轮选择器、可左右滑动的横向列表等）。
+输出 JSON 数组（不要输出任何其他文字）：
+[{"name": "容器名（简短中文，如'时间选择栏'）", "y": 522, "type": "horizontal", "selected": "当前选中值（如'14:30'）", "usage": "用途描述"}]
+- y 为容器行中心线纵向位置（[0,1000] 归一化坐标）；type 填 horizontal（可横向滑动）；selected 为当前选中的项（滑动效果核对用；无选中概念填空字符串）；若没有任何可横向滑动容器，输出 []。"""
+
     internal const val SCREEN_DESC_PROMPT = """你是一个移动端屏幕分析助手。请将屏幕垂直分为上、中、下三部分，描述各区域的关键UI元素。
 
 【输出格式】
@@ -685,7 +718,7 @@ object GuiOwlService {
     // ============ 响应解析 ============
 
     /** 发送图的尺寸信息（用于坐标缩放还原） */
-    private data class ImagePayload(val base64: String, val width: Int, val height: Int)
+    internal data class ImagePayload(val base64: String, val width: Int, val height: Int)
 
     /** 从 assistant content 中提取 <tool_call> JSON 的 arguments */
     private fun extractToolCall(content: String): JSONObject? {
@@ -893,7 +926,7 @@ object GuiOwlService {
 
     // ============ 图片编码 ============
 
-    private fun compressAndEncodeImage(bitmap: Bitmap): ImagePayload? {
+    internal fun compressAndEncodeImage(bitmap: Bitmap): ImagePayload? {
         return try {
             val srcBitmap = if (bitmap.config == Bitmap.Config.HARDWARE) {
                 try {

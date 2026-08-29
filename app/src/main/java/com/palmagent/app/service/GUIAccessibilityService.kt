@@ -296,7 +296,8 @@ class GUIAccessibilityService : AccessibilityService() {
                 isEditable = node.isEditable,
                 isScrollable = node.isScrollable,
                 groupInfo = groupInfo,
-                isSelected = node.isSelected
+                isSelected = node.isSelected,
+                isChecked = node.isChecked
             )
         } catch (_: Exception) {
             null

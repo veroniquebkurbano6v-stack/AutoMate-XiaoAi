@@ -1,6 +1,7 @@
 package com.palmagent.app.domain.usecase
 
 import android.graphics.Bitmap
+import android.util.Log
 import com.palmagent.app.agent.AgentConfig
 import com.palmagent.app.agent.ContextManager
 import com.palmagent.app.agent.Plan
@@ -23,6 +24,10 @@ import javax.inject.Singleton
 class BuildEnhancedContextUseCase @Inject constructor(
     private val progressTracker: TaskProgressTracker
 ) {
+    companion object {
+        private const val TAG = "BuildEnhancedContext"
+    }
+
     data class Params(
         val deviceCtx: String,
         val screenText: String,
@@ -33,6 +38,8 @@ class BuildEnhancedContextUseCase @Inject constructor(
         val waitConsecutiveCount: Int,
         val config: AgentConfig,
         val planContext: Plan? = null,
+        val planCompletedCount: Int = 0,
+        val planCurrentStep: String? = null,
         val compactedSummary: String = "",
         /** 失败信息压缩摘要（FailureCompactor 产出，注入最近操作回顾之前） */
         val failureSummary: String = "",
@@ -41,6 +48,7 @@ class BuildEnhancedContextUseCase @Inject constructor(
     )
 
     suspend operator fun invoke(params: Params): String {
+        // 基础区块：ContextManager 内部已按 maxTokens 预算裁剪（device + 最近操作 + 屏幕文本）
         val assembled = ContextManager.assemble(
             deviceCtx = params.deviceCtx,
             screenText = params.screenText,
@@ -50,111 +58,115 @@ class BuildEnhancedContextUseCase @Inject constructor(
             maxTokens = params.config.contextMaxTokens,
             keepRecentRounds = params.config.contextKeepRecentRounds
         )
+        val base = assembled.text
 
-        var enhancedContext = assembled.text
+        // 叠加区块按注入顺序编号 seq（渲染时 head 按 seq 降序 = 原 prepend 顺序；tail 追加在 base 之后）。
+        // priority 越低越先被预算裁剪丢弃：屏幕描述/状态警告等辅助信息优先丢，Plan/摘要必须保留。
+        val blocks = mutableListOf<CtxBlock>()
+        var seq = 0
 
-        // 注入决策模型输出的结构化 plan（由 PlanFormatter 格式化为文本，直接传给执行模型消费）
-        // 双注入修复：plan 由调用方单独传入 planContext（复杂模式），经【决策模型任务计划】区域注入一次；
-        // userPrompt 仅承载用户需求，二者内容不同，不会重复
+        // 决策模型输出的结构化 plan（由 PlanFormatter 格式化为文本，直接传给执行模型消费）
         if (params.planContext != null) {
-            enhancedContext = buildString {
-                appendLine(PlanFormatter.format(params.planContext))
-                appendLine()
-                append(enhancedContext)
-            }
+            val windowText = PlanFormatter.formatWindow(params.planContext, params.planCompletedCount, params.planCurrentStep)
+            Log.d(TAG, "Plan窗口: ${windowText.take(120).replace("\n", " / ")}")
+            blocks.add(CtxBlock(seq++, 8, windowText))
         }
 
-        // v9.1: 注入 Running Summary（早期操作历史的压缩摘要）
-        // 位于 planContext 之后、最近操作历史之前，让模型知道之前做了什么但不会看到完整历史
+        // v9.1: Running Summary（早期操作历史的压缩摘要）
         if (params.compactedSummary.isNotBlank()) {
-            enhancedContext = buildString {
-                appendLine("【历史摘要】${params.compactedSummary}")
-                appendLine()
-                append(enhancedContext)
-            }
+            blocks.add(CtxBlock(seq++, 7, "【历史摘要】${params.compactedSummary}"))
         }
 
-        // FailureCompactor: 注入失败信息压缩摘要（位于最近操作回顾之前，
-        // 让模型知道之前失败过什么、建议怎么改，避免重复犯错）
+        // FailureCompactor: 失败信息压缩摘要（避免重复犯错）
         if (params.failureSummary.isNotBlank()) {
-            enhancedContext = buildString {
-                appendLine("【失败处理摘要】${params.failureSummary}")
-                appendLine()
-                append(enhancedContext)
-            }
+            blocks.add(CtxBlock(seq++, 6, "【失败处理摘要】${params.failureSummary}"))
         }
 
         if (params.autoScreenDescription.isNotBlank()) {
-            enhancedContext = buildString {
-                append(params.autoScreenDescription)
-                appendLine()
-                append(enhancedContext)
-            }
+            blocks.add(CtxBlock(seq++, 0, params.autoScreenDescription))
         }
 
-        if (params.stateWarning.isNotBlank()) {
-            enhancedContext = buildString {
-                append(enhancedContext)
-                appendLine()
-                appendLine(params.stateWarning)
-            }
-        }
-
-        // 注入 LLM 自管理的任务进度（始终注入，跨轮持久化）
-        // v8 修复：移除 planContext != null 互斥条件，让执行模型每轮都能看到自己上一轮的 progress 输出
+        // LLM 自管理的任务进度（始终注入，跨轮持久化）
         val llmProgressCtx = formatLlmProgress(params.llmProgress)
         if (llmProgressCtx.isNotBlank()) {
-            enhancedContext = buildString {
-                appendLine(llmProgressCtx)
-                appendLine()
-                append(enhancedContext)
-            }
+            blocks.add(CtxBlock(seq++, 5, llmProgressCtx))
         }
 
-        // 注入系统级环境状态（始终注入，独立于任务进度）
-        // 包含：当前应用/桌面状态、HOME 键失效警告、桌面打开应用提示
-        // v8 修复：移除 planContext != null 互斥条件，系统级状态不再被误伤
+        // 系统级环境状态（始终注入，独立于任务进度）
         val systemProgressCtx = progressTracker.buildProgressContext()
         if (systemProgressCtx.isNotBlank()) {
-            enhancedContext = buildString {
-                appendLine(systemProgressCtx)
-                appendLine()
-                append(enhancedContext)
-            }
+            blocks.add(CtxBlock(seq++, 4, systemProgressCtx))
         }
 
-        // 注入 Scratchpad 工作记忆
+        // Scratchpad 工作记忆
         if (params.scratchpad.isNotEmpty()) {
-            enhancedContext = buildString {
+            blocks.add(CtxBlock(seq++, 3, buildString {
                 appendLine("【工作记忆】")
                 params.scratchpad.forEach { entry ->
                     appendLine("  [${entry.id}] ${entry.source}: ${entry.content.take(200)}")
                 }
-                appendLine()
-                append(enhancedContext)
-            }
+            }))
         }
 
-        // B4 修复：注入已问问题（防重追问），与 VL 模式 buildVisionUserPrompt 对称
-        // 文本模式此前缺失此区块，与系统提示词"④ actionHistory【已问问题】已记录的不重复问"承诺不一致
+        // 已问问题（防重追问）
         val askedQuestions = params.actionHistory
             .filter { it.actionType == "ask_user" }
             .mapNotNull { it.params["asked_questions"] as? List<*> }
             .flatten()
             .filterIsInstance<String>()
         if (askedQuestions.isNotEmpty()) {
-            enhancedContext = buildString {
+            blocks.add(CtxBlock(seq++, 2, buildString {
                 appendLine("【已问问题（禁止重复追问）】")
                 askedQuestions.forEachIndexed { idx, q ->
                     appendLine("  ${idx + 1}. $q")
                 }
-                appendLine()
-                append(enhancedContext)
+            }))
+        }
+
+        if (params.stateWarning.isNotBlank()) {
+            blocks.add(CtxBlock(seq++, 1, params.stateWarning, tail = true))
+        }
+
+        // P0-2：整体 token 预算核算——超限按优先级从低到高丢弃（最低优先级/最末辅助区块优先）
+        val budget = (params.config.contextMaxTokens * 0.85).toInt()
+        var totalTokens = ContextManager.estimateTokensSafe(base)
+        val keptSeqs = mutableSetOf<Int>()
+        for (block in blocks.sortedBy { it.priority }) {
+            val blockTokens = ContextManager.estimateTokensSafe(block.content)
+            if (totalTokens + blockTokens <= budget) {
+                totalTokens += blockTokens
+                keptSeqs.add(block.seq)
+            } else {
+                Log.d(TAG, "上下文超预算(${totalTokens}+$blockTokens>${budget})，丢弃区块 seq=${block.seq} priority=${block.priority}")
             }
         }
 
-        return enhancedContext
+        val keptHead = blocks.filter { it.seq in keptSeqs && !it.tail }
+            .sortedByDescending { it.seq }
+            .joinToString("\n\n") { it.content }
+        val keptTail = blocks.filter { it.seq in keptSeqs && it.tail }
+            .joinToString("\n\n") { it.content }
+
+        return buildString {
+            if (keptHead.isNotBlank()) {
+                appendLine(keptHead)
+                appendLine()
+            }
+            append(base)
+            if (keptTail.isNotBlank()) {
+                appendLine()
+                appendLine(keptTail)
+            }
+        }
     }
+
+    /** P0-2：上下文区块（seq=注入序号用于保持渲染顺序，priority=丢弃优先级，tail=追加在 base 之后） */
+    private data class CtxBlock(
+        val seq: Int,
+        val priority: Int,
+        val content: String,
+        val tail: Boolean = false
+    )
 
     /**
      * 格式化 LLM 自管理的进度信息为上下文文本

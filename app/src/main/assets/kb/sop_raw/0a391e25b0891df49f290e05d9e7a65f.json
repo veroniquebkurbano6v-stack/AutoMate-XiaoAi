@@ -42,21 +42,21 @@
     },
     {
       "step_order": 5,
-      "goal": "点击日期选择器中目标预订日期",
+      "goal": "在日期选择器中横向滑动滚轮选择目标预订日期",
       "expected": "界面显示目标日期的可用时间段列表",
-      "action_type": "click"
+      "action_type": "swipe"
     },
     {
       "step_order": 6,
-      "goal": "点击时间选择器中目标预订时段",
+      "goal": "在时间选择器中横向滑动滚轮选择目标预订时段",
       "expected": "界面显示已选中目标时段作为预订时间",
-      "action_type": "click"
+      "action_type": "swipe"
     },
     {
       "step_order": 7,
-      "goal": "点击用餐人数选择器中的目标人数选项",
+      "goal": "在用餐人数选择器中横向滑动滚轮选择目标人数选项",
       "expected": "界面显示已选中目标人数的桌位规格",
-      "action_type": "click"
+      "action_type": "swipe"
     },
     {
       "step_order": 8,

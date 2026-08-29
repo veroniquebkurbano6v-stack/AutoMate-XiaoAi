@@ -15,6 +15,7 @@ object ToolRegistry {
         "tap" to ::TapTool,
         "long_press" to ::LongPressTool,
         "swipe" to ::SwipeTool,
+        "swipe_until" to ::SwipeUntilTool,
         "scroll_until" to ::ScrollUntilTool,
         "back" to ::BackTool,
         "home" to ::HomeTool,
@@ -85,9 +86,12 @@ object ToolRegistry {
         val filtered = getExecutionTools()
             .filter { tool ->
                 when {
-                    // 视觉执行模式隐藏 locate/web_search/visual_describe：减轻 VL 模型上下文压力（文本执行模型不受影响；
-                    // App 内部 GROUND 定位链（如 AutoInputTool）直接调用 GroundService，不走此工具描述表）
-                    hideVisionUnused && (tool.getName() == "locate" || tool.getName() == "web_search" || tool.getName() == "visual_describe") -> false
+                    // 视觉执行模式隐藏 locate/web_search/visual_describe/scroll_until/select_spec/swipe_until：减轻 VL 模型上下文压力
+                    // （VL 自己看图滑动；目标驱动滑动工具仅文本执行模型使用）
+                    hideVisionUnused && (tool.getName() == "locate" || tool.getName() == "web_search" ||
+                        tool.getName() == "visual_describe" ||
+                        tool.getName() == "scroll_until" || tool.getName() == "select_spec" ||
+                        tool.getName() == "swipe_until") -> false
                     else -> when (tool.getName()) {
                         "tap", "visual_describe", "select_spec" -> !isVision
                         else -> true
@@ -98,7 +102,7 @@ object ToolRegistry {
         // 分组输出（定位与输入 → 导航与浏览 → 应用与等待 → 任务控制 → 信息查询）
         val groups = linkedMapOf(
             "定位与输入" to listOf("locate", "auto_input", "tap"),
-            "导航与浏览" to listOf("swipe", "scroll_until", "back", "home"),
+            "导航与浏览" to listOf("swipe_until", "scroll_until", "back", "home"),
             "应用与等待" to listOf("open_app", "wait"),
             "任务控制" to listOf("request_user_action", "finish", "select_spec"),
             "信息查询" to listOf("web_search", "visual_describe")
@@ -164,13 +168,9 @@ object ToolRegistry {
      * 的 handledElsewhere 白名单一致）。
      */
     private val ASK_USER_DESCRIPTION =
-        "- ask_user: questions(必填数组) — 仅缺少必要信息时批量追问，一次问完所有问题（1-4个）。" +
-            "仅接受 JSON 格式：{\"type\":\"ask_user\",\"questions\":[{\"question\":\"需要发短信给哪个联系人？\"," +
-            "\"header\":\"联系人\",\"options\":[{\"label\":\"张三\",\"description\":\"最近联系人\",\"recommended\":true}," +
-            "{\"label\":\"李四\"}],\"multiSelect\":false,\"allowFreeInput\":true}],\"progress\":{...}}。规则：① 每问 2-6 个选项" +
-            "（UI 自动追加\"其他\"，勿生成）② multiSelect=true 可叠加，false 互斥单选 ③ recommended 最多 1 个" +
-            "④ label 与问题用任务同语言。红线：① 已确认信息（联系人/App名/地点/内容）禁重复追问" +
-            "② 屏幕信息/搜索能推断的不问 ③ 主观偏好用中等默认值 ④ 已问问题不重复问。缺 questions 字段或误用 text/options 旧字段一律降级为 wait"
+        "- ask_user: questions(必填数组,1-4问,每问2-6选项,label与问题同任务语言,UI自动追加\"其他\"勿生成) — " +
+            "仅缺必要信息时一次性追问。规则：multiSelect=true可叠加/否则互斥单选；recommended最多1个。红线：" +
+            "已确认或屏幕/搜索可推断的不问，主观偏好用默认值，已问不重复问。误用 text/options 旧字段一律降级为 wait"
 
     private val FETCH_RESULT_DESCRIPTION =
         "- fetch_result: text(必填,ref如\"ws-3-2\"/\"fx-...\") — 按 ref 取回之前缓存的完整工具结果（搜索/工具），" +
@@ -196,11 +196,11 @@ object ToolRegistry {
         "wait" to "description(必填), duration_ms(可选,默认1000,范围100-10000)",
         "request_user_action" to "text(必填,标题), description(选填)",
         "finish" to "description(必填,已完成摘要), text(必填,用户接下来做什么)",
-        "web_search" to "query(必填,搜索关键词), mode(选填,web/ai,默认web)：web=网页检索(默认,成本低)；ai=AI聚合答案+引用来源(需要直接结论如'如何挂号'时用,成本更高)",
+        "web_search" to "query(必填,搜索关键词), mode(选填,web/ai,默认web)：web=网页检索(成本低)；ai=AI聚合答案+引用来源(需直接结论如'如何挂号'时用)",
         "visual_describe" to "text(问题)",
         "select_spec" to "specs(必填,需选取的规格数组如[\"大份\",\"微辣\",\"去冰\"]), confirm_text(选填,确认按钮文本,默认\"选好了\")",
-        "swipe" to "direction(必填, up/down/left/right/custom), description(必填)",
-        "scroll_until" to "target(必填,视觉可辨识描述), direction(可选,默认down), max_scrolls(可选,默认5,上限10), interval_ms(可选,默认800,范围500-2000), click_on_found(可选,默认true)"
+        "scroll_until" to "target(必填,视觉可辨识描述), direction(选填,默认down), max_scrolls(选填,默认5,上限10), click_on_found(选填,默认true)",
+        "swipe_until" to "target(必填,目标可见文本如'22:00'), container(选填,容器名), max_swipes(选填,默认5,上限10)",
     )
 
     private fun buildToolDescriptionLine(tool: BaseTool): String {

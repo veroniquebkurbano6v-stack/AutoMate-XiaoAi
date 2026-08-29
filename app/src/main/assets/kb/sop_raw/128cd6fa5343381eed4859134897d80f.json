@@ -42,21 +42,21 @@
     },
     {
       "step_order": 5,
-      "goal": "在预订页面的日期选择区域点击目标日期",
+      "goal": "在预订页面的日期选择区域横向滑动滚轮选择目标日期",
       "expected": "目标日期被选中并高亮显示在日期栏中",
-      "action_type": "click"
+      "action_type": "swipe"
     },
     {
       "step_order": 6,
-      "goal": "在预订页面的时间选择区域点击目标时段",
+      "goal": "在预订页面的时间选择区域横向滑动滚轮选择目标时段",
       "expected": "目标时段被选中并高亮显示在时间栏中",
-      "action_type": "click"
+      "action_type": "swipe"
     },
     {
       "step_order": 7,
-      "goal": "在预订页面的人数选择区域点击目标人数选项",
+      "goal": "在预订页面的人数选择区域横向滑动滚轮选择目标人数选项",
       "expected": "目标人数选项被选中并高亮显示在人数栏中",
-      "action_type": "click"
+      "action_type": "swipe"
     },
     {
       "step_order": 8,

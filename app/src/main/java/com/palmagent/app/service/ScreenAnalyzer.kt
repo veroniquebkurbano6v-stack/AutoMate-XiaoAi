@@ -169,7 +169,8 @@ class ScreenAnalyzer(private val context: Context) {
                 isClickable = node.isClickable,
                 isEditable = node.isEditable,
                 isScrollable = node.isScrollable,
-                isSelected = node.isSelected
+                isSelected = node.isSelected,
+                isChecked = node.isChecked
             )
         } catch (e: Exception) {
             null
