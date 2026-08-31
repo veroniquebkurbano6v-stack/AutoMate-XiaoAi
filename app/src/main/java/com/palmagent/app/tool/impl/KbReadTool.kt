@@ -22,7 +22,7 @@ class KbReadTool : BaseTool() {
         private const val DEFAULT_TOP_K = 3
         private const val MIN_TOP_K = 1
         private const val MAX_TOP_K = 5
-        private const val SCORE_THRESHOLD = 0.3
+        private const val SCORE_THRESHOLD = 0.5
     }
 
     override fun getName(): String = "kb_read"
@@ -60,6 +60,9 @@ class KbReadTool : BaseTool() {
 
     override fun getDisplayName(): String = "知识库查询"
 
+    /** 判定检索结果是否可用的纯函数：score >= SCORE_THRESHOLD 才视为相关（便于单测） */
+    internal fun isScoreUsable(score: Double): Boolean = score >= SCORE_THRESHOLD
+
     override suspend fun execute(params: Map<String, Any>): ToolResult {
         if (!KVUtils.isLocalKbEnabled()) {
             return ToolResult.error("本地知识库未启用，请在设置中开启")
@@ -91,8 +94,8 @@ class KbReadTool : BaseTool() {
             // 只取 score 最高的一条交付给决策模型（relevance density 原则，控上下文）
             val best = results.maxByOrNull { it.score }!!
             val output = buildString {
-                if (best.score < SCORE_THRESHOLD) {
-                    appendLine("【知识库检索结果】共 ${results.size} 条，但最高相似度仅 ${"%.2f".format(best.score)}，无足够相关的 SOP")
+                if (!isScoreUsable(best.score)) {
+                    appendLine("【知识库检索结果】共 ${results.size} 条，但最高相似度仅 ${"%.2f".format(best.score)}（< ${"%.1f".format(SCORE_THRESHOLD)}），无足够相关的 SOP")
                     appendLine("请基于通用操作常识生成 Plan，不要强行套用知识库内容。")
                 } else {
                     appendLine("【知识库检索结果】最佳匹配 1 条（共检索 ${results.size} 条）")
