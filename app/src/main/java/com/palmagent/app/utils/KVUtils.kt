@@ -34,8 +34,6 @@ object KVUtils {
 
     private const val KEY_GUIDE_SHOWN = "KEY_GUIDE_SHOWN"
 
-    private const val KEY_OCR_ENGINE = "KEY_OCR_ENGINE"
-
     private const val KEY_GUI_OWL_API_KEY = "KEY_GUI_OWL_API_KEY"
     private const val KEY_GUI_OWL_MODEL = "KEY_GUI_OWL_MODEL"
     private const val KEY_GUI_OWL_ENABLED = "KEY_GUI_OWL_ENABLED"
@@ -55,6 +53,9 @@ object KVUtils {
     private const val KEY_KEYBOARD_VLM_MODEL_NAME = "KEY_KEYBOARD_VLM_MODEL_NAME"
     private const val KEY_KEYBOARD_VLM_API_URL = "KEY_KEYBOARD_VLM_API_URL"
     private const val KEY_KEYBOARD_VLM_API_KEY = "KEY_KEYBOARD_VLM_API_KEY"
+    private const val KEY_SCREEN_VLM_MODEL_NAME = "KEY_SCREEN_VLM_MODEL_NAME"
+    private const val KEY_SCREEN_VLM_API_URL = "KEY_SCREEN_VLM_API_URL"
+    private const val KEY_SCREEN_VLM_API_KEY = "KEY_SCREEN_VLM_API_KEY"
 
     // 决策模型配置（API Key 使用加密存储）
     private const val KEY_PLANNER_API_KEY = "KEY_PLANNER_API_KEY"        // 加密存储
@@ -200,10 +201,6 @@ object KVUtils {
     fun isGuideShown(): Boolean = getBoolean(KEY_GUIDE_SHOWN)
     fun setGuideShown(shown: Boolean) = putBoolean(KEY_GUIDE_SHOWN, shown)
 
-    // OCR 引擎选择
-    fun getOcrEngineType(): String = getString(KEY_OCR_ENGINE, "rapidocr")
-    fun setOcrEngineType(value: String) = edit { putString(KEY_OCR_ENGINE, value) }
-
     // GUI-Plus（阿里云百炼）界面交互模型配置
     // 基地址默认百炼 DashScope OpenAI 兼容端点；可配置为业务空间专属域名
     // https://{WorkspaceId}.cn-beijing.maas.aliyuncs.com/compatible-mode/v1（官方推荐：性能/稳定性更优，请求超时上限 3600s）
@@ -214,7 +211,7 @@ object KVUtils {
         }
     }
     fun setGuiOwlApiUrl(value: String) = edit { putString(KEY_GUI_OWL_API_URL, value) }
-    // GUI-OWL 图片像素上限（预处理降采样）：默认 150 万——服务端推理快约一倍且细节充足（GROUND/OCR 可用）；
+    // GUI-OWL 图片像素上限（预处理降采样）：默认 150 万——服务端推理快约一倍且细节充足（GROUND 可用）；
     // 可调大（如 12845056=官方 true 模式上限，原图直传）或调小（如 100 万更快速）
     fun getGuiOwlImageMaxPixels(): Long = getString(KEY_GUI_OWL_IMAGE_MAX_PIXELS).toLongOrNull() ?: 1_500_000L
     fun setGuiOwlImageMaxPixels(value: Long) = edit { putString(KEY_GUI_OWL_IMAGE_MAX_PIXELS, value.toString()) }
@@ -284,6 +281,32 @@ object KVUtils {
 
     /** 键盘检测模型是否已独立配置（API Key 非空即视为已配置） */
     fun hasKeyboardVlmConfig(): Boolean = getString(KEY_KEYBOARD_VLM_API_KEY).isNotEmpty()
+
+    // ===================== 屏幕描述模型（VLM，智谱 GLM-5.3-Flash） =====================
+
+    fun getScreenVlmModelName(): String {
+        return getString(KEY_SCREEN_VLM_MODEL_NAME).ifEmpty {
+            com.palmagent.app.BuildConfig.SCREEN_VLM_MODEL
+        }
+    }
+    fun setScreenVlmModelName(value: String) = edit { putString(KEY_SCREEN_VLM_MODEL_NAME, value) }
+
+    fun getScreenVlmApiUrl(): String {
+        return getString(KEY_SCREEN_VLM_API_URL).ifEmpty {
+            com.palmagent.app.BuildConfig.SCREEN_VLM_API_URL
+        }
+    }
+    fun setScreenVlmApiUrl(value: String) = edit { putString(KEY_SCREEN_VLM_API_URL, value) }
+
+    fun getScreenVlmApiKey(): String {
+        return getString(KEY_SCREEN_VLM_API_KEY).ifEmpty {
+            com.palmagent.app.BuildConfig.SCREEN_VLM_API_KEY
+        }
+    }
+    fun setScreenVlmApiKey(value: String) = edit { putString(KEY_SCREEN_VLM_API_KEY, value) }
+
+    /** 屏幕描述模型是否已配置（API Key 非空即视为已配置，未配置时回退 GUI-Plus 描述） */
+    fun hasScreenVlmConfig(): Boolean = getString(KEY_SCREEN_VLM_API_KEY).isNotEmpty()
 
     private const val KEY_SMART_WAIT_TIMEOUT_MS = "KEY_SMART_WAIT_TIMEOUT_MS"
 
@@ -434,6 +457,12 @@ object KVUtils {
         edit { putString(KEY_KEYBOARD_VLM_API_KEY, com.palmagent.app.BuildConfig.KEYBOARD_VLM_API_KEY) }
         edit { putString(KEY_KEYBOARD_VLM_API_URL, com.palmagent.app.BuildConfig.KEYBOARD_VLM_API_URL) }
         edit { putString(KEY_KEYBOARD_VLM_MODEL_NAME, com.palmagent.app.BuildConfig.KEYBOARD_VLM_MODEL) }
+        count += 3
+
+        // 屏幕描述 VLM 配置（智谱 GLM-5.3-Flash）
+        edit { putString(KEY_SCREEN_VLM_API_KEY, com.palmagent.app.BuildConfig.SCREEN_VLM_API_KEY) }
+        edit { putString(KEY_SCREEN_VLM_API_URL, com.palmagent.app.BuildConfig.SCREEN_VLM_API_URL) }
+        edit { putString(KEY_SCREEN_VLM_MODEL_NAME, com.palmagent.app.BuildConfig.SCREEN_VLM_MODEL) }
         count += 3
 
         // Planner 配置（API Key 加密存储）

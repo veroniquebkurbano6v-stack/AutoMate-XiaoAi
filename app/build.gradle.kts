@@ -44,6 +44,10 @@ android {
         buildConfigField("String", "KEYBOARD_VLM_API_URL", "\"${getLocalProperty("KEYBOARD_VLM_API_URL", "")}\"")
         buildConfigField("String", "KEYBOARD_VLM_MODEL", "\"${getLocalProperty("KEYBOARD_VLM_MODEL", "")}\"")
         buildConfigField("String", "KEYBOARD_VLM_API_KEY", "\"${getLocalProperty("KEYBOARD_VLM_API_KEY", "")}\"")
+        // 屏幕描述模型（VLM，智谱 GLM-5.3-Flash）：每轮简短屏幕视觉描述（未配置时回退 GUI-Plus 描述）
+        buildConfigField("String", "SCREEN_VLM_API_URL", "\"${getLocalProperty("SCREEN_VLM_API_URL", "")}\"")
+        buildConfigField("String", "SCREEN_VLM_MODEL", "\"${getLocalProperty("SCREEN_VLM_MODEL", "")}\"")
+        buildConfigField("String", "SCREEN_VLM_API_KEY", "\"${getLocalProperty("SCREEN_VLM_API_KEY", "")}\"")
         buildConfigField("String", "PLANNER_API_KEY", "\"${getLocalProperty("PLANNER_API_KEY", "")}\"")
         buildConfigField("String", "PLANNER_API_URL", "\"${getLocalProperty("PLANNER_API_URL", "")}\"")
         buildConfigField("String", "PLANNER_MODEL", "\"${getLocalProperty("PLANNER_MODEL", "")}\"")
@@ -123,9 +127,6 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    implementation("io.github.hzkitty:rapidocr4j-android:1.0.0")
-    implementation("org.tensorflow:tensorflow-lite:2.16.1")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
     // sherpa-onnx（官方 SenseVoice ASR）：static-link 版 arm64 仅含 libsherpa-onnx-jni.so（已静态链接 onnxruntime），
     // 与上方 onnxruntime-android（VAD 用）不冲突

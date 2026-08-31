@@ -1666,7 +1666,9 @@ object FloatingProgressManager {
      * 拖拽结束后吸附到最近的屏幕边缘
      */
     private fun snapToEdge() {
-        val screenWidth = appRef?.resources?.displayMetrics?.widthPixels ?: 1080
+        val screenWidth = appRef?.resources?.displayMetrics?.widthPixels ?: 0
+        // 降级 0（获取失败）——不吸附（保持原位——fail-safe，不猜值）
+        if (screenWidth <= 0) return
         // 根据当前 gravity 判断窗口在屏幕的哪一半
         if (isLeftSide) {
             // gravity 是 START，layoutX 是距离左边的距离，越大越靠右
