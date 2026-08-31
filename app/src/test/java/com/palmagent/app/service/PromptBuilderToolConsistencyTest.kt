@@ -43,7 +43,8 @@ class PromptBuilderToolConsistencyTest {
     private val intentionallyHidden = setOf(
         "list_apps", "get_screen_info",
         "amap_search", "amap_nearby", "amap_directions", "amap_weather",
-        "long_press"  // 执行模型不再使用 long_press（从统一入口隐藏）
+        "long_press",  // 执行模型不再使用 long_press（从统一入口隐藏）
+        "swipe", "scroll_until", "select_spec"  // isExposedToExecutionModel()=false，注册但不对执行模型暴露
     )
 
     /** 提示词"输出格式"区以行首 "- 字段:" 形式出现的 JSON 字段名（非工具） */
@@ -124,7 +125,7 @@ class PromptBuilderToolConsistencyTest {
 
     /** 提取提示词工具清单行 "- 工具名:"（含 back/home 斜杠合并形式） */
     private fun extractToolNames(prompt: String): Set<String> {
-        val names = linkedSetOf<String>()
+        val names = linkedSetOf<String>();
         val regex = Regex("(?m)^- ([a-z_]+(?:/[a-z_]+)?):")
         for (match in regex.findAll(prompt)) {
             match.groupValues[1].split("/").forEach { names.add(it) }
