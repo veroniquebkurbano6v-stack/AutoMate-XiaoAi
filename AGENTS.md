@@ -7,7 +7,7 @@ AutoMate·小艾：Android GUI 智能助手（Kotlin），端侧 RAG + 云端多
 - 单元测试（纯 JVM，无需设备）：`./gradlew.bat :app:testDebugUnitTest`（`app/src/test` 下 22 个测试文件）
 - 插桩测试：`./gradlew.bat :app:connectedDebugAndroidTest`（需真机/模拟器 + 无障碍授权）
 - Lint：`./gradlew.bat lint`（默认 Android lint，无自定义规则文件；**未配置 ktlint/detekt，没有格式校验命令**）
-- 工具链：Gradle 8.13 / AGP 8.13.2 / Kotlin 2.2.21 / KSP / Hilt / Room。版本统一在 `gradle/libs.versions.toml`；直接用坐标声明的依赖（Timber、rapidocr4j-android、onnxruntime-android、tensorflow-lite、security-crypto、recyclerview 等）不在目录中，不要把它们搬进 toml。
+- 工具链：Gradle 8.13 / AGP 8.13.2 / Kotlin 2.2.21 / KSP / Hilt / Room。版本统一在 `gradle/libs.versions.toml`；直接用坐标声明的依赖（Timber、onnxruntime-android、security-crypto、recyclerview 等）不在目录中，不要把它们搬进 toml。
 - **UI 是经典 View 体系（`ComponentActivity` + RecyclerView + XML 布局），不是 Compose**——`libs.versions.toml` 里虽有 compose BOM，但 `app/build.gradle.kts` 未引入任何 compose 依赖，改动 UI 走 XML + View 路线。
 
 ## 配置（最容易踩坑）
@@ -21,7 +21,7 @@ AutoMate·小艾：Android GUI 智能助手（Kotlin），端侧 RAG + 云端多
 - 根包 `com.palmagent.app`：
   - `agent/`：执行编排与决策（DefaultAgentService、ActionExecutor、ContextManager、FailureCompactor、SmartWaitStrategy、TaskProgressTracker 等）
   - `kb/`：端侧 RAG（ONNX 嵌入 + SQLite BLOB + 内存检索，完全本地无 HTTP）
-  - `service/`：服务层（无障碍 GUIAccessibilityService、AIService、决策 DecisionDialogService、GUI-Plus GuiOwlService、OCR RapidOcrService、VLM VlmService、WebSearchService、WebMCPService、保活等）
+  - `service/`：服务层（无障碍 GUIAccessibilityService、AIService、决策 DecisionDialogService、GUI-Plus GuiOwlService、VLM VlmService、WebSearchService、WebMCPService、保活等）
   - `tool/impl/`：动作工具，继承 `BaseTool` 并注册进 `ToolRegistry`
   - `channel/`：消息通道（微信机器人 WeChatChannelHandler 等）
   - `floating/`：悬浮窗（AskUserManager、FloatingProgressManager、UserActionManager）

@@ -9,7 +9,7 @@ import com.palmagent.app.model.UIElement
 import com.palmagent.app.model.UIElementType
 import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.service.GuiOwlService
-import com.palmagent.app.service.RapidOcrService
+import com.palmagent.app.service.ScreenVlmDescribeService
 import com.palmagent.app.utils.KVUtils
 import com.palmagent.app.utils.recycleSafely
 import org.json.JSONArray
@@ -24,7 +24,7 @@ import kotlinx.coroutines.delay
  *
  * 从 DefaultAgentService 中拆分，负责：
  * - 无障碍树文本提取
- * - OCR 文本提取
+ * - 已选状态提取
  * - VLM 屏幕描述生成
  * - 屏幕树空判断
  */
@@ -33,7 +33,7 @@ class ScreenDescriptor {
     companion object {
         private const val TAG = "ScreenDescriptor"
         // v2 优化：放宽无障碍可用性判定
-        // 旧规则：validRatio >= 0.5（11% 被判无效，触发 OCR 兑底）
+        // 旧规则：validRatio >= 0.5（11% 被判无效，触发视觉兜底）
         // 新规则：只要有 ≥5 个非空元素（或纯元素数 ≥3）即认为无障碍可用
         private const val MIN_ELEMENTS = 3                // 最小有效元素数
         private const val MIN_VALID_RATIO = 0.0f          // 最低有效元素比例
@@ -293,6 +293,35 @@ class ScreenDescriptor {
 
         // 6. 按分组信息+Y坐标聚类输出
         return formatWithGroups(merged)
+    }
+
+    /**
+     * 提取无障碍树中"已选取/勾选"的内容（精简注入，替代全量元素列表）
+     *
+     * 每轮【屏幕元素】不再整体注入执行模型（视觉描述为主），仅保留选中态信息：
+     * selected/checked 属性优先（文本"已选"兜底），供模型感知当前选中/勾选状态，
+     * 例如选项卡选中项、Radio 勾选项、当前高亮条目。无选中态时返回空串。
+     */
+    fun extractSelectedScreenText(screenInfo: ScreenInfo?): String {
+        if (screenInfo == null) return ""
+        val selected = screenInfo.uiElements
+            .filter { it.isSelected || it.isChecked || (it.text?.contains("已选") == true) }
+            .mapNotNull { el ->
+                val label = el.text?.takeIf { it.isNotBlank() }
+                    ?: el.contentDescription?.takeIf { it.isNotBlank() }
+                    ?: return@mapNotNull null
+                val state = when {
+                    el.isChecked -> "（已勾选）"
+                    el.isSelected -> "（已选中）"
+                    else -> ""
+                }
+                "$label$state"
+            }
+            .distinct()
+        if (selected.isEmpty()) return ""
+        val lines = selected.joinToString("\n") { "  - $it" }
+        Log.d(TAG, "[extractSelectedScreenText] 已选内容: $lines")
+        return "【屏幕已选内容】\n$lines"
     }
 
     // ======================== 屏幕元素格式化辅助 ========================
@@ -743,17 +772,33 @@ class ScreenDescriptor {
                     }
                 }
 
-                // 云端 VLM（visualQuestion 非空时按需回答；为空回退固定结构描述）
-                val vlmResult = if (GuiOwlService.isReady) {
-                    try {
-                        GuiOwlService.describeScreen(croppedBmp, enhancedQuestion)
+                // 云端 VLM 屏幕描述：优先智谱 GLM-5.3-Flash 简短描述（复用 GUI-Plus 无广告判定的轻量通道）；
+                // 未配置或调用失败时回退 GUI-Plus describeScreen（保留广告判定兼容）
+                val vlmResult = if (ScreenVlmDescribeService.isConfigured) {
+                    val short = try {
+                        ScreenVlmDescribeService.describeScreen(croppedBmp)
                     } catch (e: Exception) {
-                        Log.w(TAG, "VLM屏幕描述失败: ${e.message}")
+                        Log.w(TAG, "GLM屏幕描述异常: ${e.message}")
                         null
                     }
-                } else null
+                    if (short?.success == true && short.answer.isNotBlank()) {
+                        GuiOwlService.VlmResult(
+                            success = true,
+                            answer = short.answer,
+                            durationMs = short.durationMs,
+                            adJudgement = null   // GLM 描述不带广告判定，弹窗防御走系统提示词兜底
+                        )
+                    } else if (short?.error != null) {
+                        Log.w(TAG, "GLM屏幕描述失败(${short.error})，回退GUI-Plus")
+                        fallbackDescribeScreen(croppedBmp, enhancedQuestion)
+                    } else {
+                        fallbackDescribeScreen(croppedBmp, enhancedQuestion)
+                    }
+                } else {
+                    fallbackDescribeScreen(croppedBmp, enhancedQuestion)
+                }
 
-                // 方案C：广告弹窗判定处理（close→四层关闭 / auto→等待+OCR确认）
+                // 方案C：广告弹窗判定处理（close→三层关闭 / auto→等待）
                 // 复确认循环：最多 2 次，仍为广告则放弃，返回空描述（下轮自然重新取屏）
                 val adJudgement = vlmResult?.adJudgement
                 if (adJudgement != null && adJudgement.type != "normal") {
@@ -767,9 +812,9 @@ class ScreenDescriptor {
                         }
                         Log.w(TAG, "方案C 复确认仍为广告(第${attempt}次/$MAX_AD_RETRY)，继续重试")
                     }
-                    // auto 耗尽后转 close 兜底（文档：仍 auto 则转 close 四层关闭）
+                    // auto 耗尽后转 close 兜底（文档：仍 auto 则转 close 三层关闭）
                     if (adJudgement.type == "auto") {
-                        Log.w(TAG, "方案C auto 复确认耗尽，转 close 四层关闭兜底")
+                        Log.w(TAG, "方案C auto 复确认耗尽，转 close 三层关闭兜底")
                         handleAdPopup(
                             GuiOwlService.AdJudgement(type = "close", coordinate = null, conf = null)
                         )
@@ -850,19 +895,26 @@ class ScreenDescriptor {
 
     /**
      * 获取状态栏高度（像素），用于裁剪截图顶部避免VLM描述状态栏信息
+     * 业界做法：DisplayCutout.safeInsetTop（API 28+——刘海/挖孔屏动态 insets 权威来源）优先；
+     * 资源兜底（getResourceId——非刘海屏）；降级 0（不再写死 20px——不引入偏移）
      */
     private fun getStatusBarHeight(): Int {
         return try {
             val context = com.palmagent.app.AgentApplication.instance
+            // ① DisplayCutout 安全区顶部（刘海/挖孔屏真实 insets——权威来源）
+            val wm = context.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
+            val cutoutTop = wm?.defaultDisplay?.cutout?.safeInsetTop ?: 0
+            if (cutoutTop > 0) return cutoutTop
+            // ② 资源兜底（非刘海屏——状态栏资源）
             val resourceId = context.resources.getIdentifier("status_bar_height", "dimen", "android")
             if (resourceId > 0) {
                 context.resources.getDimensionPixelSize(resourceId)
             } else {
-                20 // 降级：硬编码最小值
+                0 // 降级：不引入偏移（不再写死 20px）
             }
         } catch (e: Exception) {
-            Log.w(TAG, "获取状态栏高度失败: ${e.message}，使用默认值20px")
-            20
+            Log.w(TAG, "获取状态栏高度失败: ${e.message}")
+            0
         }
     }
 
@@ -878,14 +930,14 @@ class ScreenDescriptor {
             intArrayOf(metrics.widthPixels, metrics.heightPixels)
         } catch (e: Exception) {
             Log.w(TAG, "获取屏幕尺寸失败: ${e.message}")
-            intArrayOf(1080, 2400)
+            intArrayOf(0, 0) // 降级 0——fail-safe（不猜值——调用方防护；避免按错误尺寸换算坐标）
         }
     }
 
     /**
      * 方案C：广告弹窗处理。
-     * close → 四层关闭：模型坐标(conf≥0.6) → 无障碍树 → OCR → BACK
-     * auto → 等待 delay(clamp 1-10s) → OCR 确认点击（防 auto 幻觉）
+     * close → 三层关闭：模型坐标(conf≥0.6) → 无障碍树 → BACK
+     * auto → 等待 delay(clamp 1-10s)
      */
     private suspend fun handleAdPopup(judgement: GuiOwlService.AdJudgement) {
         val service = GUIAccessibilityService.instance ?: return
@@ -902,11 +954,15 @@ class ScreenDescriptor {
                 val coord = judgement.coordinate?.split(",")?.mapNotNull { it.trim().toFloatOrNull() }
                 if (coord != null && coord.size >= 2) {
                     val size = getScreenSizePx()
-                    val px = GuiOwlService.scaleCoordinate(
-                        coord[0].toDouble(), coord[1].toDouble(), size[0], size[1]
-                    )
-                    closed = service.performAccessibilityClick(px.x, px.y)
-                    Log.d(TAG, "方案C close第1层(模型坐标): ${px.x},${px.y} -> $closed")
+                    if (size[0] <= 0 || size[1] <= 0) {
+                        Log.w(TAG, "方案C close第1层跳过：屏幕尺寸获取失败（走第2层无障碍兜底）")
+                    } else {
+                        val px = GuiOwlService.scaleCoordinate(
+                            coord[0].toDouble(), coord[1].toDouble(), size[0], size[1]
+                        )
+                        closed = service.performAccessibilityClick(px.x, px.y)
+                        Log.d(TAG, "方案C close第1层(模型坐标): ${px.x},${px.y} -> $closed")
+                    }
                 }
                 // 第2层：无障碍树（模型坐标异常/点击无效时）
                 if (!closed) {
@@ -928,25 +984,7 @@ class ScreenDescriptor {
                         }
                     }
                 }
-                // 第3层：OCR（树不可用，如淘宝 dataQuality=0%）
-                if (!closed && RapidOcrService.isReady) {
-                    val shot = service.takeScreenshot()
-                    if (shot != null) {
-                        try {
-                            val ocr = RapidOcrService.extractTextWithBboxes(shot)
-                            val target = ocr.firstOrNull { it.text.trim() == "跳过" }
-                                ?: ocr.firstOrNull {
-                                    it.text.trim() == "关闭" && !it.text.contains("关闭通知")
-                                }
-                            if (target != null) {
-                                closed = service.performAccessibilityClick(target.centerX, target.centerY)
-                            }
-                        } finally {
-                            shot.recycleSafely()
-                        }
-                    }
-                }
-                // 第4层：BACK
+                // 第3层：BACK
                 if (!closed) {
                     closed = service.performAccessibilityBack()
                 }
@@ -958,27 +996,24 @@ class ScreenDescriptor {
                 val delaySec = (judgement.delaySeconds ?: 3).coerceIn(1, 10)
                 Log.d(TAG, "方案C auto等待 ${delaySec}s")
                 delay(delaySec * 1000L)
-                // OCR 确认并点击（防 auto 幻觉，审查 #1-2）
-                if (RapidOcrService.isReady) {
-                    val shot = service.takeScreenshot()
-                    if (shot != null) {
-                        try {
-                            val ocr = RapidOcrService.extractTextWithBboxes(shot)
-                            val target = ocr.firstOrNull { it.text.trim() == "跳过" }
-                                ?: ocr.firstOrNull {
-                                    it.text.trim() == "关闭" && !it.text.contains("关闭通知")
-                                }
-                            if (target != null) {
-                                service.performAccessibilityClick(target.centerX, target.centerY)
-                                delay(300)
-                            }
-                        } finally {
-                            shot.recycleSafely()
-                        }
-                    }
-                }
             }
             else -> {}
+        }
+    }
+
+    /**
+     * 回退：GUI-Plus 屏幕描述（含广告判定）；服务未就绪返回 null
+     */
+    private suspend fun fallbackDescribeScreen(
+        croppedBmp: Bitmap,
+        question: String?
+    ): GuiOwlService.VlmResult? {
+        if (!GuiOwlService.isReady) return null
+        return try {
+            GuiOwlService.describeScreen(croppedBmp, question)
+        } catch (e: Exception) {
+            Log.w(TAG, "VLM屏幕描述失败: ${e.message}")
+            null
         }
     }
 

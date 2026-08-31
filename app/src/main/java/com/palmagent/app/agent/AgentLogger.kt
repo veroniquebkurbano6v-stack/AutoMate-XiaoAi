@@ -34,7 +34,6 @@ object AgentLogger {
     enum class LogType {
         SYSTEM,
         ACCESSIBILITY,
-        LOCAL_OCR,
         SCREENSHOT,
         MODEL_INPUT,
         MODEL_OUTPUT,
@@ -51,7 +50,6 @@ object AgentLogger {
         get() = when (this) {
             LogType.SYSTEM -> "[系统]"
             LogType.ACCESSIBILITY -> "[无障碍]"
-            LogType.LOCAL_OCR -> "[OCR]"
             LogType.SCREENSHOT -> "[截图]"
             LogType.MODEL_INPUT -> "[→AI输入]"
             LogType.MODEL_OUTPUT -> "[←AI输出]"
@@ -247,7 +245,7 @@ object AgentLogger {
         // 2. 无障碍信息
         saveScreenInfo(screenInfo, roundDir)
 
-        // 3. 屏幕文本（无障碍树提取，每轮 OCR 已取消）
+        // 3. 屏幕文本（无障碍树提取）
         if (screenText.isNotBlank()) {
             try { File(roundDir, "screen_text.txt").writeText(screenText) } catch (_: Exception) {}
         }
@@ -407,7 +405,6 @@ object AgentLogger {
             val prefix = when (entry.type) {
                 LogType.SYSTEM -> "[系统]"
                 LogType.ACCESSIBILITY -> "[无障碍]"
-                LogType.LOCAL_OCR -> "[OCR]"
                 LogType.SCREENSHOT -> "[截图]"
                 LogType.MODEL_INPUT -> "[→AI输入]"
                 LogType.MODEL_OUTPUT -> "[←AI输出]"

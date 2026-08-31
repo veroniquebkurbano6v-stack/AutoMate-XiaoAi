@@ -27,7 +27,6 @@ data class SettingsUiState(
     val vlmApiUrl: String = "",
     val compactModelName: String = "",
     val compactApiUrl: String = "",
-    val ocrEngineLabel: String = "RapidOCR（本地）",
     val isWechatBound: Boolean = false,
     val wechatBotId: String = "",
     val isTesting: Boolean = false,
@@ -73,10 +72,6 @@ class SettingsViewModel @Inject constructor() : ViewModel() {
 
     fun saveGuiOwlConfig() {
         refreshConfig()
-    }
-
-    fun saveOcrEngine(engineType: String) {
-        KVUtils.setOcrEngineType(engineType)
     }
 
     fun clearWechatBinding() {

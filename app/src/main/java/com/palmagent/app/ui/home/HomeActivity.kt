@@ -29,7 +29,6 @@ import com.palmagent.app.data.local.dao.SessionWithPreview
 import com.palmagent.app.service.AccessibilityServiceHelper
 import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.service.GuiOwlService
-import com.palmagent.app.service.RapidOcrService
 import com.palmagent.app.service.DecisionDialogService
 import com.palmagent.app.service.DecisionDialogService.DialogResult
 import com.palmagent.app.service.VoiceInputManager
@@ -229,6 +228,30 @@ class HomeActivity : ComponentActivity() {
                         val aiMsg = ChatMessage(content = content, isUser = false)
                         chatAdapter.addMessage(aiMsg) { scrollToBottom() }
                         persistMessage(aiMsg)
+                    }
+                }
+            }
+            // 执行模型确认任务真正完成 → 调用决策模型 reportResult 生成任务完成报告（无工具纯总结）
+            override fun onExecutionFinished(executionSummary: String) {
+                // 任务执行期间 App 可能已在后台（执行模型操作其它应用/启动前回桌面），isUiAlive=false，
+                // 但 Activity 仍存活——此时也必须调决策模型生成报告并持久化，否则用户切回看不到总结。
+                // 仅当 Activity 真正销毁时跳过（listener 在 onDestroy 已注销，双保险）
+                if (isFinishing || isDestroyed) return
+                val sessionId = chatViewModel.currentSessionId.value ?: ""
+                runOnUiThread {
+                    // 决策模型报告是异步的——先在 UI 提示"正在生成任务报告"
+                    val pendingMsg = ChatMessage(content = "任务已执行完成，正在生成任务报告…", isUser = false)
+                    chatAdapter.addMessage(pendingMsg) { scrollToBottom() }
+                    lifecycleScope.launch {
+                        val report = try {
+                            dialogService.reportResult(executionSummary, chatHistory.toList(), sessionId)
+                        } catch (e: Exception) {
+                            "任务报告生成失败：${e.message}\n\n【执行摘要】\n$executionSummary"
+                        }
+                        // 报告生成后无论前后台都写入聊天（lifecycleScope 为主线程；后台更新 RecyclerView 无害，用户切回即见）
+                        val reportMsg = ChatMessage(content = report, isUser = false)
+                        chatAdapter.addMessage(reportMsg) { scrollToBottom() }
+                        persistMessage(reportMsg)
                     }
                 }
             }
@@ -820,9 +843,6 @@ class HomeActivity : ComponentActivity() {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                         if (!GuiOwlService.isReady) {
                             GuiOwlService.init()
-                        }
-                        if (!RapidOcrService.isReady) {
-                            RapidOcrService.init(application)
                         }
                     }
                 }

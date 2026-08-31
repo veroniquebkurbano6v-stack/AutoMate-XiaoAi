@@ -41,7 +41,6 @@
 |------|------|---------|
 | ONNX Runtime（Android） | 端侧嵌入模型推理 | MIT |
 | bge-small-zh-v1.5（INT8 量化） | 中文文本向量嵌入 | MIT（BAAI，模型权重按其协议） |
-| RapidOCR | 端侧 OCR 文字识别 | Apache-2.0 |
 | SQLite | 端侧向量持久化 | Public Domain |
 | Room 2.7.2 | 会话/消息持久化 | Apache-2.0 |
 | Hilt | 依赖注入 | Apache-2.0 |

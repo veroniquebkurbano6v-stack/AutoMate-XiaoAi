@@ -37,6 +37,8 @@ class TaskOrchestrator @Inject constructor(
         fun onTaskContent(content: String, isFinal: Boolean) {}
         // 新增：任务开始通知（携带原始指令文本，供 UI 显示"开始执行：xxx"）
         fun onTaskStart(command: String) {}
+        // 新增：执行模型确认任务真正完成——携带执行摘要，由上层（HomeActivity）调决策模型 reportResult 生成完成报告
+        fun onExecutionFinished(executionSummary: String) {}
     }
 
     private val taskLock = Any()
@@ -167,6 +169,18 @@ class TaskOrchestrator @Inject constructor(
                 taskStateListener?.onTaskStateChanged(true)
 
                 GUIAccessibilityService.instance?.markAgentAction()
+                // 复杂模式（决策模型已产出 plan）任务启动前自动回到桌面：
+                // 确保执行模型的首轮截图/视觉描述从干净桌面开始，而非停留在决策对话或上一个应用界面
+                if (plan != null) {
+                    val a11y = GUIAccessibilityService.instance
+                    if (a11y != null) {
+                        val toHome = a11y.performAccessibilityHome()
+                        Log.d(TAG, "任务启动前回到桌面: ${if (toHome) "成功" else "失败"}")
+                        if (!toHome) LiveLogBuffer.append("⚠ 启动前回到桌面失败（继续执行）")
+                    } else {
+                        Log.w(TAG, "任务启动前回到桌面跳过：无障碍服务未就绪")
+                    }
+                }
                 service.initialize(config)
                 service.executeTask(task, callback, plan)
             } catch (e: Exception) {
@@ -271,6 +285,12 @@ class TaskOrchestrator @Inject constructor(
                 if (toolName == "REQUEST_USER_ACTION" && !reportToWeChat) {
                     ttsManager?.speakConfirmation(parameters)
                 }
+            }
+
+            override fun onExecutionFinished(executionSummary: String) {
+                // 执行模型确认任务真正完成 → 转发给上层（HomeActivity 持有决策模型，生成任务完成报告）
+                Log.d(TAG, "执行模型确认任务完成，转发执行摘要给上层生成报告")
+                taskStateListener?.onExecutionFinished(executionSummary)
             }
         }
     }

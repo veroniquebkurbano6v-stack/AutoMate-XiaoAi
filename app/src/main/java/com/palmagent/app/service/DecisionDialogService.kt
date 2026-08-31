@@ -118,7 +118,7 @@ class DecisionDialogService {
 ### 工具调用与决策工作流（信息收集管道）
 每次收到用户请求，严格按以下管道顺序执行，禁止跳步、禁止重复调用同一工具：
 1. **意图分类（先于一切）**：闲聊/愿望（"想喝奶茶""好累"）→禁工具、禁 Plan，输出 {"status":"need_more_info","message":"<自然语言回复，可顺带询问是否需要帮忙>"}；查询类（"附近有什么医院""天气"）→用 amap_*/web_search 获取答案后同样 need_more_info 回答，不执行。操作-明确（"导航到X""发微信给张三"）→进 2-6；操作-模糊（"买杯奶茶"未说外卖/自提/导航）→先 ask_questions 澄清执行方式，禁不澄清直接选一种执行。
-2. **应用环境确认（list_apps，操作必调）**：先调 list_apps 确认已装相关 App，一次传入多个关键词（"点奶茶"→["美团","淘宝闪购"]）。⚠️指定 App 未装红线：用户明确指定了 App（"用淘宝闪购…""打开微信…"）但 list_apps 显示未装——禁止擅用同类型替代、禁止 Plan 声称"已确认替代"，必须调 ask_questions 告知"XX未安装"并给替代项（同类型/网页版/换方式/放弃）；仅泛化表述（"点个外卖"）才可自选。未装就在 Plan 如实描述，绝不瞎编包名。
+2. **应用环境确认（list_apps，操作必调）**：先调 list_apps 确认已装相关 App，一次传入多个关键词（"点奶茶"→["美团","淘宝闪购"]）。⚠️指定 App 未装红线：用户明确指定了 App（"用淘宝闪购…""打开微信…"）但 list_apps 显示未装——禁止擅用同类型替代、禁止 Plan 声称"已确认替代"，必须调 ask_questions 告知"XX未安装"并给替代项（同类型/网页版/换方式/放弃）；仅泛化表述（"点个外卖"）才可自选。未装就在 Plan 如实描述，绝不瞎编包名。**list_apps 返回后：把"任务指定应用 vs 实际已装应用"的对照结论写入工作区（如"任务说微信 → 实际 wechat_flutter"），Plan 的 open_app 工具提示从该对照取真实应用名/包名。**
 3. **知识库校验（kb_read，仅操作）**：按 list_apps 已装候选 App 逐个查，一次一 App，query=意图+App名，app_filter=该 App，候选最多 3 个。⚠️三禁：禁跳过 list_apps 直查；禁不带 app_filter 全量查；禁对同 App 重复调。kb 只是"怎么做"的操作手册非意图证据，意图只能来自用户原话/历史/澄清。
 4. **补充信息（按需）+ 能力类事实必须检索验证**：地理/路线/天气→amap_*（请求含"附近/周边/就近"且为查询或导航附近目标时用 amap_nearby）；实时信息（新闻/股价/价格/动态）→先 web_search 再答防幻觉。⚠️**能力类事实强制验证**：涉及具体医院/机构/商户且需确认其线上服务能力（能否线上挂号、有无公众号/小程序/官网/外送等）时，必须先 web_search(mode=ai) 查"<目标名> 线上挂号 方式 / 是否支持线上"，拿检索证据说话后再回答或出 Plan；禁止把"能力未知"当用户偏好直接抛 ask_questions，禁止凭训练知识断言目标的服务能力。查询类"附近有什么医院"拿到 amap 列表后，若用户意图是挂号就医，同样须对候选医院做能力验证再回答。
 5. **追问（操作必做一次）**：调用前自问"还有什么没问"，硬性未知打包一次（1-4问，每问2-6选项，UI 自动追加"其他"勿生成）。只决定"问什么"不问"问不问"，自查四项：①历史已提供→不重问 ②主观偏好可默认→并默认项 ③可 kb/list/amap 补全→先调工具再问 ④执行方式不唯一→必须问。有硬性未知问具体，无则也调一次 ask_questions 用"确认型问题"复述方案。fetch_result 取回后未提炼进工作区即追问，视为违规。禁止跳过直接 ready，除非用户本轮已说"随便/你定/直接执行"。
@@ -139,7 +139,7 @@ Plan 是传给执行模型的分步骤指引，输出结构化 JSON 对象（非
 
 ### 执行模型快捷工具（tool_hint）
 执行模型内置可"一步完成多操作"的快捷工具，只有写进 Plan 的 tool_hint 才被可靠触发。命中以下场景必须在对应步骤标注：
-- **open_app**：打开目标应用（浏览器/微信/医院App等），写法 "open_app: <应用名>"。⚠️ **跨应用/需先进入目标应用的操作，第一步必须标 open_app**——如"打开浏览器访问官网"必须拆为 步骤1="open_app 打开浏览器"（tool_hint: "open_app: 浏览器"）+ 步骤2="输入官网地址"（tool_hint: "auto_input: <网址或医院名>；搜索/确认按钮"），**禁止把 auto_input 直接作为第一步**（执行模型在非目标界面直接输入会把文本误输入到当前前台 App）。
+- **open_app**：打开目标应用，写法 "open_app: <list_apps 返回的真实应用名或包名>"。⚠️ **应用名红线（必须遵守）**：① 编排 open_app 步骤前必须先调 list_apps 查询设备实际安装应用（规则2）；② tool_hint 的 open_app 参数**必须用 list_apps 返回的真实应用名/包名**（如任务说"打开微信"，list_apps 查得实际为 wechat_flutter → 写 "open_app: wechat_flutter"），**禁止用任务文本里的口语化名字**；③ 若 list_apps 未查到任务指定应用（设备只有演示版）→ 按规则2红线处理：ask_questions 告知"XX未安装，设备有 wechat_flutter（演示版）"，不得擅自替代、不得编造包名；④ **Plan 步骤的 goal 与 tool_hint 中应用名只写真实名**（如 goal 写"打开 wechat_flutter"），**禁止"口语名(真实名)"并列写法**（如"打开微信(wechat_flutter)"——会误导执行模型误用口语名"微信"）。⚠️ **跨应用/需先进入目标应用的操作，第一步必须标 open_app**——如"打开浏览器访问官网"必须拆为 步骤1="open_app 打开浏览器"（tool_hint: "open_app: 浏览器"）+ 步骤2="输入官网地址"（tool_hint: "auto_input: <网址或医院名>；搜索/确认按钮"），**禁止把 auto_input 直接作为第一步**（执行模型在非目标界面直接输入会把文本误输入到当前前台 App）。
 - **auto_input**：一步完成"定位输入框→输入→自动点搜索/确认"。适用"输入关键词/地址后触发搜索确认"的步骤（如 App 内搜索商品/医院/联系人）。写法 "auto_input: <输入文本>；<按钮特征>"。
 - **select_spec**：自动遍历规格表单（份量/辣度/尺寸/颜色/口味/数量等）逐项选取并确认。适用外卖/购物/预约多规格。写法 "select_spec"（规格由执行模型读屏，不列举）。
 ⚠️tool_hint 只标"动作类型+关键参数"，界面元素由执行模型识别；不适用则不填。
@@ -255,6 +255,68 @@ Plan 示例（预约挂号，单步）：
         // 统一走 function calling：模型自主决定是否调用高德工具
         // 透传 userMessage 作为降级兜底的原始用户请求（避免被纠错提示覆盖）
         return@withContext callDecisionWithTools(apiUrl, apiKey, model, messages, userMessage, sessionId)
+    }
+
+    /**
+     * 任务完成报告模式（无工具纯总结）：由决策模型基于【执行结果】+【对话上下文历史】生成任务完成报告。
+     * 与 chat() 的关键差异：
+     *  - 不注入工具定义、不进入 function-calling 循环（includeTools=false，tool_choice 禁调工具）
+     *  - 只输入：① 执行模型的执行结果（工作区结构化的每步 ✓/✗）② 现有对话历史滑窗（用户需求/Plan/追问）
+     *  - 输出：纯文本报告（任务是否完成、各步结果、失败原因、给用户的后续建议）
+     *
+     * 触发条件（由调用方保证）：仅当执行模型 finish 且 progress.status=="completed"（任务真正完成）
+     * 才调用；障碍失败 / request_user_action 中断不进入本报告流程。
+     */
+    suspend fun reportResult(
+        executionResult: String,
+        history: List<ChatMessage>,
+        sessionId: String
+    ): String = withContext(Dispatchers.IO) {
+        LiveLogBuffer.append("🤖 决策模型生成任务完成报告")
+        val apiKey = KVUtils.getPlannerApiKey()
+        if (apiKey.isEmpty()) return@withContext "决策模型 API Key 未配置，无法生成任务报告。"
+        val apiUrl = normalizeApiUrl(KVUtils.getPlannerApiUrl())
+        if (apiUrl.isEmpty()) return@withContext "决策模型 API 地址未配置，无法生成任务报告。"
+        val model = KVUtils.getPlannerModel()
+
+        // 报告模式 system 提示词：纯总结、明确不调用工具、给出报告结构
+        val reportSystem = "你是 AI 助手，根据【执行结果】和【对话上下文】生成任务完成报告。\n" +
+            "报告结构：\n" +
+            "1. 任务是否完成（已完成/部分完成）\n" +
+            "2. 各步骤执行结果（成功步骤、失败步骤及原因）\n" +
+            "3. 给用户的后续建议（如有失败需用户手动处理的事项请明确指出）\n" +
+            "直接输出报告文本即可，不要调用任何工具，不要输出 JSON。"
+
+        val messages = mutableListOf<Map<String, Any>>(
+            mapOf("role" to "system", "content" to reportSystem)
+        )
+        // 对话历史滑窗：只注入最近 HISTORY_WINDOW 条（与 chat 一致——用户需求/Plan/追问上下文）
+        val windowedHistory = if (history.size > HISTORY_WINDOW) history.takeLast(HISTORY_WINDOW) else history
+        for (msg in windowedHistory) {
+            val role = if (msg.isUser) "user" else "assistant"
+            messages.add(mapOf("role" to role, "content" to msg.content))
+        }
+        messages.add(
+            mapOf(
+                "role" to "user",
+                "content" to "【执行结果】\n$executionResult\n\n【对话上下文】已在上方提供。\n请根据以上信息生成任务完成报告。"
+            )
+        )
+
+        // 无工具调用（includeTools=false，禁用 tools 字段——模型只能纯总结，不会误调工具）
+        val result = callApiWithTools(
+            apiUrl, apiKey, model, messages,
+            toolChoiceJson = "\"none\"",
+            maxTokens = 2048,
+            includeTools = false
+        )
+        val report = result?.content?.trim()
+        if (report.isNullOrEmpty()) {
+            Log.w(TAG, "决策模型报告生成失败或为空，回退为执行结果摘要")
+            return@withContext executionResult.take(300)
+        }
+        Log.d(TAG, "任务报告: ${report.take(120)}")
+        report
     }
 
     /**
@@ -913,17 +975,18 @@ Plan 示例（预约挂号，单步）：
         model: String,
         messages: List<Map<String, Any>>,
         toolChoiceJson: String = "\"auto\"",
-        maxTokens: Int = MAX_TOKENS
+        maxTokens: Int = MAX_TOKENS,
+        includeTools: Boolean = true
     ): CallResult? {
         return try {
             // 先尝试启用 JSON 模式（response_format: json_object，由 API 层保证输出合法 JSON，
             // 避免模型输出裸文本/代码块导致解析失败）；若 API 不支持则回退为普通请求重试
-            var requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = true, maxTokens = maxTokens)
+            var requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = true, maxTokens = maxTokens, includeTools = includeTools)
             var (responseCode, body) = executeDecisionRequest(apiUrl, apiKey, requestBody)
             if (responseCode !in 200..299) {
                 val firstError = parseErrorMessage(body, responseCode)
                 Log.w(TAG, "决策对话 JSON 模式请求失败: HTTP $responseCode, $firstError，回退为普通请求重试")
-                requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = false, maxTokens = maxTokens)
+                requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = false, maxTokens = maxTokens, includeTools = includeTools)
                 val retry = executeDecisionRequest(apiUrl, apiKey, requestBody)
                 responseCode = retry.first
                 body = retry.second
@@ -1004,7 +1067,8 @@ Plan 示例（预约挂号，单步）：
         messages: List<Map<String, Any>>,
         toolChoiceJson: String,
         useJsonFormat: Boolean,
-        maxTokens: Int = MAX_TOKENS
+        maxTokens: Int = MAX_TOKENS,
+        includeTools: Boolean = true
     ): String = buildString {
         append("{")
         append("\"model\":\"$model\",")
@@ -1019,8 +1083,11 @@ Plan 示例（预约挂号，单步）：
         }
         // 注入 tools 字段，让模型能主动调 list_apps / kb_read / amap_* / web_search
         // enable_search 已删除 — 联网搜索由 web_search 工具提供（与执行模型统一）
-        append("\"tools\":${buildToolsJson()},")
-        append("\"tool_choice\":$toolChoiceJson")
+        // includeTools=false：报告模式（reportResult）——纯总结不注入工具，避免模型误调工具
+        if (includeTools) {
+            append("\"tools\":${buildToolsJson()},")
+            append("\"tool_choice\":$toolChoiceJson")
+        }
         append("}")
     }
 

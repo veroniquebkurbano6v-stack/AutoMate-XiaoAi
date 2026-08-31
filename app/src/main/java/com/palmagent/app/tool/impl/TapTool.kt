@@ -48,5 +48,5 @@ class TapTool : BaseTool() {
         "Tap at the specified screen coordinates."
 
     override fun getDescriptionCN(): String =
-        "点击屏幕坐标(x, y)。用于：点击按钮/图标/输入框。需精确坐标，无节点时优先用OCR或GUI-Plus定位。"
+        "点击屏幕坐标(x, y)。用于：点击按钮/图标/输入框。需精确坐标，无节点时优先用GUI-Plus定位。"
 }

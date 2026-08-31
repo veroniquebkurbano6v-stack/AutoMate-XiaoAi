@@ -10,7 +10,7 @@ import com.palmagent.app.utils.InstalledAppProvider
 /**
  * 已安装应用列表查询工具
  *
- * 返回设备上已安装的用户应用列表（含应用名+包名），供对话/规划模型查询设备实际安装的 App。
+ * 返回设备上已安装应用的完整列表（含系统应用，应用名+包名），供对话/规划模型查询设备实际安装的 App。
  * - 不传 keywords：返回全量列表（受 max_results 限制）
  * - 传 keywords：按应用名模糊过滤（如 keywords=["地图"] 匹配"高德地图"，keywords=["地图","支付"] 同时匹配多个）
  *
@@ -27,6 +27,8 @@ class ListAppsTool : BaseTool() {
     }
 
     override fun getName(): String = "list_apps"
+    // 对执行模型隐藏：open_app 的应用名由决策模型在 Plan 中注明（决策模型侧用 list_apps 核实过真实名），
+    // 执行模型严格遵循 Plan 中的应用名即可，无需自行查询（避免执行模型口语化取名/忽略 Plan 真实名）
     override fun isExposedToExecutionModel(): Boolean = false
 
     override fun getParameters(): List<ToolParameter> = listOf(
@@ -80,7 +82,7 @@ class ListAppsTool : BaseTool() {
 
         if (allApps.isEmpty()) {
             return ToolResult.error(
-                "设备未安装任何用户应用，或缓存未就绪（AgentApplication 启动预热未完成）",
+                "设备未查询到已安装应用，或缓存未就绪（AgentApplication 启动预热未完成）",
                 errorType = "SERVICE_UNAVAILABLE",
                 failureCategory = "SERVICE_UNAVAILABLE",
                 code = "APP_LIST_EMPTY",
@@ -96,14 +98,14 @@ class ListAppsTool : BaseTool() {
 
         if (filtered.isEmpty()) {
             return ToolResult.success(
-                "【设备已安装应用】共 ${allApps.size} 个用户应用，但未找到匹配关键词的应用。\n" +
+                "【设备已安装应用】共 ${allApps.size} 个已安装应用，但未找到匹配关键词的应用。\n" +
                 "建议：换用更宽泛的关键词，或先调 list_apps() 不传 keywords 查看全量列表。"
             )
         }
 
         val top = filtered.take(maxResults)
         val output = buildString {
-            appendLine("【设备已安装应用】（共 ${allApps.size} 个用户应用，匹配 ${top.size} 个）")
+            appendLine("【设备已安装应用】（共 ${allApps.size} 个已安装应用，匹配 ${top.size} 个）")
             if (keywordsList.isNotEmpty()) appendLine("关键词: ${keywordsList.joinToString(", ")}")
             top.forEach { (name, pkg) -> appendLine("- $name → $pkg") }
         }

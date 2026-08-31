@@ -957,15 +957,15 @@ class GUIAccessibilityService : AccessibilityService() {
 
         delay(400)
 
-        // 三层 fallback：Grounding → OCR → 点击长按位置上方
-        val pasteCoord = findPasteButtonByGrounding() ?: findPasteButtonByOcr()
+        // 双层 fallback：Grounding → 点击长按位置上方
+        val pasteCoord = findPasteButtonByGrounding()
         val pasteOk = if (pasteCoord != null) {
             Log.d(TAG, "定位粘贴按钮: (${pasteCoord.first}, ${pasteCoord.second})")
             dispatchGestureSync(pasteCoord.first, pasteCoord.second, pasteCoord.first, pasteCoord.second, 50)
         } else {
             // 回退：点击长按位置上方100px（粘贴菜单通常在上方弹出）
             val fallbackY = (y - 100).coerceAtLeast(0)
-            Log.d(TAG, "OCR未找到粘贴按钮，回退点击: ($x, $fallbackY)")
+            Log.d(TAG, "未定位到粘贴按钮，回退点击: ($x, $fallbackY)")
             dispatchGestureSync(x, fallbackY, x, fallbackY, 50)
         }
 
@@ -990,32 +990,6 @@ class GUIAccessibilityService : AccessibilityService() {
             )
             if (!groundResult.success || groundResult.coordinate == null) return null
             return Pair(groundResult.coordinate.x, groundResult.coordinate.y)
-        } finally {
-            if (!screenshot.isRecycled) { try { screenshot.recycle() } catch (_: Exception) {} }
-        }
-    }
-
-    /**
-     * 通过OCR定位"粘贴"按钮坐标
-     * 长按后弹出的粘贴菜单在输入框附近，OCR扫描整个屏幕匹配关键词
-     */
-    private suspend fun findPasteButtonByOcr(): Pair<Int, Int>? {
-        if (!RapidOcrService.isReady) return null
-        val screenshot = takeScreenshot() ?: return null
-        try {
-            val ocrResults = RapidOcrService.extractTextWithBboxes(screenshot)
-            val pasteKeywords = listOf("粘贴", "贴上", "Paste", "PASTE", "paste")
-            for (keyword in pasteKeywords) {
-                // 精确匹配（忽略大小写）
-                val exact = ocrResults.find { it.text.equals(keyword, ignoreCase = true) }
-                if (exact != null) return Pair(exact.centerX, exact.centerY)
-            }
-            // 包含匹配（选最短文本）
-            val contains = ocrResults
-                .filter { result -> pasteKeywords.any { kw -> result.text.equals(kw, ignoreCase = true) || result.text.contains(kw, ignoreCase = true) } }
-                .minByOrNull { it.text.length }
-            if (contains != null) return Pair(contains.centerX, contains.centerY)
-            return null
         } finally {
             if (!screenshot.isRecycled) { try { screenshot.recycle() } catch (_: Exception) {} }
         }

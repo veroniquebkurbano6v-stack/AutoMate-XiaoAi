@@ -1,7 +1,9 @@
 package com.palmagent.app.agent
 
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.Log
+import kotlin.math.roundToInt
 import com.palmagent.app.AgentApplication
 import com.palmagent.app.LiveLogBuffer
 import com.palmagent.app.floating.FloatingProgressManager
@@ -105,6 +107,15 @@ class DefaultAgentService @Inject constructor(
         if (size == 0) return 0
         return if (p.currentStep == p.completedSteps.last()) size - 1 else size
     }
+
+    /** 执行模型每步结构化结果摘要（供决策模型 reportResult 生成任务完成报告——业界 plan-and-execute 的执行结果回传） */
+    private fun buildExecutionSummary(): String {
+        if (actionHistory.isEmpty()) return "（无执行步骤记录）"
+        return actionHistory.joinToString("\n") { ar ->
+            val mark = if (ar.success) "✓" else "✗"
+            "步骤${ar.round} $mark ${ar.actionType}: ${ar.description}${if (ar.resultSummary.isNotBlank()) " — ${ar.resultSummary}" else ""}"
+        }
+    }
     /** 决策模型生成的结构化任务计划，注入到每轮决策上下文 */
     private var planContext: Plan? = null
     /** LLM 自管理的任务进度（上一轮输出，注入下一轮上下文） */
@@ -180,7 +191,7 @@ class DefaultAgentService @Inject constructor(
                 .replace(Regex("[\\\\/:*?\"<>|【】，。、；：！？（）…—]"), "_")
                 .trim()
         )
-        AgentLogger.log(AgentLogger.LogType.SYSTEM, "信息获取策略", "无障碍 > OCR+GUI-Plus > GUI-Plus Grounding")
+        AgentLogger.log(AgentLogger.LogType.SYSTEM, "信息获取策略", "无障碍 > VLM屏幕描述+GUI-Plus > GUI-Plus Grounding")
 
         val maxIterations = if (config.maxIterations > 0) config.maxIterations else appConfig.maxIterations
         var round = 0
@@ -236,7 +247,7 @@ class DefaultAgentService @Inject constructor(
                 val screenInfo = capture.screenInfo
                 val screenshotBmp = capture.screenshotBmp
 
-                // 每轮屏幕信息获取完全依赖无障碍树：不再因数据质量低切换 OCR 兜底（每轮 OCR 已取消）
+                // 每轮屏幕信息获取完全依赖无障碍树 + VLM 屏幕描述（GLM）
                 val useAccessibility = capture.accessibilityCheck?.isAvailable == true
                 val effectiveTreeEmpty = !useAccessibility
 
@@ -255,7 +266,7 @@ class DefaultAgentService @Inject constructor(
                 var vlDecisionResult: VisionDecisionResult? = null
 
                 if (KVUtils.isVisionModeEnabled()) {
-                    // VL 模式：跳过 OCR/无障碍树/VLM 描述/上下文组装，直接使用视觉模型决策
+                    // VL 模式：跳过无障碍树/VLM 描述/上下文组装，直接使用视觉模型决策
                     val vlDecision = decideViaVision(userPrompt, screenshotBmp, actionHistory.toList(), round, llmProgress, planContext)
                     vlDecisionResult = vlDecision
 
@@ -438,8 +449,9 @@ class DefaultAgentService @Inject constructor(
                     FloatingProgressManager.updateProgress(round, "${finalAction.type} ${finalAction.description.take(40)}")
                 } else {
                     // ============ 文本模式：保持现有流程 ============
-                    // 完全取消每轮 OCR：无论无障碍树质量如何，都从无障碍树提取屏幕文本
-                    screenTextForLog = screenDescriptor.extractScreenText(screenInfo)
+                    // 取消每轮无障碍元素全量注入（视觉模型描述为主）：
+                    // 仅保留无障碍树中"已选取/勾选"内容（极少量，标注选中态）
+                    screenTextForLog = screenDescriptor.extractSelectedScreenText(screenInfo)
 
                     if (isTaskCancelled) {
                         callback.onComplete(round, "任务已被用户取消", accumTokens)
@@ -681,6 +693,13 @@ class DefaultAgentService @Inject constructor(
                             status = "completed"
                         )
                     }
+                    // 任务真正完成 → 触发决策模型报告（仅排除"障碍失败型"finish——description 含失败语义；
+                    // request_user_action 中断不是 finish，天然不进入本分支）
+                    val description = finalAction.description ?: ""
+                    val obstacleFinish = listOf("失败", "无法", "找不到", "未找到", "请手动", "手动处理").any { description.contains(it) }
+                    if (!obstacleFinish) {
+                        callback.onExecutionFinished(buildExecutionSummary())
+                    }
                     callback.onComplete(round, result.data ?: "", accumTokens)
                     return
                 }
@@ -767,8 +786,31 @@ class DefaultAgentService @Inject constructor(
 
         val screenWidth = metrics?.widthPixels ?: 0
         val screenHeight = metrics?.heightPixels ?: 0
-        return "屏幕尺寸：宽=${screenWidth}px, 高=${screenHeight}px"
+        val targetSdk = try { AgentApplication.instance.applicationInfo.targetSdkVersion } catch (_: Exception) { 0 }
+        return buildString {
+            appendLine("屏幕尺寸：宽=${screenWidth}px, 高=${screenHeight}px")
+            appendLine("设备型号：${Build.MANUFACTURER} ${Build.MODEL}")
+            appendLine("系统版本：Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）")
+            metrics?.let {
+                appendLine("屏幕密度：${it.densityDpi}dpi（${it.density}x，${it.xdpi.roundToInt()}/${it.ydpi.roundToInt()} 物理ppi）")
+            }
+            appendLine("CPU架构：${Build.SUPPORTED_ABIS.joinToString("/")}")
+            appendLine("安装环境：${if (isEmulatorBuild()) "模拟器" else "真机"}")
+            appendLine("App版本：${com.palmagent.app.BuildConfig.VERSION_NAME}（code ${com.palmagent.app.BuildConfig.VERSION_CODE}），targetSdk=$targetSdk")
+            appendLine("系统指纹：${Build.FINGERPRINT}")
+        }
     }
+
+    /** 模拟器/真机识别：基于 Build 系列属性（与 adb getprop ro.kernel.qemu 判定等价，无需提权） */
+    private fun isEmulatorBuild(): Boolean =
+        Build.FINGERPRINT.startsWith("generic") ||
+        Build.FINGERPRINT.contains("emulator") ||
+        Build.MODEL.contains("Emulator") ||
+        Build.MODEL.contains("Android SDK built for") ||
+        Build.HARDWARE.contains("goldfish") ||
+        Build.HARDWARE.contains("ranchu") ||
+        Build.PRODUCT.startsWith("sdk") ||
+        Build.PRODUCT.contains("emulator")
 
     private fun buildResultSummaryForHistory(action: AgentAction, result: ToolResult): String {
         // ASK_USER 结果截断：批量提问可能含多个问答，单问答案上限 200 字符
@@ -797,8 +839,9 @@ class DefaultAgentService @Inject constructor(
             params["x"] = (bounds.left + bounds.right) / 2
             params["y"] = (bounds.top + bounds.bottom) / 2
         } else if (action.coordinate != null) {
-            params["x"] = action.coordinate.x.coerceIn(10, screenW - 10)
-            params["y"] = action.coordinate.y.coerceIn(10, screenH - 10)
+            val edgeSafe = maxOf(screenW / 100, 24) // 安全区钳制（比例1%+下限24px——全面屏手势区避让——业界做法）
+            params["x"] = action.coordinate.x.coerceIn(edgeSafe, screenW - 1 - edgeSafe)
+            params["y"] = action.coordinate.y.coerceIn(edgeSafe, screenH - 1 - edgeSafe)
         }
         action.text?.let { params["text"] = it }
         action.targetId?.let { params["target_id"] = it }
@@ -906,7 +949,7 @@ class DefaultAgentService @Inject constructor(
     /**
      * 构建 VL 模式的 User Prompt
      * 仅包含：用户任务 + 操作历史 + Running Summary + 工作记忆 + 实时进度
-     * 不含 OCR 文本、无障碍树、VLM 屏幕描述
+     * 不含无障碍树、VLM 屏幕描述
      */
     private fun buildVisionUserPrompt(
         userPrompt: String,

@@ -7,7 +7,7 @@ import com.palmagent.app.tool.ToolResult
  *
  * 借鉴 LangGraph default_retry_on 设计哲学：编程 bug 不重试，环境故障才重试
  *
- * - Transient：瞬时错误，重试可能成功（如点击被取消、OCR 偶发失败）
+ * - Transient：瞬时错误，重试可能成功（如点击被取消、网络偶发失败）
  * - Fatal：致命错误，重试无意义（如服务未就绪、应用未安装）
  * - Validation：校验错误，需修正而非重试（如参数缺失、坐标越界、目标不存在）
  */

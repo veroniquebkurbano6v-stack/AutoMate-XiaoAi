@@ -8,15 +8,13 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * 界面变化检测服务 — 三层回退机制
+ * 界面变化检测服务 — 双层检测机制
  *
  * 检测优先级：
  * 1. 无障碍服务（最精确）→ 元素级变化检测
- * 2. OCR文本对比（中等精度）→ 文本级变化检测
- * 3. 图像感知哈希 + SSIM 双校验（兜底）→ 像素级变化检测
+ * 2. 图像感知哈希 + SSIM 双校验（兜底）→ 像素级变化检测
  *
  * 优化项（基于屏幕变化检测调研报告）：
- * - OCR文本归一化（大小写/空格/全半角统一）
  * - pHash + SSIM 双校验，规避白屏/黑屏陷阱
  * - 白屏/黑屏检测（颜色直方图主色占比）
  * - confidence 置信度输出
@@ -35,15 +33,11 @@ object ScreenChangeDetector {
     private const val IMAGE_HASH_THRESHOLD = 0.05
     /** SSIM 相似度阈值（低于此值认为界面变化） */
     private const val SSIM_THRESHOLD = 0.95
-    /** OCR文本相似度阈值（低于此值认为有变化）
-     *  0.85=只要有15%文本变化就判定为界面变化 */
-    private const val OCR_SIMILARITY_THRESHOLD = 0.85
     /** 白屏/黑屏主色占比阈值（超过90%单一灰度视为白屏/黑屏） */
     private const val SOLID_COLOR_RATIO_THRESHOLD = 0.9f
 
     /** 各数据源置信度 */
     private const val CONFIDENCE_ACCESSIBILITY = 0.95f
-    private const val CONFIDENCE_OCR = 0.8f
     private const val CONFIDENCE_IMAGE_HASH = 0.6f
     private const val CONFIDENCE_NO_SOURCE = 0.3f
 
@@ -60,26 +54,24 @@ object ScreenChangeDetector {
     fun savePreActionSnapshot(
         taskId: String,
         screenInfo: ScreenInfo?,
-        screenshotBmp: Bitmap?,
-        ocrTexts: List<String> = emptyList()
+        screenshotBmp: Bitmap?
     ) {
-        val snapshot = createSnapshot(screenInfo, screenshotBmp, ocrTexts)
+        val snapshot = createSnapshot(screenInfo, screenshotBmp)
         preActionSnapshots[taskId] = snapshot
-        Log.d(TAG, "保存操作前快照: $taskId, acc=${snapshot.hasAccessibility}, ocr=${snapshot.hasOcr}, img=${snapshot.hasImage}")
+        Log.d(TAG, "保存操作前快照: $taskId, acc=${snapshot.hasAccessibility}, img=${snapshot.hasImage}")
     }
 
     /**
-     * 检测操作后的界面变化（三层回退）
+     * 检测操作后的界面变化（双层回退）
      */
     fun detectChange(
         taskId: String,
         screenInfo: ScreenInfo?,
-        screenshotBmp: Bitmap?,
-        ocrTexts: List<String> = emptyList()
+        screenshotBmp: Bitmap?
     ): ScreenChange? {
         val startTime = System.currentTimeMillis()
         val preSnapshot = preActionSnapshots.remove(taskId) ?: return null
-        val postSnapshot = createSnapshot(screenInfo, screenshotBmp, ocrTexts)
+        val postSnapshot = createSnapshot(screenInfo, screenshotBmp)
 
         val result = detectWithFallback(preSnapshot, postSnapshot)
         val latencyMs = System.currentTimeMillis() - startTime
@@ -95,7 +87,7 @@ object ScreenChangeDetector {
     }
 
     // ============================================================
-    //  三层回退检测核心
+    //  双层回退检测核心
     // ============================================================
 
     private fun detectWithFallback(before: ScreenSnapshot, after: ScreenSnapshot): ScreenChange {
@@ -110,16 +102,7 @@ object ScreenChangeDetector {
             // （无障碍树可能没更新，比如动画/过渡页面）
         }
 
-        // 第2层：OCR文本对比（中等精度，含文本归一化）
-        if (before.hasOcr && after.hasOcr) {
-            val change = compareByOcr(before, after)
-            if (change.changeType != ScreenChangeType.NO_CHANGE) {
-                Log.d(TAG, "[OCR] 检测到变化: ${change.description}")
-                return change
-            }
-        }
-
-        // 第3层：图像哈希 + SSIM 双校验（兜底）
+        // 第2层：图像哈希 + SSIM 双校验（兜底）
         if (before.hasImage && after.hasImage) {
             val change = compareByImageHash(before, after)
             if (change.changeType != ScreenChangeType.NO_CHANGE) {
@@ -131,7 +114,6 @@ object ScreenChangeDetector {
         // 所有层都认为无变化
         val confidence = when {
             before.hasAccessibility && after.hasAccessibility -> CONFIDENCE_ACCESSIBILITY
-            before.hasOcr && after.hasOcr -> CONFIDENCE_OCR
             before.hasImage && after.hasImage -> CONFIDENCE_IMAGE_HASH
             else -> CONFIDENCE_NO_SOURCE
         }
@@ -309,78 +291,7 @@ object ScreenChangeDetector {
     }
 
     // ============================================================
-    //  第2层：OCR文本对比（含文本归一化）
-    // ============================================================
-
-    private fun compareByOcr(before: ScreenSnapshot, after: ScreenSnapshot): ScreenChange {
-        // 归一化后再比较：大小写、空格、全半角统一
-        val bTexts = before.ocrTexts.map { normalizeText(it) }.toSet()
-        val aTexts = after.ocrTexts.map { normalizeText(it) }.toSet()
-
-        val added = aTexts - bTexts
-        val removed = bTexts - aTexts
-        val common = bTexts.intersect(aTexts)
-
-        // 计算文本相似度
-        val similarity = if (bTexts.isEmpty() && aTexts.isEmpty()) 1.0
-                         else if (bTexts.isEmpty() || aTexts.isEmpty()) 0.0
-                         else common.size.toDouble() / maxOf(bTexts.size, aTexts.size)
-
-        if (similarity >= OCR_SIMILARITY_THRESHOLD && added.isEmpty() && removed.isEmpty()) {
-            return ScreenChange(
-                changeType = ScreenChangeType.NO_CHANGE,
-                description = "OCR文本无变化",
-                detectionSource = DetectionSource.OCR,
-                confidence = CONFIDENCE_OCR
-            )
-        }
-
-        val changeType = when {
-            added.isNotEmpty() && removed.isNotEmpty() -> ScreenChangeType.TEXT_CHANGED
-            added.isNotEmpty() -> ScreenChangeType.ELEMENT_ADDED
-            removed.isNotEmpty() -> ScreenChangeType.ELEMENT_REMOVED
-            similarity < OCR_SIMILARITY_THRESHOLD -> ScreenChangeType.COMPLEX_CHANGE
-            else -> ScreenChangeType.NO_CHANGE
-        }
-
-        val description = when (changeType) {
-            ScreenChangeType.ELEMENT_ADDED -> "OCR检测到新增文本: ${added.take(5).joinToString(", ")}"
-            ScreenChangeType.ELEMENT_REMOVED -> "OCR检测到移除文本: ${removed.take(5).joinToString(", ")}"
-            ScreenChangeType.TEXT_CHANGED -> "OCR检测到文本变化: +${added.take(3).joinToString(",")} -${removed.take(3).joinToString(",")}"
-            ScreenChangeType.COMPLEX_CHANGE -> "OCR检测到界面大幅变化（相似度${(similarity * 100).toInt()}%）"
-            else -> "OCR文本无变化"
-        }
-
-        return ScreenChange(
-            changeType = changeType,
-            description = description,
-            detectionSource = DetectionSource.OCR,
-            confidence = CONFIDENCE_OCR
-        )
-    }
-
-    /**
-     * OCR文本归一化
-     * 统一大小写、去空格、全角→半角，减少相同画面的误判
-     */
-    private fun normalizeText(text: String): String {
-        return text
-            .lowercase()
-            .replace("\\s+".toRegex(), "")       // 去所有空白
-            .replace("！", "!")                   // 全角→半角标点
-            .replace("，", ",")
-            .replace("。", ".")
-            .replace("：", ":")
-            .replace("；", ";")
-            .replace("（", "(")
-            .replace("）", ")")
-            .replace("？", "?")
-            .replace("＝", "=")
-            .trim()
-    }
-
-    // ============================================================
-    //  第3层：图像感知哈希 + SSIM 双校验
+    //  第2层：图像感知哈希 + SSIM 双校验
     // ============================================================
 
     private fun compareByImageHash(before: ScreenSnapshot, after: ScreenSnapshot): ScreenChange {
@@ -448,11 +359,9 @@ object ScreenChangeDetector {
 
     private fun createSnapshot(
         screenInfo: ScreenInfo?,
-        screenshotBmp: Bitmap?,
-        ocrTexts: List<String>
+        screenshotBmp: Bitmap?
     ): ScreenSnapshot {
         val hasAccessibility = screenInfo != null && (screenInfo.uiElements?.isNotEmpty() == true)
-        val hasOcr = ocrTexts.isNotEmpty()
         val hasImage = screenshotBmp != null && !screenshotBmp.isRecycled
 
         // 无障碍数据
@@ -493,9 +402,7 @@ object ScreenChangeDetector {
             keyElements = keyElements,
             screenHash = screenHash,
             imageHash = imageHash,
-            ocrTexts = ocrTexts,
             hasAccessibility = hasAccessibility,
-            hasOcr = hasOcr,
             hasImage = hasImage,
             solidColorRatio = solidColorRatio
         )
@@ -586,7 +493,6 @@ object ScreenChangeDetector {
     private fun buildNoChangeDescription(before: ScreenSnapshot, after: ScreenSnapshot): String {
         val sources = mutableListOf<String>()
         if (before.hasAccessibility && after.hasAccessibility) sources.add("无障碍")
-        if (before.hasOcr && after.hasOcr) sources.add("OCR")
         if (before.hasImage && after.hasImage) sources.add("图像")
         return if (sources.isEmpty()) "界面无变化（无可用数据源）" else "界面无明显变化（${sources.joinToString("+")}验证）"
     }
@@ -594,7 +500,6 @@ object ScreenChangeDetector {
     private fun determineBestSource(before: ScreenSnapshot, after: ScreenSnapshot): DetectionSource {
         return when {
             before.hasAccessibility && after.hasAccessibility -> DetectionSource.ACCESSIBILITY
-            before.hasOcr && after.hasOcr -> DetectionSource.OCR
             before.hasImage && after.hasImage -> DetectionSource.IMAGE_HASH
             else -> DetectionSource.IMAGE_HASH
         }

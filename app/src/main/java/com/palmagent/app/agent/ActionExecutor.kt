@@ -8,7 +8,6 @@ import com.palmagent.app.model.QuestionAnswer
 import com.palmagent.app.model.ScreenInfo
 import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.service.GuiOwlService
-import com.palmagent.app.service.RapidOcrService
 import com.palmagent.app.service.ScreenChangeDetector
 import com.palmagent.app.model.ScreenChangeType
 import com.palmagent.app.tool.BaseTool
@@ -85,7 +84,7 @@ class ActionExecutor @Inject constructor(
                 Log.w(TAG, "shell screencap 回退成功")
                 LiveLogBuffer.append("📸 shell 截屏回退成功")
             } else {
-                Log.w(TAG, "⚠️ 截屏失败，本轮将无视觉信息（OCR/VLM/GUI-Plus 不可用）")
+                Log.w(TAG, "⚠️ 截屏失败，本轮将无视觉信息（VLM/GUI-Plus 不可用）")
                 LiveLogBuffer.append("⚠️ 截屏失败，本轮无视觉信息")
             }
         }
@@ -141,7 +140,7 @@ class ActionExecutor @Inject constructor(
 
     /**
      * 执行动作（含变化检测）
-     * v2 优化：pre/post 变化检测只用无障碍树（不调用 OCR），省 2-4s/轮
+     * v2 优化：pre/post 变化检测只用无障碍树，省 2-4s/轮
      */
     suspend fun executeWithChangeDetection(
         action: AgentAction,
@@ -170,9 +169,8 @@ class ActionExecutor @Inject constructor(
             } else {
                 screenDescriptor.checkAccessibilityAvailability(screenInfo).isAvailable
             }
-            // v2：去掉 pre-action OCR（无障碍可用就直接用；不可用也不补 OCR，留给 ScreenChangeDetector 走图像哈希）
-            val preOcrTexts = emptyList<String>()
-            ScreenChangeDetector.savePreActionSnapshot(taskId, screenInfo, screenshotBmp, preOcrTexts)
+            // v2：pre-action 不做额外文字提取（无障碍可用直接用；不可用时留给 ScreenChangeDetector 走图像哈希）
+            ScreenChangeDetector.savePreActionSnapshot(taskId, screenInfo, screenshotBmp)
 
             executeFinalAction(action, screenshotBmp, round)
         } finally {
@@ -188,10 +186,9 @@ class ActionExecutor @Inject constructor(
             val postScreenInfo = postCapture.screenInfo
             val postScreenshot = postCapture.screenshotBmp
 
-            // v2：去掉 post-action OCR（同上）
-            val postOcrTexts = emptyList<String>()
+            // v2：post-action 不做额外文字提取（同上）
             val screenChange = ScreenChangeDetector.detectChange(
-                postTaskId, postScreenInfo, postScreenshot, postOcrTexts
+                postTaskId, postScreenInfo, postScreenshot
             )
             if (screenChange != null) {
                 Log.d(TAG, "[界面变化] ${screenChange.description}")
@@ -205,7 +202,7 @@ class ActionExecutor @Inject constructor(
             postScreenshot.recycleSafely()
         } catch (e: Exception) {
             Log.w(TAG, "操作后变化检测失败: ${e.message}")
-            ScreenChangeDetector.detectChange(postTaskId, screenInfo, screenshotBmp, emptyList())
+            ScreenChangeDetector.detectChange(postTaskId, screenInfo, screenshotBmp)
         }
 
         return result
@@ -449,8 +446,9 @@ class ActionExecutor @Inject constructor(
             params["x"] = (bounds.left + bounds.right) / 2
             params["y"] = (bounds.top + bounds.bottom) / 2
         } else if (action.coordinate != null) {
-            params["x"] = action.coordinate.x.coerceIn(10, screenW - 10)
-            params["y"] = action.coordinate.y.coerceIn(10, screenH - 10)
+            val edgeSafe = maxOf(screenW / 100, 24) // 安全区钳制（比例1%+下限24px——全面屏手势区避让——业界做法）
+            params["x"] = action.coordinate.x.coerceIn(edgeSafe, screenW - 1 - edgeSafe)
+            params["y"] = action.coordinate.y.coerceIn(edgeSafe, screenH - 1 - edgeSafe)
         }
         action.text?.let { params["text"] = it }
         action.targetId?.let { params["target_id"] = it }

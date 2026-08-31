@@ -10,7 +10,6 @@ import com.palmagent.app.LiveLogBuffer
 import com.palmagent.app.service.GUIAccessibilityService
 import com.palmagent.app.service.KeyboardVisionDetector
 import com.palmagent.app.service.GuiOwlService
-import com.palmagent.app.service.RapidOcrService
 import com.palmagent.app.tool.BaseTool
 import com.palmagent.app.tool.ToolParameter
 import com.palmagent.app.tool.ToolResult
@@ -22,7 +21,7 @@ import kotlinx.coroutines.delay
  *
  * 双模式执行：无障碍快捷流程（~1s） / 视觉降级流程（13-25s）
  *
- * ┌─ 无障碍可用 → 快捷流程 ─────────────────────────────────┐
+ * ── 无障碍可用 → 快捷流程 ─────────────────────────────────┐
  * │ A步: 定位目标元素（isTextInputBox≠null 时）                      │
  * │     findNodesByText → findNodesByDesc → GUI-Plus兜底        │
  * │ B步: 查找输入框节点                                        │
@@ -31,7 +30,7 @@ import kotlinx.coroutines.delay
  * │     ACTION_SET_TEXT → 剪贴板+ACTION_PASTE（降级）          │
  * │ D步: 自动点击按钮（默认执行）                              │
  * │     优先级：搜索/Search → 发送/Send                       │
- * │     无障碍（严格匹配+Y-proximity） → Grounding → OCR       │
+ * │     无障碍（严格匹配+Y-proximity） → Grounding             │
  * └──────────────────────────────────────────────────────────┘
  *
  * ┌─ 无障碍不可用 → 视觉流程（6步） ────────────────────────┐
@@ -40,10 +39,10 @@ import kotlinx.coroutines.delay
  * │ 2. 键盘检测（视觉验证）                                  │
  * │ 3. GUI-Plus定位输入框（3步回退）→ 点击 → 键盘验证          │
  * │ 4. 长按输入框                                            │
- * │ 5. Grounding/OCR定位粘贴按钮并点击                       │
+ * │ 5. GUI定位粘贴按钮并点击 → 无障碍 ACTION_PASTE（降级）       │
  * │ 6. 自动点击按钮（默认执行）                              │
  * │    优先级：搜索/Search → 发送/Send                       │
- * │    无障碍（严格匹配+Y-proximity） → Grounding → OCR       │
+ * │    无障碍（严格匹配+Y-proximity） → Grounding             │
  * └──────────────────────────────────────────────────────────┘
  *
  * D步/第6步的按钮匹配规则：
@@ -57,17 +56,15 @@ class AutoInputTool : BaseTool() {
         private const val TAG = "AutoInput"
         private const val LONG_PRESS_DURATION = 600L
         private const val WAIT_AFTER_CLICK_INPUT = 1000L
-        private const val WAIT_AFTER_LONG_PRESS = 1800L   // 长按后等粘贴菜单动画渲染完成再截屏 OCR
+        private const val WAIT_AFTER_LONG_PRESS = 1800L   // 长按后等粘贴菜单动画渲染完成再截屏
         private const val MAX_KEYBOARD_RETRY = 3
 
         private const val LOWER_THIRD_THRESHOLD = 2f / 3f
 
-        /** 第5步粘贴按钮 OCR 定位的最大尝试次数（含首次；未命中时回退点击输入框重新触发菜单） */
+        /** 第5步粘贴按钮 GUI 定位的最大尝试次数（含首次；未命中时回退点击输入框重新触发菜单） */
         private const val MAX_PASTE_RETRY = 3
         /** 第5步回退点击输入框后，等待上下文菜单弹出的间隔 */
         private const val MENU_POPUP_DELAY = 800L
-
-        private val PASTE_KEYWORDS = listOf("粘贴", "贴上", "Paste", "PASTE", "paste")
 
         /**
          * 输入完成后默认尝试点击的按钮关键词（顺序敏感）：
@@ -127,7 +124,7 @@ class AutoInputTool : BaseTool() {
     // ======================== 无障碍快捷流程 ========================
 
     /**
-     * 无障碍快捷流程：ACTION_SET_TEXT 直接输入，无需截图/OCR/GUI-Plus
+     * 无障碍快捷流程：ACTION_SET_TEXT 直接输入，无需截图/GUI-Plus
      */
     private suspend fun executeWithAccessibility(
         service: GUIAccessibilityService,
@@ -261,7 +258,7 @@ class AutoInputTool : BaseTool() {
     // ======================== 视觉降级流程 ========================
 
     /**
-     * 视觉流程：6步，截图+GUI-Plus+OCR，无障碍不可用时的降级方案
+     * 视觉流程：6步，截图+GUI-Plus，无障碍不可用时的降级方案
      */
     private suspend fun executeWithVision(
         text: String,
@@ -300,10 +297,10 @@ class AutoInputTool : BaseTool() {
             if (result.isFailure) return ToolResult.error(result.exceptionOrNull()?.message ?: "第4步失败")
         }
 
-        // ====== 第5步：OCR全屏定位粘贴按钮（未命中时回退点击输入框重试）→ 无障碍ACTION_PASTE降级 ======
-        step5PasteWithOcrAndRetry(state).let { result ->
+        // ====== 第5步：GUI定位粘贴按钮（未命中时回退点击输入框重试）→ 无障碍ACTION_PASTE降级 ======
+        step5PasteWithRetry(state).let { result ->
             if (result.isFailure) {
-                // OCR多次未找到粘贴按钮时，尝试通过无障碍服务 ACTION_PASTE 降级
+                // GUI多次未找到粘贴按钮时，尝试通过无障碍服务 ACTION_PASTE 降级
                 val a11yFallback = step5A11yPasteFallback(text)
                 if (a11yFallback.isFailure) {
                     return ToolResult.error(result.exceptionOrNull()?.message ?: "第5步失败")
@@ -649,48 +646,48 @@ class AutoInputTool : BaseTool() {
     }
 
     /**
-     * 第5步（新版）：OCR 全屏定位粘贴按钮并点击；未命中时回退点击输入框重新触发菜单
+     * 第5步：GUI 定位粘贴按钮并点击；未命中时回退点击输入框重新触发菜单
      *
-     * 粘贴按钮定位从 GUI 模型 Grounding 改为全屏 OCR 筛选"粘贴"文本（PASTE_KEYWORDS）。
-     * OCR 未识别到粘贴按钮（通常是上下文菜单未弹出/长按未生效）时，回退点击输入框
-     * （坐标由第4步长按时保存）触发菜单重现，再重新 OCR；最多 MAX_PASTE_RETRY 次；
+     * 粘贴按钮定位：GUI Grounding 优先（多语言提示词 粘贴/Paste/貼上，适配不同语言 App 长按菜单）。
+     * GUI 未识别到（通常是上下文菜单未弹出/长按未生效）时，回退点击输入框
+     * （坐标由第4步长按时保存）触发菜单重现，再重新定位；最多 MAX_PASTE_RETRY 次；
      * 仍失败返回失败，由调用点降级到无障碍 ACTION_PASTE。
      */
-    private suspend fun step5PasteWithOcrAndRetry(state: InputState): Result<Unit> {
+    private suspend fun step5PasteWithRetry(state: InputState): Result<Unit> {
         for (attempt in 1..MAX_PASTE_RETRY) {
-            val ocrResult = step5OcrPaste()
-            if (ocrResult.isSuccess) {
-                Log.d(TAG, "第5步完成: OCR定位粘贴按钮成功（尝试$attempt/$MAX_PASTE_RETRY）")
+            // GUI 定位（多语言提示词：粘贴/Paste/貼上）
+            val groundResult = step5GroundingPaste()
+            if (groundResult.isSuccess) {
+                Log.d(TAG, "第5步完成: GUI定位粘贴按钮成功（尝试$attempt/$MAX_PASTE_RETRY）")
                 return Result.success(Unit)
             }
 
             if (attempt >= MAX_PASTE_RETRY) {
-                Log.w(TAG, "第5步失败: OCR ${MAX_PASTE_RETRY}次未找到粘贴按钮")
-                return Result.failure(IllegalStateException("第5步失败: OCR ${MAX_PASTE_RETRY}次未找到粘贴按钮"))
+                Log.w(TAG, "第5步失败: GUI ${MAX_PASTE_RETRY}次未找到粘贴按钮")
+                return Result.failure(IllegalStateException("第5步失败: GUI ${MAX_PASTE_RETRY}次未找到粘贴按钮"))
             }
 
             // 回退：重新长按输入框，触发上下文菜单重新弹出（输入框坐标由第4步保存）
-            // 注意：回退必须重新长按（点击无法弹出粘贴菜单；键盘已确认弹出），等菜单动画后再 OCR
+            // 注意：回退必须重新长按（点击无法弹出粘贴菜单；键盘已确认弹出），等菜单动画后再定位
             if (state.inputX == 0 && state.inputY == 0) {
                 return Result.failure(IllegalStateException("第5步失败: 输入框坐标未知，无法回退长按"))
             }
-            Log.w(TAG, "第5步: OCR未找到粘贴（第${attempt}次），回退重新长按输入框(${state.inputX},${state.inputY})重新触发菜单")
-            LiveLogBuffer.append("  ⚠️ 步骤5: OCR未找到粘贴，回退重新长按输入框(第${attempt}次)")
+            Log.w(TAG, "第5步: GUI未找到粘贴（第${attempt}次），回退重新长按输入框(${state.inputX},${state.inputY})重新触发菜单")
+            LiveLogBuffer.append("  ⚠️ 步骤5: GUI未找到粘贴，回退重新长按输入框(第${attempt}次)")
             if (!performLongPress(state.inputX, state.inputY, LONG_PRESS_DURATION)) {
                 return Result.failure(IllegalStateException("第5步失败: 回退长按输入框失败"))
             }
             delay(MENU_POPUP_DELAY)
         }
-        return Result.failure(IllegalStateException("第5步失败: OCR未找到粘贴按钮"))
+        return Result.failure(IllegalStateException("第5步失败: GUI未找到粘贴按钮"))
     }
 
     /**
-     * 第5步：Grounding优先定位粘贴按钮，失败时OCR兜底
+     * 第5步：GUI-Plus 定位粘贴按钮
      */
     private suspend fun step5GroundingPaste(): Result<Unit> {
         if (!GuiOwlService.isReady) {
-            Log.w(TAG, "第5步: GUI-Plus不可用，降级到OCR")
-            return step5OcrPaste()
+            return Result.failure(IllegalStateException("第5步失败: GUI-Plus不可用，无法定位粘贴按钮"))
         }
 
         val pasteScreenshot: Bitmap? = takeScreenshot()
@@ -698,14 +695,15 @@ class AutoInputTool : BaseTool() {
 
         try {
             val screenSize = getScreenSize()
+            // 多语言提示词：适配中文（粘贴）/繁体（貼上）/英文（Paste）等不同语言 App 弹出的上下文菜单
             val groundResult = GuiOwlService.ground(
-                "粘贴按钮，位于长按输入框后弹出的上下文菜单中",
+                "长按输入框后弹出的上下文菜单中的\"粘贴\"按钮（该按钮文字可能是：粘贴 / 貼上 / Paste，只要功能是把剪贴板内容粘贴进输入框的就是它），点击它完成粘贴",
                 pasteScreenshot, screenSize[0], screenSize[1]
             )
 
             if (!groundResult.success || groundResult.coordinate == null) {
-                Log.w(TAG, "第5步Grounding失败: ${groundResult.error}，降级到OCR")
-                return step5OcrPaste()
+                Log.w(TAG, "第5步Grounding失败: ${groundResult.error}")
+                return Result.failure(IllegalStateException("第5步失败: GUI-Plus未找到粘贴按钮"))
             }
 
             val (x, y) = groundResult.coordinate
@@ -723,46 +721,7 @@ class AutoInputTool : BaseTool() {
     }
 
     /**
-     * 第5步：OCR全屏定位粘贴按钮并点击
-     */
-    private suspend fun step5OcrPaste(): Result<Unit> {
-        if (!RapidOcrService.isReady) {
-            return Result.failure(IllegalStateException("第5步失败: OCR服务未就绪，无法定位粘贴按钮"))
-        }
-
-        val pasteScreenshot: Bitmap? = takeScreenshot()
-        if (pasteScreenshot == null) return Result.failure(IllegalStateException("第5步失败: 无法获取屏幕截图"))
-
-        try {
-            val ocrResults = RapidOcrService.extractTextWithBboxes(pasteScreenshot)
-            if (ocrResults.isEmpty()) {
-                return Result.failure(IllegalStateException("第5步失败: OCR未识别到任何文字"))
-            }
-
-            val pasteMatch = findBestMatch(ocrResults, PASTE_KEYWORDS)
-            if (pasteMatch == null) {
-                val texts = ocrResults.map { it.text }.take(15)
-                return Result.failure(IllegalStateException("第5步失败: OCR未找到粘贴按钮，识别到: ${texts.joinToString(", ")}"))
-            }
-
-            val pasteX = pasteMatch.centerX
-            val pasteY = pasteMatch.centerY
-            Log.d(TAG, "第5步完成: OCR定位粘贴按钮 '${pasteMatch.text}' ($pasteX, $pasteY)")
-            LiveLogBuffer.append("  ✅ 步骤5: OCR定位粘贴 '${pasteMatch.text}' ($pasteX, $pasteY)")
-
-            val clicked = performClick(pasteX, pasteY)
-            if (!clicked) {
-                return Result.failure(IllegalStateException("第5步失败: 点击粘贴按钮失败"))
-            }
-        } finally {
-            pasteScreenshot.recycleSafely()
-        }
-
-        return Result.success(Unit)
-    }
-
-    /**
-     * 第5步降级：OCR粘贴失败时，通过无障碍服务 ACTION_PASTE 粘贴
+     * 第5步降级：GUI 粘贴失败时，通过无障碍服务 ACTION_PASTE 粘贴
      */
     private fun step5A11yPasteFallback(text: String): Result<Unit> {
         val service = GUIAccessibilityService.instance
@@ -817,8 +776,7 @@ class AutoInputTool : BaseTool() {
      * 关键词优先级：BUTTON_KEYWORDS = [搜索, Search, 发送, Send]
      * 每个关键词的查找顺序：
      *   1. 无障碍服务（严格 equals 匹配 + Y-proximity 选最合适）
-     *   2. Grounding 降级（视觉定位搜索/发送按钮）
-     *   3. OCR 降级（严格 equals 匹配 + Y-proximity 选最合适）
+     *   2. Grounding 视觉定位（搜索/发送按钮）
      *
      * 多匹配选择规则：
      * - inputY > 0 → 选 centerY 距离 inputY 最近的（Y-proximity）
@@ -846,7 +804,7 @@ class AutoInputTool : BaseTool() {
                 }
             }
 
-            // 2. Grounding 降级
+            // 2. Grounding 视觉定位
             val groundCoord = findClickableButtonByGrounding(keyword)
             if (groundCoord != null) {
                 val (x, y) = groundCoord
@@ -855,19 +813,6 @@ class AutoInputTool : BaseTool() {
                     val proximityInfo = if (inputY > 0) " [Y-proximity, inputY=$inputY]" else " [最下方]"
                     Log.d(TAG, "D步: Grounding点击'$keyword' ($x, $y)$proximityInfo")
                     LiveLogBuffer.append("  ✅ D步: Grounding点击'$keyword' ($x, $y)$proximityInfo")
-                    return Result.success(Unit)
-                }
-            }
-
-            // 3. OCR 降级
-            val ocrCoord = findClickableButtonByOcr(keyword, inputY)
-            if (ocrCoord != null) {
-                val (x, y) = ocrCoord
-                val clicked = performClick(x, y)
-                if (clicked) {
-                    val proximityInfo = if (inputY > 0) " [Y-proximity, inputY=$inputY]" else " [最下方]"
-                    Log.d(TAG, "D步: OCR点击'$keyword' ($x, $y)$proximityInfo")
-                    LiveLogBuffer.append("  ✅ D步: OCR点击'$keyword' ($x, $y)$proximityInfo")
                     return Result.success(Unit)
                 }
             }
@@ -942,7 +887,7 @@ class AutoInputTool : BaseTool() {
     }
 
     /**
-     * Grounding 方式查找按钮，失败时返回 null 由调用方降级 OCR
+     * Grounding 方式查找按钮，失败时返回 null
      * 返回 (centerX, centerY) 或 null
      */
     private suspend fun findClickableButtonByGrounding(
@@ -972,57 +917,7 @@ class AutoInputTool : BaseTool() {
         }
     }
 
-    /**
-     * OCR 方式查找按钮（严格 equals 匹配 + Y-proximity 选最合适）
-     * 返回 (centerX, centerY) 或 null
-     */
-    private suspend fun findClickableButtonByOcr(
-        buttonText: String,
-        inputY: Int
-    ): Pair<Int, Int>? {
-        if (!RapidOcrService.isReady) return null
-
-        val screenshot: Bitmap? = takeScreenshot()
-        if (screenshot == null) return null
-
-        try {
-            val ocrResults = RapidOcrService.extractTextWithBboxes(screenshot)
-            if (ocrResults.isEmpty()) return null
-
-            // 严格 equals 匹配（忽略大小写），'联网搜索'/'重新发送' 等不命中
-            val matches = ocrResults.filter { it.text.equals(buttonText, ignoreCase = true) }
-            if (matches.isEmpty()) return null
-
-            // 选最合适的：Y-proximity 优先，无 inputY 时回退到最下方
-            val best = if (inputY > 0) {
-                matches.minBy { Math.abs(it.centerY - inputY) }
-            } else {
-                matches.maxBy { it.centerY }
-            }
-            return Pair(best.centerX, best.centerY)
-        } finally {
-            screenshot.recycleSafely()
-        }
-    }
-
     // ======================== 辅助方法 ========================
-
-    private fun findBestMatch(
-        ocrResults: List<RapidOcrService.OcrTextWithBbox>,
-        keywords: List<String>
-    ): RapidOcrService.OcrTextWithBbox? {
-        for (keyword in keywords) {
-            val exact = ocrResults.find { it.text.equals(keyword, ignoreCase = true) }
-            if (exact != null) return exact
-        }
-        for (keyword in keywords) {
-            val contains = ocrResults
-                .filter { it.text.contains(keyword, ignoreCase = true) }
-                .minByOrNull { it.text.length }
-            if (contains != null) return contains
-        }
-        return null
-    }
 
     private fun copyToClipboard(text: String): Boolean {
         return try {
@@ -1039,16 +934,16 @@ class AutoInputTool : BaseTool() {
         "After input, automatically clicks search/send button (search first, then send, with strict text matching and Y-proximity to input field). " +
         "When accessibility service is available: fast path using ACTION_SET_TEXT directly on editable nodes " +
         "(findNodesByText/Desc for targeting, findEditableNode for input, ACTION_SET_TEXT for text entry). " +
-        "When accessibility is unavailable: visual fallback with GUI-Plus+OCR " +
+        "When accessibility is unavailable: visual fallback with GUI-Plus " +
         "(0) GUI-Plus locate+click target → (1) clipboard copy → (2) keyboard detect → " +
-        "(3) GUI-Plus locate input (3-step fallback) → (4) long press → (5) OCR paste → " +
+        "(3) GUI-Plus locate input (3-step fallback) → (4) long press → (5) GUI-Plus paste → " +
         "(6) auto click search/send button."
 
     override fun getDescriptionCN(): String =
         "自动化文本输入，双模式执行。输入完成后自动按'搜索→Search→发送→Send'顺序点击按钮（严格 equals 匹配，'联网搜索'/'重新发送' 不命中；多匹配时按 Y-proximity 选最接近输入框的）。" +
-        "无障碍可用时：快捷流程，ACTION_SET_TEXT直接输入；无障碍失败时降级到 OCR。" +
-        "无障碍不可用时：视觉降级流程，GUI-Plus+OCR " +
+        "无障碍可用时：快捷流程，ACTION_SET_TEXT直接输入。" +
+        "无障碍不可用时：视觉降级流程，GUI-Plus " +
         "(0) GUI-Plus定位+点击目标 → (1) 复制到剪贴板 → (2) 键盘检测 → " +
-        "(3) GUI-Plus定位输入框(3步回退) → (4) 长按 → (5) OCR粘贴 → " +
+        "(3) GUI-Plus定位输入框(3步回退) → (4) 长按 → (5) GUI-Plus定位粘贴 → " +
         "(6) 自动点击搜索/发送按钮。"
 }

@@ -200,7 +200,7 @@ object ToolRegistry {
         "visual_describe" to "text(问题)",
         "select_spec" to "specs(必填,需选取的规格数组如[\"大份\",\"微辣\",\"去冰\"]), confirm_text(选填,确认按钮文本,默认\"选好了\")",
         "scroll_until" to "target(必填,视觉可辨识描述), direction(选填,默认down), max_scrolls(选填,默认5,上限10), click_on_found(选填,默认true)",
-        "swipe_until" to "target(必填,目标可见文本如'22:00'), container(选填,容器名), max_swipes(选填,默认5,上限10)",
+        "swipe_until" to "target(必填,目标可见文本如'22:00'), container(选填,容器名——从【可横向滑动容器】段选取), max_swipes(选填,默认5,上限10)——工具自动滑动直到目标可见：默认横向左滑/竖向上滑，滑动后界面签名连续2次无变化自动换反向试错；滑动前后自动检查目标可见性（可见即停；目标已可见会自动定位点击）；模型不控制滑动方向",
     )
 
     private fun buildToolDescriptionLine(tool: BaseTool): String {
