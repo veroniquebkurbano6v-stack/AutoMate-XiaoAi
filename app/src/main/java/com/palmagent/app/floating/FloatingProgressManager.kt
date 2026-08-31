@@ -12,6 +12,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.Editable
 import android.text.TextUtils
 import android.util.Log
 import android.util.TypedValue
@@ -1878,6 +1879,66 @@ object FloatingProgressManager {
             )
         }
         root.addView(space2)
+
+        // askText：显示"补充说明（可选）"文本框，用户在 DONE 前可输入附言回传给模型
+        if (request?.askText == true) {
+            val spaceNote = View(appRef!!).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    (6 * density).toInt()
+                )
+            }
+            root.addView(spaceNote)
+
+            val noteLabel = TextView(appRef!!).apply {
+                text = "补充说明（可选）"
+                setTextColor(Color.argb(190, 255, 255, 255))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    setMargins(0, 0, 0, (4 * density).toInt())
+                }
+            }
+            root.addView(noteLabel)
+
+            var noteText = ""
+            val noteEdit = EditText(appRef!!).apply {
+                hint = "补充说明或关键信息，如所在地城市"
+                setTextColor(Color.WHITE)
+                setHintTextColor(Color.argb(120, 255, 255, 255))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+                setSingleLine(false)
+                setPadding(
+                    (8 * density).toInt(),
+                    (6 * density).toInt(),
+                    (8 * density).toInt(),
+                    (6 * density).toInt()
+                )
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                    cornerRadius = (8 * density)
+                    setColor(Color.argb(50, 255, 255, 255))
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                setOnFocusChangeListener { _, hasFocus ->
+                    if (hasFocus) isInputFocused = true
+                }
+                addTextChangedListener(object : android.text.TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                    override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                    override fun afterTextChanged(s: Editable?) {
+                        noteText = s?.toString() ?: ""
+                        UserActionManager.setUserNoteSupplier { noteText }
+                    }
+                })
+            }
+            root.addView(noteEdit)
+        }
 
         val btnRow = LinearLayout(appRef!!).apply {
             orientation = LinearLayout.HORIZONTAL
