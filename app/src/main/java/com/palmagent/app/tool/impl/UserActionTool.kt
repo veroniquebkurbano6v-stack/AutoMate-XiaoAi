@@ -68,6 +68,13 @@ class UserActionTool : BaseTool() {
             "是否允许跳过，默认true",
             false,
             default = true
+        ),
+        ToolParameter(
+            "ask_text",
+            "boolean",
+            "是否需要用户填写补充说明文本（可选），默认false。当需要用户回传具体信息（如所在地城市）时设为true",
+            false,
+            default = false
         )
     )
 
@@ -76,6 +83,7 @@ class UserActionTool : BaseTool() {
         val steps = optionalString(params, "steps", "")
         val mode = optionalString(params, "mode", "confirm")
         val allowSkip = optionalString(params, "allow_skip", "true").toBoolean()
+        val askText = optionalString(params, "ask_text", "false").toBoolean()
 
         Log.d(TAG, "请求用户手动操作: $title")
         LiveLogBuffer.append("🖐 请求用户操作: $title")
@@ -84,7 +92,8 @@ class UserActionTool : BaseTool() {
             title = title,
             steps = if (steps.isBlank()) emptyList() else steps.split("\n").filter { it.isNotBlank() },
             mode = if (mode == "alert") UserActionMode.ALERT else UserActionMode.CONFIRM,
-            allowSkip = allowSkip
+            allowSkip = allowSkip,
+            askText = askText
         )
 
         // P1：权限降级 — 无悬浮窗权限时仅使用系统通知
@@ -98,7 +107,7 @@ class UserActionTool : BaseTool() {
             val response = awaitUserAction(request)
             when (response.action) {
                 UserActionResult.DONE -> {
-                    val snapshot = collectSnapshot()
+                    val snapshot = collectSnapshot(response.userNote)
                     Log.d(TAG, "用户完成操作: $title")
                     LiveLogBuffer.append("  ✅ 用户完成操作: $title")
                     ToolResult.success(snapshot)
@@ -147,7 +156,7 @@ class UserActionTool : BaseTool() {
      * P0修复：collectSnapshot 可靠化
      * 使用轮询检测屏幕稳定（连续两次采集包名相同），替代硬编码 600ms 延迟
      */
-    private suspend fun collectSnapshot(): String {
+    private suspend fun collectSnapshot(userNote: String = ""): String {
         return try {
             // 等待屏幕稳定：最多轮询 2 秒，连续两次包名相同视为稳定
             val stable = waitForScreenStable(timeoutMs = 2000)
@@ -158,9 +167,10 @@ class UserActionTool : BaseTool() {
             }
             val pkg = screenInfo?.currentPackage ?: "未知"
             val elementCount = screenInfo?.uiElements?.size ?: 0
-            "用户已完成操作，当前界面: $pkg, UI元素: $elementCount"
+            val notePart = if (userNote.isNotBlank()) "，附言：$userNote" else ""
+            "用户已完成操作$notePart，当前界面: $pkg, UI元素: $elementCount"
         } catch (e: Exception) {
-            "用户已完成操作"
+            if (userNote.isNotBlank()) "用户已完成操作，附言：$userNote" else "用户已完成操作"
         }
     }
 
@@ -210,7 +220,7 @@ class UserActionTool : BaseTool() {
             val response = awaitUserAction(request)
             when (response.action) {
                 UserActionResult.DONE -> {
-                    val snapshot = collectSnapshot()
+                    val snapshot = collectSnapshot(response.userNote)
                     ToolResult.success(snapshot)
                 }
                 UserActionResult.SKIP -> ToolResult.success("用户跳过了此步骤")
@@ -239,6 +249,7 @@ class UserActionTool : BaseTool() {
     override fun getDescriptionCN(): String =
         "请求用户进行手动操作（登录、验证码、支付等），暂停任务直到用户完成。" +
         "遇到无法自动化的安全操作时使用（密码输入、生物识别、支付确认）。" +
+        "设置 ask_text=true 时显示补充说明输入框，用户可回传文本信息（如所在地/具体数值）。" +
         "显示悬浮窗提示+系统通知，不遮挡操作区域。"
 
     override fun getDisplayName(): String = "用户操作"
