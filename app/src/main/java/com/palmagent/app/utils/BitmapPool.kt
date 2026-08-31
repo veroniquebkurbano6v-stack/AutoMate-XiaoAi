@@ -6,7 +6,7 @@ import android.util.Log
 /**
  * Bitmap 复用池，减少频繁分配/回收带来的 GC 压力
  *
- * 适用场景：VLM 缩放图、OCR 预处理图等高频创建的临时 Bitmap。
+ * 适用场景：VLM 缩放图等高频创建的临时 Bitmap。
  * 通过复用已分配的内存区域，避免反复 allocate/free native 内存。
  */
 object BitmapPool {

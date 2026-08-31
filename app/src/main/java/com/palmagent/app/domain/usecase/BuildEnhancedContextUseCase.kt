@@ -17,7 +17,7 @@ import javax.inject.Singleton
 /**
  * 上下文组装 Use Case
  *
- * 将设备上下文、OCR 文本、屏幕描述、状态警告、进度信息
+ * 将设备上下文、屏幕描述、状态警告、进度信息
  * 组装为发送给 AI 的增强上下文。
  */
 @Singleton

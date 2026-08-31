@@ -2,14 +2,13 @@ package com.palmagent.app.utils
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * 已安装应用信息查询工具
  *
- * 完整获取设备上所有已安装应用的应用名和包名（仅过滤系统应用），保存供查询。
+ * 完整获取设备上所有已安装应用的应用名和包名（含系统应用），保存供查询。
  * 决策模型通过传递应用名，获取已保存的包名信息，确认用户设备是否安装对应应用。
  */
 object InstalledAppProvider {
@@ -24,7 +23,7 @@ object InstalledAppProvider {
         val matchType: String       // 匹配类型：exact(精确包名)/fuzzy(模糊名称)/none(未匹配)
     )
 
-    // 全量已安装应用缓存（完整保存，仅过滤系统应用）
+    // 全量已安装应用缓存（完整保存，含系统应用）
     @Volatile
     private var installedAppsCache: List<Pair<String, String>>? = null  // (appName, packageName)
 
@@ -63,7 +62,7 @@ object InstalledAppProvider {
         }
 
     /**
-     * 获取全量已安装应用列表（完整获取，仅过滤系统应用，懒加载缓存）
+     * 获取全量已安装应用列表（完整获取，含系统应用，懒加载缓存）
      *
      * public 暴露：供 ListAppsTool 等工具按关键词过滤查询
      * 内部仍走缓存机制，避免重复扫描
@@ -83,10 +82,6 @@ object InstalledAppProvider {
         }.mapNotNull { resolveInfo ->
             try {
                 val appInfo = resolveInfo.activityInfo.applicationInfo
-                // 仅过滤系统应用，保留所有用户安装的应用
-                if ((appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0) {
-                    return@mapNotNull null
-                }
                 val appName = pm.getApplicationLabel(appInfo).toString()
                 val packageName = appInfo.packageName
                 Pair(appName, packageName)

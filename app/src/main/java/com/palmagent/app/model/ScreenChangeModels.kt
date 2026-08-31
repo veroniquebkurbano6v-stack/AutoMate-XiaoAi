@@ -13,11 +13,8 @@ data class ScreenSnapshot(
     val screenHash: String,
     /** 图像感知哈希（pHash），8x8=64bit，用于图像层面变化检测 */
     val imageHash: String = "",
-    /** OCR文本列表（含坐标），用于文本层面变化检测 */
-    val ocrTexts: List<String> = emptyList(),
     /** 数据源可用性标记 */
     val hasAccessibility: Boolean = false,
-    val hasOcr: Boolean = false,
     val hasImage: Boolean = false,
     /** 纯色占比（0.0~1.0），用于白屏/黑屏陷阱检测 */
     val solidColorRatio: Float = 0f
@@ -69,8 +66,6 @@ enum class ScreenChangeType {
 enum class DetectionSource {
     /** 无障碍服务（最精确，首选） */
     ACCESSIBILITY,
-    /** OCR文本对比（中等精度，回退） */
-    OCR,
     /** 图像哈希对比（最低精度，最终兜底） */
     IMAGE_HASH
 }
@@ -91,7 +86,7 @@ data class ScreenChange(
     val loadingFinished: Boolean = false,
     /** 实际使用的检测数据源 */
     val detectionSource: DetectionSource = DetectionSource.ACCESSIBILITY,
-    /** 检测置信度 0.0~1.0，无障碍=0.95, OCR=0.8, 图像=0.6, 无数据源=0.3 */
+    /** 检测置信度 0.0~1.0，无障碍=0.95, 图像=0.6, 无数据源=0.3 */
     val confidence: Float = 0.8f,
     /** 检测耗时(ms) */
     val latencyMs: Long = 0L

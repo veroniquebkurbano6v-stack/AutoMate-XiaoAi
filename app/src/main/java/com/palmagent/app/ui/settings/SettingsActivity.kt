@@ -82,11 +82,13 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var cardSystemWindow: LinearLayout
     private lateinit var cardBattery: LinearLayout
     private lateinit var cardLocation: LinearLayout
+    private lateinit var cardInstalledApps: LinearLayout
     private lateinit var tvAccessibilityStatus: TextView
     private lateinit var tvNotificationStatus: TextView
     private lateinit var tvSystemWindowStatus: TextView
     private lateinit var tvBatteryStatus: TextView
     private lateinit var tvLocationStatus: TextView
+    private lateinit var tvInstalledAppsStatus: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,7 +106,6 @@ class SettingsActivity : AppCompatActivity() {
         refreshAmapMcpConfigDisplay()
         refreshPlannerConfigDisplay()
         
-        refreshOcrEngineDisplay()
         refreshTtsConfigDisplay()
         setupLLMConfig()
         setupKeyboardVlmConfig()
@@ -115,7 +116,6 @@ class SettingsActivity : AppCompatActivity() {
         setupAmapMcpConfig()
         setupPlannerConfig()
         
-        setupOcrEngineConfig()
         setupTtsConfig()
         setupWeChatBinding()
         setupDiagnoseAll()
@@ -133,7 +133,6 @@ class SettingsActivity : AppCompatActivity() {
         refreshAmapMcpConfigDisplay()
         refreshPlannerConfigDisplay()
         
-        refreshOcrEngineDisplay()
         refreshTtsConfigDisplay()
         refreshKbStatus()
     }
@@ -146,18 +145,21 @@ class SettingsActivity : AppCompatActivity() {
         cardSystemWindow = findViewById(R.id.cardSystemWindow)
         cardBattery = findViewById(R.id.cardBattery)
         cardLocation = findViewById(R.id.cardLocation)
+        cardInstalledApps = findViewById(R.id.cardInstalledApps)
 
         tvAccessibilityStatus = findViewById(R.id.tvAccessibilityStatus)
         tvNotificationStatus = findViewById(R.id.tvNotificationStatus)
         tvSystemWindowStatus = findViewById(R.id.tvSystemWindowStatus)
         tvBatteryStatus = findViewById(R.id.tvBatteryStatus)
         tvLocationStatus = findViewById(R.id.tvLocationStatus)
+        tvInstalledAppsStatus = findViewById(R.id.tvInstalledAppsStatus)
 
         cardAccessibility.setOnClickListener { requestAccessibilityPermission() }
         cardNotification.setOnClickListener { requestNotificationPermission() }
         cardSystemWindow.setOnClickListener { requestSystemWindowPermission() }
         cardBattery.setOnClickListener { requestBatteryPermission() }
         cardLocation.setOnClickListener { requestLocationPermission() }
+        cardInstalledApps.setOnClickListener { requestInstalledAppsPermission() }
     }
 
     private fun updatePermissionStatus() {
@@ -166,6 +168,7 @@ class SettingsActivity : AppCompatActivity() {
         updateSystemWindowStatus()
         updateBatteryStatus()
         updateLocationStatus()
+        updateInstalledAppsStatus()
     }
 
     private fun updateAccessibilityStatus() {
@@ -206,6 +209,33 @@ class SettingsActivity : AppCompatActivity() {
         val granted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         tvLocationStatus.text = if (granted) "✓ 已授权（高德地图可用）" else "✗ 未授权（高德地图周边搜索不可用）"
         tvLocationStatus.setTextColor(if (granted) 0xFF4CAF50.toInt() else 0xFFFF5722.toInt())
+    }
+
+    private fun requestInstalledAppsPermission() {
+        // 引导到应用详情设置页（用户可检查/调整权限——国产 ROM 的"应用列表"权限在此管理）
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:$packageName")
+                )
+            )
+        } catch (e: Exception) {
+            Toast.makeText(this, "无法打开应用设置页：${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun updateInstalledAppsStatus() {
+        // 包可见性实测：正常手机可见几十个 launcher 应用（QUERY_ALL_PACKAGES 生效）；
+        // 受限（国产 ROM 限制"应用列表"权限）时仅可见少量系统应用
+        val visible = try {
+            val launchIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            packageManager.queryIntentActivities(launchIntent, 0).size > 20
+        } catch (e: Exception) {
+            false
+        }
+        tvInstalledAppsStatus.text = if (visible) "✓ 可获取（已安装应用列表可见）" else "✗ 受限（无法获取已安装应用列表）"
+        tvInstalledAppsStatus.setTextColor(if (visible) 0xFF4CAF50.toInt() else 0xFFFF5722.toInt())
     }
 
     private fun requestAccessibilityPermission() {
@@ -1749,37 +1779,6 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    // ==================== OCR 引擎选择（原） ====================
-
-    private fun refreshOcrEngineDisplay() {
-        val tv = findViewById<TextView>(R.id.tvOcrEngineValue)
-        tv.text = "RapidOCR（本地）"
-    }
-
-    private fun setupOcrEngineConfig() {
-        findViewById<LinearLayout>(R.id.menu_ocr_engine).setOnClickListener {
-            showOcrEngineDialog()
-        }
-    }
-
-    private fun showOcrEngineDialog() {
-        val engineTypes = arrayOf("RapidOCR（本地）")
-        val currentIndex = 0
-
-        AlertDialog.Builder(this)
-            .setTitle("OCR引擎")
-            .setSingleChoiceItems(engineTypes, currentIndex) { dialog, which ->
-                val selected = "rapidocr"
-                viewModel.saveOcrEngine(selected)
-                refreshOcrEngineDisplay()
-                val label = if (selected == "rapidocr") "RapidOCR" else "ML Kit"
-                Toast.makeText(this, "已切换为$label", Toast.LENGTH_SHORT).show()
-                dialog.dismiss()
-            }
-            .setNegativeButton("取消", null)
-            .show()
-    }
-
     // ==================== TTS 语音播报配置 ====================
 
     @SuppressLint("SetTextI18n")
@@ -2099,8 +2098,6 @@ class SettingsActivity : AppCompatActivity() {
             }
 
             // 6. 其他服务
-            results.add("✓ RapidOCR: 本地引擎（无需配置）")
-
             // 高德地图 MCP
             val amapApiKey = KVUtils.getAmapApiKey()
             val amapEnabled = KVUtils.getAmapMcpEnabled()

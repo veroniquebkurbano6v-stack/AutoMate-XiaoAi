@@ -34,7 +34,7 @@ AutoMate·小艾 是一个运行在 Android 上的**数字无障碍智能体应�
 | 能力 | 技术实现 |
 |------|---------|
 | **完全端侧知识库** | bge-small-zh-v1.5 INT8 ONNX 嵌入 + SQLite 向量 + 关键词融合 + RRF 混合检索，**数据不出手机、离线可用** |
-| **多通道感知** | 无障碍树（文本）→ OCR（RapidOCR 端侧）→ VLM（qwen3-vl-flash 语义描述）→ GUI-Plus（指令→动作坐标）四通道逐级回退，适配不同障碍人群 |
+| **多通道感知** | 无障碍树（文本）→ VLM 屏幕描述（GLM-5.3-Flash）→ GUI-Plus（指令→动作坐标）多通道配合，适配不同障碍人群 |
 | **双模型编排** | 决策模型（DeepSeek-V4-Flash）负责任务路由与 Plan 生成；执行模型负责逐步动作决策 |
 | **任务工作区上下文控制** | 决策模型把工具关键结果提炼写入工作区、框架自动清理旧工具轮次，防止上下文膨胀 |
 | **失败自愈引擎** | FailureCompactor 跨轮记忆失败原因 + 工具熔断，避免同一操作重试风暴烧 token |
@@ -57,8 +57,8 @@ AutoMate·小艾 是一个运行在 Android 上的**数字无障碍智能体应�
 ## 技术栈与依赖
 
 - **平台**：Android（minSdk 29 / targetSdk 36，Kotlin + Hilt + Coroutines）
-- **端侧 AI**：ONNX Runtime（bge-small-zh-v1.5 INT8）、RapidOCR、SQLite
-- **云端模型（可替换，均有免费额度）**：DeepSeek-V4-Flash（执行/决策）、Qwen3-VL-Flash（视觉描述）、GLM-4V/4.5-Flash（键盘检测/上下文压缩）、GUI-Plus（视觉定位）、高德 MCP（位置/导航）
+- **端侧 AI**：ONNX Runtime（bge-small-zh-v1.5 INT8）、SQLite
+- **云端模型（可替换，均有免费额度）**：DeepSeek-V4-Flash（执行/决策）、GLM-5.3-Flash（每轮屏幕视觉描述）、Qwen3-VL-Flash（键盘检测等视觉任务）、GUI-Plus（视觉定位）、高德 MCP（位置/导航）
 - **完全端侧优先**：核心 RAG 与执行能力离线可用，云端仅用于 LLM 推理
 
 ## 开源与合规

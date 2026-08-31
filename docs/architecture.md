@@ -49,12 +49,11 @@ AutoMate·小艾 是一个 **Android 原生 App**（Kotlin），把"看得懂屏
 屏幕
  ├─ 无障碍树（AccessibilityNodeInfo）─── 文本通道：包名/节点/文本/坐标
  │     └─ 适用于读屏用户、无障碍树质量高时（低耗、低延迟）
- ├─ 截图 + VLM 描述 ─────────────────── 语义通道：屏幕"是什么"（qwen3-vl-flash）
- ├─ 截图 + GUI-Plus Grounding ────────── 视觉通道：指令 → 精确动作坐标（gui-plus）
- └─ OCR（RapidOCR 端侧）────────────── 兜底通道：无障碍树缺失时识别屏幕文字
+ ├─ 截图 + VLM 描述 ─────────────────── 语义通道：屏幕"是什么"（GLM-5.3-Flash / qwen3-vl-flash）
+ └─ 截图 + GUI-Plus Grounding ────────── 视觉通道：指令 → 精确动作坐标（gui-plus）
 ```
 
-选择策略：`无障碍树 > OCR+GUI-Plus > GUI-Plus Grounding`（见 `DefaultAgentService` 信息获取策略）。
+选择策略：`无障碍树 > VLM屏幕描述+GUI-Plus > GUI-Plus Grounding`（见 `DefaultAgentService` 信息获取策略）。
 低视力用户看不清但截图视觉仍可用 → 视觉通道兜底；无障碍树被 App 屏蔽时 → 视觉优先。
 
 ## 端侧知识库（完全本地 RAG，隐私不出手机）

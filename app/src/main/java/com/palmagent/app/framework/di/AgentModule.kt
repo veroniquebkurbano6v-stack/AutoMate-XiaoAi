@@ -9,10 +9,8 @@ import com.palmagent.app.agent.ScreenDescriptor
 import com.palmagent.app.agent.SmartWaitStrategy
 import com.palmagent.app.agent.TaskProgressTracker
 import com.palmagent.app.domain.repository.AIRepository
-import com.palmagent.app.domain.repository.ScreenRepository
 import com.palmagent.app.domain.repository.TaskRepository
 import com.palmagent.app.data.repository.AIRepositoryImpl
-import com.palmagent.app.data.repository.ScreenRepositoryImpl
 import com.palmagent.app.data.repository.TaskRepositoryImpl
 import com.palmagent.app.data.local.AppDatabase
 import com.palmagent.app.data.local.dao.MessageDao
@@ -98,10 +96,6 @@ abstract class AgentBindModule {
     @Binds
     @Singleton
     abstract fun bindAIRepository(impl: AIRepositoryImpl): AIRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindScreenRepository(impl: ScreenRepositoryImpl): ScreenRepository
 
     @Binds
     @Singleton

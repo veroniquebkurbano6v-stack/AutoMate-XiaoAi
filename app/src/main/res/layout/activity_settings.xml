@@ -572,72 +572,6 @@
                 android:layout_marginHorizontal="12dp"
                 android:background="#F0F0F0" />
 
-            <!-- OCR引擎选择 -->
-            <LinearLayout
-                android:id="@+id/menu_ocr_engine"
-                android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingHorizontal="12dp">
-
-                <TextView
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_sic_blue"
-                    android:gravity="center"
-                    android:text="O"
-                    android:textColor="@android:color/white"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="OCR引擎选择"
-                        android:textColor="#1A1A1A"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="屏幕文字识别引擎"
-                        android:textColor="#AAAAAA"
-                        android:textSize="11sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tvOcrEngineValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="#999999"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="›"
-                    android:textColor="#CCCCCC"
-                    android:textSize="20sp" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginHorizontal="12dp"
-                android:background="#F0F0F0" />
-
             <!-- TTS 语音播报开关 -->
             <LinearLayout
                 android:id="@+id/menu_tts_config"
@@ -1020,6 +954,40 @@
 
                 <TextView
                     android:id="@+id/tvLocationStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- 获取已安装应用（open_app 确认目标应用安装状态——QUERY_ALL_PACKAGES 包可见性） -->
+            <LinearLayout
+                android:id="@+id/cardInstalledApps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_blockage_panel"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="获取已安装应用"
+                    android:textColor="#1A1A1A"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="用于确认目标应用是否已安装（open_app 打开应用/决策判断）"
+                    android:textColor="#999999"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/tvInstalledAppsStatus"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
