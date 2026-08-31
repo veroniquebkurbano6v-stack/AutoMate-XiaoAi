@@ -37,18 +37,22 @@ object UserActionManager {
         val title: String,
         val steps: List<String> = emptyList(),
         val mode: UserActionMode = UserActionMode.CONFIRM,
-        val allowSkip: Boolean = true
+        val allowSkip: Boolean = true,
+        val askText: Boolean = false        // 是否显示"补充说明（可选）"文本框
     )
 
     data class UserActionResponse(
         val action: UserActionResult,
-        val elapsedSeconds: Long
+        val elapsedSeconds: Long,
+        val userNote: String = ""           // 用户填写的附言（无则空串）
     )
 
     private var currentRequest: UserActionRequest? = null
     private var currentCallback: ((UserActionResponse) -> Unit)? = null
     private var startTime: Long = 0
     private var isExpanded = false
+    private var currentUserNote: String = ""
+    private var userNoteListener: ((String) -> String)? = null   // DONE 时回调取文本框内容
 
     /**
      * 请求用户进行手动操作
@@ -116,6 +120,8 @@ object UserActionManager {
         currentCallback = null
         currentRequest = null
         isExpanded = false
+        currentUserNote = ""
+        userNoteListener = null
 
         try {
             FloatingProgressManager.hideUserActionPanel()
@@ -156,7 +162,22 @@ object UserActionManager {
             UserGuideNotifier.cancelNotification()
         } catch (_: Exception) {}
 
-        callback?.invoke(UserActionResponse(action, elapsed))
+        val note = if (action == UserActionResult.DONE) {
+            userNoteListener?.invoke("") ?: currentUserNote
+        } else {
+            ""
+        }
+        currentUserNote = ""
+        userNoteListener = null
+
+        callback?.invoke(UserActionResponse(action, elapsed, note))
+    }
+
+    /**
+     * 注册附言回调：DONE 时由 FloatingProgressManager 注入文本框内容
+     */
+    fun setUserNoteSupplier(supplier: () -> String) {
+        userNoteListener = { supplier() }
     }
 
     /**
