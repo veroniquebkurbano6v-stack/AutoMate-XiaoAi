@@ -65,8 +65,8 @@ class PromptBuilderTest {
     fun `system_prompt_contains_output_protocol_section`() {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
-            "提示词应包含 输出格式与运行规则 章节（替代旧 ## 字段映射说明（v7））: \n$prompt",
-            prompt.contains("输出格式与运行规则")
+            "提示词应包含 输出格式 章节（v8 措辞：每轮 content 输出一个 JSON 对象，禁用 tool_calls）: \n$prompt",
+            prompt.contains("# 输出格式（每轮 content 输出一个 JSON 对象，禁用 tool_calls")
         )
     }
 
@@ -83,9 +83,9 @@ class PromptBuilderTest {
     fun `system_prompt_output_protocol_uses_content_for_all_actions`() {
         val prompt = PromptBuilder.getSystemPrompt()
         assertTrue(
-            "输出协议应说明所有操作都通过 content 输出，不要用 tool_calls: \n$prompt",
-            prompt.contains("所有操作都走 content") &&
-                prompt.contains("不要用 tool_calls")
+            "输出协议应说明通过 content 输出 JSON 且禁用 tool_calls: \n$prompt",
+            prompt.contains("每轮 content 输出一个 JSON 对象，禁用 tool_calls") &&
+                prompt.contains("只输出 JSON 对象，禁止用 markdown 代码块包裹")
         )
     }
 

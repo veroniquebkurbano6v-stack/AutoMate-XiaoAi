@@ -36,8 +36,7 @@ class ActionExecutorWebSearchMappingTest {
 
         executor = ActionExecutor(
             screenDescriptor = ScreenDescriptor(),
-            progressTracker = TaskProgressTracker(),
-            smartWait = SmartWaitStrategy()
+            progressTracker = TaskProgressTracker()
         )
         val m = ActionExecutor::class.java.getDeclaredMethod("buildActionParams", AgentAction::class.java)
         m.isAccessible = true

@@ -1,0 +1,76 @@
+{
+  "sop_id": "fc55346d5f965d14",
+  "original_task_name": "电子社保卡小程序养老待遇资格认证",
+  "task_name": "通过电子社保卡小程序办理养老金待遇资格认证",
+  "app_name": "微信",
+  "source": "qwen_generated",
+  "difficulty": "L3",
+  "domain": "政务服务",
+  "keywords": [
+    "微信",
+    "电子社保卡",
+    "养老金",
+    "待遇资格认证",
+    "养老认证",
+    "刷脸认证",
+    "生存认证",
+    "年审",
+    "社保"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标启动应用",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "在首页顶部的搜索框中输入电子社保卡并进行搜索",
+      "expected": "搜索结果页展示电子社保卡官方小程序入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索结果列表中点击电子社保卡官方小程序",
+      "expected": "进入电子社保卡小程序页面，展示登录入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击电子社保卡小程序页面上的登录按钮",
+      "expected": "进入登录页面，展示登录验证方式选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "选择人脸识别方式并按提示完成身份验证",
+      "expected": "登录成功，进入电子社保卡首页，展示服务菜单",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "点击电子社保卡首页中的人社办事服务入口",
+      "expected": "进入人社办事页面，展示社保相关服务分类列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在服务列表中点击社保待遇资格认证服务项",
+      "expected": "进入待遇资格认证页面，展示本人参保信息",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "点击待遇资格认证页面的开始认证按钮",
+      "expected": "进入人脸识别认证页面，屏幕显示取景圆框",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "正对屏幕按提示完成眨眼点头等人脸识别动作",
+      "expected": "认证通过，页面展示待遇资格认证成功的提示",
+      "action_type": "click"
+    }
+  ]
+}

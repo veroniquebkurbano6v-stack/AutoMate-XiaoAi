@@ -99,7 +99,8 @@ object GuiOwlService {
         val type: String,                  // normal / close / auto
         val coordinate: String? = null,    // "x,y" [0,1000] 归一化（close）
         val conf: Float? = null,           // 置信度 0-1（close）
-        val delaySeconds: Int? = null      // 等待秒数（auto）
+        val delaySeconds: Int? = null,     // 等待秒数（auto）
+        val closeButton: String? = null    // 关闭按钮（文字=位置），GLM 视觉描述给出（close）
     )
 
     /** 屏幕描述/视觉问答结果（自 VlmService 迁移） */
@@ -339,7 +340,7 @@ object GuiOwlService {
             }
         }
 
-    /** 容器识别：识别可横向滑动容器（返回容器 JSON 文本——[0,1000] 归一化坐标；失败返回 null） */
+    /** 容器识别：识别可横向滑动 + 可竖向滚动容器（返回容器 JSON 文本——[0,1000] 归一化坐标；失败返回 null） */
     suspend fun recognizeContainers(bitmap: Bitmap): String? = withContext(Dispatchers.IO) {
         if (!isReady) {
             Log.w(TAG, "GUI-Plus[CONTAINER]服务未就绪，跳过")
@@ -350,6 +351,7 @@ object GuiOwlService {
             Log.w(TAG, "GUI-Plus[CONTAINER]图片编码失败")
             return@withContext null
         }
+        val startTime = System.currentTimeMillis()
         return@withContext try {
             val content = requestChat(
                 text = CONTAINER_PROMPT,
@@ -357,10 +359,19 @@ object GuiOwlService {
                 screenWidth = payload.width,
                 screenHeight = payload.height,
                 mode = PromptMode.CONTAINER
-            )
-            content.trim()
+            ).trim()
+            // 真机调试观测点：容器识别每次调用都打印（耗时 + 结果），便于 logcat 核对容器 JSON/横向竖向类型
+            val duration = System.currentTimeMillis() - startTime
+            val containerCount = kotlin.runCatching { org.json.JSONArray(content).length() }.getOrDefault(-1)
+            if (containerCount >= 0) {
+                Log.d(TAG, "GUI-Plus[CONTAINER] ${containerCount}个容器, ${duration}ms: ${content.take(220)}")
+                LiveLogBuffer.append("📦 容器识别: ${containerCount}个（${duration}ms）")
+            } else {
+                Log.w(TAG, "GUI-Plus[CONTAINER] 返回非JSON: ${content.take(120)}, ${duration}ms")
+            }
+            content
         } catch (e: Exception) {
-            Log.e(TAG, "GUI-Plus[CONTAINER]失败: ${e.message}")
+            Log.e(TAG, "GUI-Plus[CONTAINER]失败: ${e.message}（${System.currentTimeMillis() - startTime}ms）")
             null
         }
     }
@@ -557,6 +568,12 @@ object GuiOwlService {
         - action 只能是 click/long_press/swipe，必须携带 coordinate。
         - 禁止其他动作（open/type/answer/terminate/interact 等）。
         - 指令是"打开/输入/搜索"等复合操作时，仍只返回应点击元素的坐标，不要输出打开或输入动作。
+
+        # 定位精度（最高优先级）
+        - 只返回与指令所述"具体元素"（按钮/图标/菜单项/输入框）的正中心坐标。
+        - 禁止返回空白、留白、分割线、父容器、背景、文字间隙；禁止把整行/整块区域当目标。
+        - 目标元素较小时（菜单项、小图标、气泡按钮）必须点其中心，不要偏到相邻元素。
+        - 若指令提到"上下文菜单/弹窗/浮层/气泡/工具栏"中的某个选项，先在浮层/菜单区域内定位该选项，不要点击背景或其他菜单项。
     """.trimIndent()
 
     /**
@@ -574,6 +591,7 @@ object GuiOwlService {
         - **progress.completed_steps 只增不减**（系统单调维护），禁止删减已完成项；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps。
         - **动作前先确认当前界面**：先看截图确认当前前台应用/页面；若任务或步骤要求的目标界面尚未打开，必须先 open_app 打开目标应用，**禁止在非目标界面直接 auto_input/type/点击**（会把输入误送给当前前台 App）。
         - **涉及个人信息填写必须 request_user_action**：姓名/身份证号/手机号/住址/支付账号等表单字段——若 Plan/上下文无用户明确提供的数据，禁止编造填写，必须停下让用户输入（request_user_action），用户填完继续。
+        - **Plan 步骤工具提示（tool_hint）分流**：步骤带"request_user_action/ask_user"工具提示时，该步骤必须调用对应工具请用户完成（request_user_action 弹窗/ask_user 选择题），禁止自行模拟填写或替用户确认提交；仅 open_app/auto_input/select_spec 快捷工具提示可自主执行。步骤带 request_user_action;ask_text 时，调用 request_user_action 时开启附言输入框回收用户文本。
 
         # 输出格式（严格遵循）
         只输出一个 JSON 对象（不要输出任何其他内容，不要用 tool_calls），字段：
@@ -604,11 +622,15 @@ object GuiOwlService {
 """.trimIndent()
 
     /** 屏幕描述提示词（自 VlmService 迁移）：上/中/下描述 + 方案C 广告判定附加段 */
-    /** 容器识别 prompt：识别可横向滑动容器（结构化 JSON——name/y/type/selected——[0,1000] y——测试实证模型完全遵守） */
-    internal const val CONTAINER_PROMPT = """请仔细识别该手机屏幕截图中的所有【可横向滑动/拖动的内容行】（横向滚轮选择器、可左右滑动的横向列表等）。
-输出 JSON 数组（不要输出任何其他文字）：
-[{"name": "容器名（简短中文，如'时间选择栏'）", "y": 522, "type": "horizontal", "selected": "当前选中值（如'14:30'）", "usage": "用途描述"}]
-- y 为容器行中心线纵向位置（[0,1000] 归一化坐标）；type 填 horizontal（可横向滑动）；selected 为当前选中的项（滑动效果核对用；无选中概念填空字符串）；若没有任何可横向滑动容器，输出 []。"""
+    /** 容器识别 prompt：识别可横向滑动 + 可竖向滚动容器（结构化 JSON——name/y/type/selected——[0,1000] y——测试实证模型完全遵守） */
+    internal const val CONTAINER_PROMPT = """请仔细识别该手机屏幕截图中的所有可滚动/可滑动容器（横向与竖向两类都要完整列出，可同时存在，不要遗漏任何一类）：
+1. 【可横向滑动】的内容行（横向滚轮选择器、可左右滑动的横向列表/标签栏/海报轮播等），type=horizontal；
+2. 【可竖向滚动】的内容区（可上下滑动的内容列表、卡片流、长页面主体，通常含多行列表项/大量卡片），type=vertical。
+输出 JSON 数组（不要输出任何其他文字、不要代码块标记，仅列出主要可滚动容器，最多 4 个），示例（横向+竖向同时存在时）：
+[{"name": "标签栏", "y": 200, "type": "horizontal", "selected": "首页", "usage": "横向滑动切换标签"}, {"name": "内容列表", "y": 600, "type": "vertical", "selected": "", "usage": "上下滚动浏览列表内容"}]
+- y 为容器中心线的纵向位置（[0,1000] 归一化坐标；竖向容器取首屏可见部分的中心 y）
+- selected 为当前选中项（滑动效果核对用；无选中概念填空字符串）
+- 若屏幕没有任何可滚动容器，输出 []。"""
 
     internal const val SCREEN_DESC_PROMPT = """你是一个移动端屏幕分析助手。请将屏幕垂直分为上、中、下三部分，描述各区域的关键UI元素。
 

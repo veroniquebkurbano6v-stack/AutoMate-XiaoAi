@@ -12,10 +12,10 @@ import java.util.concurrent.ConcurrentHashMap
  *
  * 检测优先级：
  * 1. 无障碍服务（最精确）→ 元素级变化检测
- * 2. 图像感知哈希 + SSIM 双校验（兜底）→ 像素级变化检测
+ * 2. 图像感知哈希（兜底）→ 像素级变化检测
  *
  * 优化项（基于屏幕变化检测调研报告）：
- * - pHash + SSIM 双校验，规避白屏/黑屏陷阱
+ * - pHash + 纯色占比检测，规避白屏/黑屏陷阱
  * - 白屏/黑屏检测（颜色直方图主色占比）
  * - confidence 置信度输出
  * - latencyMs 检测耗时记录
@@ -31,8 +31,6 @@ object ScreenChangeDetector {
     /** 图像哈希差异阈值（0-1，超过此值认为界面变化）
      *  8x8 pHash对局部变化不敏感，需要较低阈值 */
     private const val IMAGE_HASH_THRESHOLD = 0.05
-    /** SSIM 相似度阈值（低于此值认为界面变化） */
-    private const val SSIM_THRESHOLD = 0.95
     /** 白屏/黑屏主色占比阈值（超过90%单一灰度视为白屏/黑屏） */
     private const val SOLID_COLOR_RATIO_THRESHOLD = 0.9f
 
@@ -102,7 +100,7 @@ object ScreenChangeDetector {
             // （无障碍树可能没更新，比如动画/过渡页面）
         }
 
-        // 第2层：图像哈希 + SSIM 双校验（兜底）
+        // 第2层：图像哈希检测（兜底）
         if (before.hasImage && after.hasImage) {
             val change = compareByImageHash(before, after)
             if (change.changeType != ScreenChangeType.NO_CHANGE) {
@@ -291,7 +289,7 @@ object ScreenChangeDetector {
     }
 
     // ============================================================
-    //  第2层：图像感知哈希 + SSIM 双校验
+    //  第2层：图像感知哈希检测
     // ============================================================
 
     private fun compareByImageHash(before: ScreenSnapshot, after: ScreenSnapshot): ScreenChange {
@@ -432,19 +430,6 @@ object ScreenChangeDetector {
     }
 
     data class ImageFingerprint(val pHash: String, val solidColorRatio: Float)
-
-    /**
-     * 计算图像感知哈希（pHash简化版：缩放+灰度+均值二值化）
-     * 输出64位二进制字符串，对缩放/轻微颜色变化鲁棒
-     */
-    private fun computePerceptualHash(bitmap: Bitmap): String {
-        return computeImageFingerprint(bitmap).pHash
-    }
-
-    /**
-     * 公开的 pHash 计算接口，供 SmartWaitStrategy 等外部调用
-     */
-    fun computePerceptualHashPublic(bitmap: Bitmap): String = computeImageFingerprint(bitmap).pHash
 
     /**
      * 合并计算 pHash + solidColorRatio，只做一次 HARDWARE→ARGB_8888 转换和一次像素遍历

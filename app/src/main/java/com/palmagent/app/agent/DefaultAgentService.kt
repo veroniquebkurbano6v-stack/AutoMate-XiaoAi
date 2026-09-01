@@ -52,7 +52,7 @@ private data class VisionDecisionResult(
  *
  * 重构后职责清晰：
  * - 任务循环控制（轮次、熔断）
- * - 协调 ScreenDescriptor / ActionExecutor / TaskProgressTracker / SmartWaitStrategy
+ * - 协调 ScreenDescriptor / ActionExecutor / TaskProgressTracker
  * - AI 决策请求与重试
  * - 上下文组装
  */
@@ -61,7 +61,6 @@ class DefaultAgentService @Inject constructor(
     private val aiService: AIService,
     private val screenDescriptor: ScreenDescriptor,
     private val actionExecutor: ActionExecutor,
-    private val smartWait: SmartWaitStrategy,
     private val toolDecisionEngine: ToolDecisionEngine,
     private val appConfig: AppConfig,
     private val eventBus: EventBus,
@@ -206,8 +205,6 @@ class DefaultAgentService @Inject constructor(
             // 任务循环由执行模型按需决策，无需固定前置规划。
             callback.onContent(0, "开始执行任务...")
 
-            // 注入取消回调到 SmartWaitStrategy，使其能响应取消信号
-            smartWait.isCancelled = { isTaskCancelled }
             // 注入取消回调到 ActionExecutor
             actionExecutor.isCancelled = { isTaskCancelled }
             // Scratchpad FORGET 回调

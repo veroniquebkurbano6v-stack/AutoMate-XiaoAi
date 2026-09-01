@@ -1,0 +1,76 @@
+{
+  "sop_id": "256d96440120b95d",
+  "original_task_name": "粤省事代办养老认证",
+  "task_name": "通过粤省事小程序为老人代办养老资格认证",
+  "app_name": "微信",
+  "source": "qwen_generated",
+  "difficulty": "L4",
+  "domain": "政务服务",
+  "keywords": [
+    "微信",
+    "粤省事",
+    "养老资格认证",
+    "待遇资格认证",
+    "代办",
+    "为他人办理",
+    "养老金",
+    "社保就业",
+    "广东"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标启动应用",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "在首页顶部的搜索框中输入粤省事并进行搜索",
+      "expected": "搜索结果页展示粤省事小程序入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索结果中点击粤省事小程序进入并登录",
+      "expected": "进入粤省事小程序首页，展示各类政务服务",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击页面左上角的城市名称切换到参保城市",
+      "expected": "城市切换成功，首页显示目标城市的服务内容",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "在粤省事首页点击社保就业服务板块入口",
+      "expected": "进入社保就业页面，展示养老保障等服务分类",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "在养老保障分类中点击养老资格认证服务入口",
+      "expected": "展示各类型养老待遇资格认证的服务列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "选择亲属对应的待遇类型服务并点击开始办理",
+      "expected": "进入办理页面，展示办理方式选择界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在办理方式页面点击为他人办理选项",
+      "expected": "切换为代办模式，进入协助资格认证页面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "请亲属正对屏幕按提示完成眨眼等人脸动作",
+      "expected": "认证通过，页面展示协助认证成功的结果提示",
+      "action_type": "click"
+    }
+  ]
+}

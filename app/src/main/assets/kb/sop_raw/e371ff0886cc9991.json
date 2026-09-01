@@ -1,0 +1,77 @@
+{
+  "sop_id": "e371ff0886cc9991",
+  "original_task_name": "电子社保卡亲情服务代办养老认证",
+  "task_name": "通过电子社保卡亲情服务为老人代办养老认证",
+  "app_name": "微信",
+  "source": "qwen_generated",
+  "difficulty": "L4",
+  "domain": "政务服务",
+  "keywords": [
+    "微信",
+    "电子社保卡",
+    "亲情服务",
+    "亲情账户",
+    "代办",
+    "养老认证",
+    "待遇资格认证",
+    "帮老人认证",
+    "养老金",
+    "社保"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标启动应用",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "在首页顶部的搜索框中输入电子社保卡并进行搜索",
+      "expected": "搜索结果页展示电子社保卡官方小程序入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索结果列表中点击电子社保卡官方小程序",
+      "expected": "进入电子社保卡小程序页面，展示登录入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击电子社保卡小程序页面上的登录按钮",
+      "expected": "进入登录页面，展示登录验证方式选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "选择人脸识别方式并按提示完成身份验证",
+      "expected": "登录成功，进入电子社保卡首页，展示服务菜单",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "点击电子社保卡页面中的亲情服务功能入口",
+      "expected": "进入亲情服务页面，展示已绑定的亲属信息",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在亲情服务页面中点击需要认证的目标亲属",
+      "expected": "展开该亲属的服务列表，展示可代办的服务项目",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "在代办服务列表中点击养老保险待遇资格认证",
+      "expected": "进入资格认证页面，显示待认证的亲属信息",
+      "action_type": "click"
+    },
+    {
+      "step_order": 9,
+      "goal": "核对信息后请亲属正对屏幕完成人脸识别",
+      "expected": "认证通过，页面展示待遇资格认证成功的提示",
+      "action_type": "click"
+    }
+  ]
+}

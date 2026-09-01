@@ -1,0 +1,51 @@
+{
+  "sop_id": "08a2c6cc27f22579",
+  "original_task_name": "国家医保服务平台异地就医备案",
+  "task_name": "通过国家医保服务平台APP办理异地就医备案",
+  "app_name": "国家医保服务平台",
+  "source": "qwen_generated",
+  "difficulty": "L3",
+  "domain": "政务服务",
+  "keywords": [
+    "国家医保服务平台",
+    "异地就医备案",
+    "异地备案",
+    "医保",
+    "随迁老人",
+    "异地安置",
+    "跨省就医",
+    "备案申请"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的国家医保服务平台应用图标",
+      "expected": "应用启动并进入首页，展示医保码等常用功能",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击首页常用功能中的异地备案入口",
+      "expected": "进入异地备案页面，展示备案申请与记录查询",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击页面中的异地就医备案申请按钮",
+      "expected": "进入备案申请页面，展示为自己备案与他人备案选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "点击为他人备案选项并选择备案人的参保险种",
+      "expected": "参保险种选择完成，进入备案须知页面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "阅读备案告知书后勾选已阅读并点击同意按钮",
+      "expected": "进入备案信息填写页面，展示待填写的信息项",
+      "action_type": "click"
+    }
+  ]
+}

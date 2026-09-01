@@ -6,7 +6,6 @@ import com.palmagent.app.LiveLogBuffer
 import com.palmagent.app.agent.AgentService
 import com.palmagent.app.agent.DefaultAgentService
 import com.palmagent.app.agent.ScreenDescriptor
-import com.palmagent.app.agent.SmartWaitStrategy
 import com.palmagent.app.agent.TaskProgressTracker
 import com.palmagent.app.domain.repository.AIRepository
 import com.palmagent.app.domain.repository.TaskRepository
@@ -40,12 +39,6 @@ object AgentModule {
     @Singleton
     fun provideScreenDescriptor(): ScreenDescriptor {
         return ScreenDescriptor()
-    }
-
-    @Provides
-    @Singleton
-    fun provideSmartWaitStrategy(): SmartWaitStrategy {
-        return SmartWaitStrategy()
     }
 
     @Provides

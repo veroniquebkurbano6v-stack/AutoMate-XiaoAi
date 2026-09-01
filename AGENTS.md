@@ -19,7 +19,7 @@ AutoMate·小艾：Android GUI 智能助手（Kotlin），端侧 RAG + 云端多
 
 ## 架构
 - 根包 `com.palmagent.app`：
-  - `agent/`：执行编排与决策（DefaultAgentService、ActionExecutor、ContextManager、FailureCompactor、SmartWaitStrategy、TaskProgressTracker 等）
+  - `agent/`：执行编排与决策（DefaultAgentService、ActionExecutor、ContextManager、FailureCompactor、TaskProgressTracker 等）
   - `kb/`：端侧 RAG（ONNX 嵌入 + SQLite BLOB + 内存检索，完全本地无 HTTP）
   - `service/`：服务层（无障碍 GUIAccessibilityService、AIService、决策 DecisionDialogService、GUI-Plus GuiOwlService、VLM VlmService、WebSearchService、WebMCPService、保活等）
   - `tool/impl/`：动作工具，继承 `BaseTool` 并注册进 `ToolRegistry`

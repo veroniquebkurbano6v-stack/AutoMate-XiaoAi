@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
  * - 循环：先 EXISTS 问"目标可见？"（当前截图）→ 可见则不动返回成功
  *   → 不可见则默认方向滑一次（横向容器左滑/竖向容器上滑；无容器默认横向左滑）→ 重新截图再问
  *   → 默认方向滑 2 次仍不可见则换反向（试错——不依赖模型预知方向）→ max_swipes 用完仍不可见返回失败
+ * - 方向判定：container 匹配到容器表的 vertical 容器 → 竖向滚动；horizontal 容器或无容器 → 横向滑动
  * - 坐标自适配（居中起点+半屏距离——基于当前手机尺寸比例）
  */
 class SwipeUntilTool : BaseTool() {
@@ -26,7 +27,7 @@ class SwipeUntilTool : BaseTool() {
 
     override fun getParameters(): List<ToolParameter> = listOf(
         ToolParameter("target", "string", "必填,目标可见文本（如'22:00'/'明天'——滑动直到该文本可见）", true),
-        ToolParameter("container", "string", "选填,容器名（如'时间选择栏'——从【可横向滑动容器】段选取；不填则屏幕中部横向滑动）", false),
+        ToolParameter("container", "string", "选填,容器名（如'时间选择栏'——从【可横向滑动容器】或【可竖向滚动容器】段选取；不填则默认在屏幕中部横向滑动）", false),
         ToolParameter("max_swipes", "int", "选填,最大滑动次数,默认5,上限10", false, 5)
     )
 
@@ -55,8 +56,8 @@ class SwipeUntilTool : BaseTool() {
             return clickVisibleTarget(target, containerName, containerInfo?.yScreen, screenshot, screenW, screenH)
         }
 
-        // 默认方向：横向容器左滑 / 竖向容器上滑 / 无容器默认横向左滑（当前容器识别仅横向——竖向滚动场景走全屏）
-        val horizontal = containerInfo != null || containerName == null // 有容器或未指定→横向；仅明确竖向场景走纵向（当前识别无竖向）
+        // 方向判定：容器表匹配到竖向容器 → 竖向滚动；横向容器或无容器 → 横向滑动（默认）
+        val horizontal = containerInfo?.direction != "vertical" // vertical 容器走竖向；其余（横向/未指定）走横向
         var forward = true // 默认：横向左滑 / 竖向上滑
 
         var swiped = 0
@@ -108,7 +109,7 @@ class SwipeUntilTool : BaseTool() {
         }
 
         return ToolResult.error(
-            "滑动 $maxSwipes 次后目标「$target」仍不可见——目标可能在别的容器或需要切换界面——请参考【可横向滑动容器】段重新规划"
+            "滑动 $maxSwipes 次后目标「$target」仍不可见——目标可能在别的容器或需要切换界面——请参考【可横向滑动容器】/【可竖向滚动容器】段重新规划"
         )
     }
 
@@ -158,8 +159,8 @@ class SwipeUntilTool : BaseTool() {
     }
 
     override fun getDescriptionEN(): String =
-        "Swipe until a target text is visible (goal-driven — model states the requirement only; tool auto-swipes: default horizontal=left/vertical=up, EXISTS visibility check before and after each swipe, reverses direction after 2 no-progress swipes). Params: target(required), container(optional), max_swipes(optional, default 5)."
+        "Swipe until a target text is visible (goal-driven — model states the requirement only; tool auto-swipes: default horizontal=left/vertical=up, EXISTS visibility check before and after each swipe, reverses direction after 2 no-progress swipes). Params: target(required), container(optional — pick from the container sections; vertical container swipes vertically), max_swipes(optional, default 5)."
 
     override fun getDescriptionCN(): String =
-        "滑动直到目标文本可见（目标驱动——模型只提需求不控方向：默认横向左滑/竖向向上滑——滑动前后 EXISTS 检查目标可见性——2 次无进展换反向——上限后仍不可见返回失败）。参数：target(必填,目标文本如'22:00')、container(选填,容器名)、max_swipes(选填,默认5,上限10)。"
+        "滑动直到目标文本可见（目标驱动——模型只提需求不控方向：默认横向左滑/竖向向上滑——滑动前后 EXISTS 检查目标可见性——2 次无进展换反向——上限后仍不可见返回失败）。参数：target(必填,目标文本如'22:00')、container(选填,容器名——从【可横向滑动容器】或【可竖向滚动容器】段选取，竖向容器自动竖向滚动)、max_swipes(选填,默认5,上限10)。"
 }

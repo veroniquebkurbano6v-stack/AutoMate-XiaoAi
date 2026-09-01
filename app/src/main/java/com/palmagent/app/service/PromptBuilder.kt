@@ -43,6 +43,7 @@ object PromptBuilder {
 3. **仅当无障碍树与 VLM 屏幕描述都无法确认界面状态时**，才调用 visual_describe。
 4. **仅真正不可逆/高风险操作才 request_user_action**：资金支付/转账/充值、订单确认付款、删除数据/文件、修改系统设置、生物认证/密码/验证码、下载安装卸载、发送验证码。**涉及个人信息填写（姓名/身份证号/手机号/住址/支付账号等表单字段）若上下文无用户明确提供的数据，禁止编造填写，必须 request_user_action 让用户输入，用户填完继续。**
    ⚠️ **用户明确要求的目标动作直接执行，禁止滥用确认**：如用户要求"给某人发消息"，发送消息是用户已授权的目标操作（可逆、低风险），必须直接执行，不得 request_user_action 拦截；只有操作会触发资金、隐私泄露、数据丢失等不可逆后果时才需用户确认。
+   ⚠️ **Plan 步骤工具提示（tool_hint）分流**：Plan 步骤若标注"工具提示：request_user_action: ..."或"工具提示：ask_user: ..."，该步骤必须调用对应工具请用户完成，禁止自行模拟填写或替用户确认/提交；仅"open_app/auto_input/select_spec"类快捷工具提示才可自主执行。
 5. **progress.completed_steps 只增不减**（系统单调维护），禁止删减已完成项。
 6. **同一目标 locate/查找失败 ≥2 次仍无法继续时，才 finish**（页面反复加载失败/元素始终找不到）。
 7. **遇到广告弹窗/开屏广告/升级弹窗时（识别特征：全屏遮罩、"跳过/Skip/关闭/×"按钮、倒计时圆环），必须先关闭弹窗再继续任务**：优先 locate/tap 点击"跳过/关闭/×"按钮；无法识别关闭按钮时用 back 返回；关闭后再继续原任务，禁止在弹窗遮挡下盲目点击或滚动。
@@ -57,7 +58,7 @@ ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = false)
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
 - 步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"）时，优先用提示的快捷工具一步完成（auto_input 一步完成"定位输入框→输入→点搜索/确认"），不拆多次 locate/tap；提示中的输入文本优先，界面特征仅参考。
-- 横向滚轮选择（时间/日期/人数）用 swipe_until（target=目标可见文本、container=容器名、max_swipes=默认5）——模型不控制滑动方向；失败说明目标可能在别处——重新规划。禁止用其他工具盲滑。
+- 滚轮/列表选择（横向时间日期人数、竖向长列表）用 swipe_until（target=目标可见文本、container=容器名——从【可横向滑动容器】/【可竖向滚动容器】段选取、max_swipes=默认5）——模型不控制滑动方向；失败说明目标可能在别处——重新规划。禁止用其他工具盲滑。
 - 收尾：finish 前把 remaining_steps 全部并入 completed_steps 并清空、status="completed"。
 
 ## wait 规范
@@ -90,7 +91,7 @@ finish 示例：{"type":"finish","description":"已为您打开预约挂号页�
 
 # 约束（最高优先级）
 1. 优先用 auto_input；locate/auto_input 已内置自动点击，定位/输入后禁止再 tap（tap 仅用于已知精确坐标直接点击）。
-2. 仅不可逆/高风险操作才 request_user_action（资金/隐私/删除/系统设置/验证码/支付确认）；个人信息表单字段无用户提供数据时禁止编造，必须 request_user_action；用户明确要求的目标动作直接执行，禁止滥用确认。
+2. 仅不可逆/高风险操作才 request_user_action（资金/隐私/删除/系统设置/验证码/支付确认）；个人信息表单字段无用户提供数据时禁止编造，必须 request_user_action；用户明确要求的目标动作直接执行，禁止滥用确认；Plan 步骤工具提示为 request_user_action/ask_user 时必须调用对应工具请用户完成，禁止自行代填或代确认
 3. 遇到广告/开屏/升级弹窗（全屏遮罩、"跳过/关闭/×"按钮、倒计时）先关闭再继续：优先 locate/tap 关闭按钮，无法识别用 back，禁止在弹窗遮挡下盲目点击。
 4. 同一目标 locate/查找失败 ≥2 次仍无法继续时，才 finish（页面反复加载失败/元素始终找不到）。
 5. progress.completed_steps 只增不减（系统单调维护）；复杂模式按【决策模型任务计划】逐步执行，不追问用户（ask_user 已禁用）。
@@ -105,7 +106,7 @@ ${ToolRegistry.getExecutionToolDescriptions(isVision = false, isComplex = true)}
 ## 进度与计划角色
 - Plan 的"步骤N"是静态基准（决策模型制定，含完成标志），不要改写它；progress 是唯一活性修订载体——发现计划不适用时调整 remaining_steps（删已不需要的步骤/插新障碍处理步骤/重排更优路径）。
 - 步骤带"工具提示"（如"工具提示：auto_input: xxx；搜索按钮"）时，优先用提示的快捷工具一步完成（auto_input 一步完成"定位输入框→输入→点搜索/确认"），不拆多次 locate/tap；提示中的输入文本优先，界面特征仅参考。
-- 横向滚轮选择（时间/日期/人数）用 swipe_until（target=目标可见文本、container=容器名、max_swipes=默认5）——模型不控制滑动方向；失败说明目标可能在别处——重新规划。禁止用其他工具盲滑。
+- 滚轮/列表选择（横向时间日期人数、竖向长列表）用 swipe_until（target=目标可见文本、container=容器名——从【可横向滑动容器】/【可竖向滚动容器】段选取、max_swipes=默认5）——模型不控制滑动方向；失败说明目标可能在别处——重新规划。禁止用其他工具盲滑。
 - 收尾：finish 前把 remaining_steps 全部并入 completed_steps 并清空、status="completed"。
 
 ## wait 规范

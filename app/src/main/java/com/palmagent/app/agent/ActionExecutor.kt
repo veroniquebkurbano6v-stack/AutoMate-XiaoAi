@@ -23,6 +23,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 /**
@@ -37,13 +38,23 @@ import javax.inject.Inject
  */
 class ActionExecutor @Inject constructor(
     private val screenDescriptor: ScreenDescriptor,
-    val progressTracker: TaskProgressTracker,
-    private val smartWait: SmartWaitStrategy
+    val progressTracker: TaskProgressTracker
 ) {
 
     companion object {
         private const val TAG = "ActionExecutor"
-        private const val POST_ACTION_DELAY_MS = 400L
+        // open_app 冷启动加载等待：固定下限 1s + 事件静默，上限 3s
+        private const val OPEN_APP_MIN_DELAY_MS = 1000L
+        private const val OPEN_APP_MAX_DELAY_MS = 3000L
+        // 其他动作：固定下限 400ms + 事件静默，上限 1500ms
+        private const val POST_MIN_DELAY_MS = 400L
+        private const val POST_MAX_DELAY_MS = 1500L
+        // 事件静默窗口：连续 IDLE_SILENCE_WINDOW_MS 无新 UI 事件则视为页面稳定，提前结束等待
+        private const val IDLE_SILENCE_WINDOW_MS = 400L
+        // 事件轮询步长（固定频率轮询，无额外性能开销）
+        private const val IDLE_POLL_INTERVAL_MS = 100L
+        // executeWithChangeDetection 内 post 截屏前缓冲（变化检测专用，与 postActionDelayAndWait 串行）
+        private const val CHANGE_DETECTION_PRE_CAPTURE_MS = 800L
         // 批量重复执行安全边界：次数上限、间隔范围与默认值
         private const val MAX_REPEAT_EXEC = 10
         private const val DEFAULT_REPEAT_INTERVAL_MS = 800L
@@ -181,7 +192,7 @@ class ActionExecutor @Inject constructor(
         // 操作后变化检测
         val postTaskId = userPrompt.take(20).hashCode().toString() + "-" + round
         try {
-            delay(800)
+            delay(CHANGE_DETECTION_PRE_CAPTURE_MS)
             val postCapture = captureScreen()
             val postScreenInfo = postCapture.screenInfo
             val postScreenshot = postCapture.screenshotBmp
@@ -209,33 +220,73 @@ class ActionExecutor @Inject constructor(
     }
 
     /**
-     * 操作后延迟 + 智能等待
+     * 操作后等待（固定下限 + UI 事件静默 + 上界）
+     *
+     * 业界参考：Appium waitForIdleTimeout / UIAutomator waitForIdle ——
+     * 等一段时间内无新事件则视为页面稳定，不等满上界；无事件流时退化到固定 sleep。
+     *
+     * - open_app：冷启动下限 1s + 事件静默窗口 400ms，上限 3s
+     * - 其他动作：下限 400ms + 事件静默窗口 400ms，上限 1.5s
+     * - finish/ask_user/wait 等特殊动作：不额外等待
      */
     suspend fun postActionDelayAndWait(actionType: String) {
         if (actionType == "finish") return
 
-        // v3.2 Bug-7 修复：ASK_USER 期间屏幕未变化，跳过 delay 和 waitForPageStable
-        // 用户回答后应立即继续任务，不应等待 1000ms + 页面稳定检测
-        if (actionType == "ask_user") {
+        // 特殊动作不等待：ASK_USER 用户回答后应立即继续；WAIT 本身就是等待
+        if (actionType == "ask_user" || actionType == "wait") {
             GUIAccessibilityService.instance?.markAgentAction()
             return
         }
 
-        if (actionType != "wait") {
-            // 非 WAIT：先延迟（让动画/过渡完成），再稳定等待
-            val delayMs = when (actionType) {
-                "home" -> 500L
-                "back" -> 500L
-                // swipe 常用于滚动，滑动后需稍长等待界面稳定/惯性动画完成
-                "swipe" -> 600L
-                else -> POST_ACTION_DELAY_MS
-            }
-            delay(delayMs)
+        val minDelay: Long
+        val maxDelay: Long
+        if (actionType == "open_app") {
+            minDelay = OPEN_APP_MIN_DELAY_MS
+            maxDelay = OPEN_APP_MAX_DELAY_MS
+        } else {
+            minDelay = POST_MIN_DELAY_MS
+            maxDelay = POST_MAX_DELAY_MS
         }
-        // WAIT 本身就是等待，无需额外 delay；但仍需 markAgentAction + 稳定等待
-        // 否则 WAIT 后立即截屏会撞上 Surface 重组窗口（errorCode=3）
+        waitForIdle(minDelay, maxDelay, IDLE_SILENCE_WINDOW_MS)
         GUIAccessibilityService.instance?.markAgentAction()
-        smartWait.waitForPageStable()
+    }
+
+    /**
+     * 等待 UI 事件流静默：
+     * 1) 先无条件睡 minDelay（让动画/转场至少启动一帧）；
+     * 2) 之后按 IDLE_POLL_INTERVAL_MS 轮询无障碍事件时间戳；
+     * 3) 有事件流且连续 silenceWindowMs 内无新 UI 事件 → 页面已稳定，提前返回；
+     * 4) 无事件流（lastUiEventTime==0）时无从判断稳定性 → 保持轮询到上界（等价退化固定等待）；
+     * 5) 总耗时达到 maxDelayMs 强制返回（withTimeoutOrNull 有界等待，不会卡死）。
+     * 无无障碍服务时退化为固定 minDelay 等待。
+     */
+    private suspend fun waitForIdle(minDelayMs: Long, maxDelayMs: Long, silenceWindowMs: Long) {
+        val service = GUIAccessibilityService.instance
+        // 先睡下限（保证动画/转场至少启动）
+        delay(minDelayMs)
+        if (service == null) {
+            // 服务不可用（无事件流），退化为剩余时长 = max - min
+            val remaining = (maxDelayMs - minDelayMs).coerceAtLeast(0L)
+            if (remaining > 0) delay(remaining)
+            return
+        }
+        val pollBudgetMs = (maxDelayMs - minDelayMs).coerceAtLeast(0L)
+        val settled = withTimeoutOrNull(pollBudgetMs) {
+            while (true) {
+                val sinceEvent = service.millisSinceLastUiEvent()
+                // 有事件流且静默超窗 → 已稳定（无事件流时 sinceEvent==Long.MAX_VALUE 不满足，等待到超时）
+                if (sinceEvent != Long.MAX_VALUE && sinceEvent >= silenceWindowMs) {
+                    Log.d(TAG, "[空闲等待] UI 已稳定，事件静默 ${sinceEvent}ms")
+                    return@withTimeoutOrNull true
+                }
+                delay(IDLE_POLL_INTERVAL_MS)
+            }
+            @Suppress("UNREACHABLE_CODE")
+            false
+        } ?: false // 超时返回 null → 未在窗口内静默（页面事件持续或有事件流但未稳定），等满上界
+        if (!settled) {
+            Log.d(TAG, "[空闲等待] 达到上界 ${maxDelayMs}ms，强制继续")
+        }
     }
 
     /**

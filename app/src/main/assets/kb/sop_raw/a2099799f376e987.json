@@ -1,0 +1,64 @@
+{
+  "sop_id": "a2099799f376e987",
+  "original_task_name": "粤省事高龄老人津贴申请",
+  "task_name": "通过粤省事小程序申请高龄老人津贴",
+  "app_name": "微信",
+  "source": "qwen_generated",
+  "difficulty": "L3",
+  "domain": "政务服务",
+  "keywords": [
+    "微信",
+    "粤省事",
+    "高龄津贴",
+    "高龄老人津贴",
+    "申请",
+    "补贴申领",
+    "老年人福利",
+    "民政",
+    "广东"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标启动应用",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "在首页顶部的搜索框中输入粤省事并进行搜索",
+      "expected": "搜索结果页展示粤省事小程序入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 3,
+      "goal": "在搜索结果中点击粤省事小程序进入并登录",
+      "expected": "进入粤省事小程序首页，展示顶部搜索框",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在粤省事搜索框中输入高龄老人津贴申请并搜索",
+      "expected": "搜索结果展示高龄老人津贴申请服务入口",
+      "action_type": "type"
+    },
+    {
+      "step_order": 5,
+      "goal": "在搜索结果中点击高龄老人津贴申请服务",
+      "expected": "进入申请指南页面，展示所需材料与办理说明",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "点击申请指南页面中的开始申请按钮",
+      "expected": "进入办理方式选择页面，展示本人办理与代办选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在办理方式页面点击代他人办理选项",
+      "expected": "进入申请信息填写页面，展示待填写的申请表单",
+      "action_type": "click"
+    }
+  ]
+}

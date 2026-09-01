@@ -121,7 +121,7 @@ class DecisionDialogService {
 2. **应用环境确认（list_apps，操作必调）**：先调 list_apps 确认已装相关 App，一次传入多个关键词（"点奶茶"→["美团","淘宝闪购"]）。⚠️指定 App 未装红线：用户明确指定了 App（"用淘宝闪购…""打开微信…"）但 list_apps 显示未装——禁止擅用同类型替代、禁止 Plan 声称"已确认替代"，必须调 ask_questions 告知"XX未安装"并给替代项（同类型/网页版/换方式/放弃）；仅泛化表述（"点个外卖"）才可自选。未装就在 Plan 如实描述，绝不瞎编包名。**list_apps 返回后：把"任务指定应用 vs 实际已装应用"的对照结论写入工作区（如"任务说微信 → 实际 wechat_flutter"），Plan 的 open_app 工具提示从该对照取真实应用名/包名。**
 3. **知识库校验（kb_read，仅操作）**：按 list_apps 已装候选 App 逐个查，一次一 App，query=意图+App名，app_filter=该 App，候选最多 3 个。⚠️三禁：禁跳过 list_apps 直查；禁不带 app_filter 全量查；禁对同 App 重复调。kb 只是"怎么做"的操作手册非意图证据，意图只能来自用户原话/历史/澄清。
 4. **补充信息（按需）+ 能力类事实必须检索验证**：地理/路线/天气→amap_*（请求含"附近/周边/就近"且为查询或导航附近目标时用 amap_nearby）；实时信息（新闻/股价/价格/动态）→先 web_search 再答防幻觉。⚠️**能力类事实强制验证**：涉及具体医院/机构/商户且需确认其线上服务能力（能否线上挂号、有无公众号/小程序/官网/外送等）时，必须先 web_search(mode=ai) 查"<目标名> 线上挂号 方式 / 是否支持线上"，拿检索证据说话后再回答或出 Plan；禁止把"能力未知"当用户偏好直接抛 ask_questions，禁止凭训练知识断言目标的服务能力。查询类"附近有什么医院"拿到 amap 列表后，若用户意图是挂号就医，同样须对候选医院做能力验证再回答。
-5. **追问（操作必做一次）**：调用前自问"还有什么没问"，硬性未知打包一次（1-4问，每问2-6选项，UI 自动追加"其他"勿生成）。只决定"问什么"不问"问不问"，自查四项：①历史已提供→不重问 ②主观偏好可默认→并默认项 ③可 kb/list/amap 补全→先调工具再问 ④执行方式不唯一→必须问。有硬性未知问具体，无则也调一次 ask_questions 用"确认型问题"复述方案。fetch_result 取回后未提炼进工作区即追问，视为违规。禁止跳过直接 ready，除非用户本轮已说"随便/你定/直接执行"。
+5. **追问（操作必做一次）**：先自列"用户必填信息清单"（任务完成必需、模型无权代填的字段：执行人信息、办理对象信息、地区等；KB SOP 若标注 required_fields 则照单收集），清单未取齐（历史已答或本轮问齐）禁止输出 ready，缺项必须在本次 ask_questions 补齐。调用前自问"还有什么没问"，硬性未知打包一次（1-4问，每问2-6选项，UI 自动追加"其他"勿生成）。只决定"问什么"不问"问不问"，自查四项：①历史已提供→不重问 ②主观偏好可默认→并默认项 ③可 kb/list/amap 补全→先调工具再问 ④执行方式不唯一→必须问。有硬性未知问具体，无则也调一次 ask_questions 用"确认型问题"复述方案。fetch_result 取回后未提炼进工作区即追问，视为违规。禁止跳过直接 ready，除非用户本轮已说"随便/你定/直接执行"。
 6. **生成 Plan**：用户已答/确认或按例外跳过后，立即输出 ready，停止调工具。
 
 ### Plan 生成规范
@@ -143,8 +143,12 @@ Plan 是传给执行模型的分步骤指引，输出结构化 JSON 对象（非
 - **auto_input**：一步完成"定位输入框→输入→自动点搜索/确认"。适用"输入关键词/地址后触发搜索确认"的步骤（如 App 内搜索商品/医院/联系人）。写法 "auto_input: <输入文本>；<按钮特征>"。
 - **select_spec**：自动遍历规格表单（份量/辣度/尺寸/颜色/口味/数量等）逐项选取并确认。适用外卖/购物/预约多规格。写法 "select_spec"（规格由执行模型读屏，不列举）。
 ⚠️tool_hint 只标"动作类型+关键参数"，界面元素由执行模型识别；不适用则不填。
+- **request_user_action**：该步骤必须由用户自行操作/确认（登录、验证码、支付、表单填写、上传材料、选择办理方式等）。写法 "request_user_action: <操作标题>"（如 "request_user_action: 用户输入老人姓名与身份证号并提交"）。
+  ⚠️ **用户数据红线**：涉及姓名/身份证号/手机号/住址/支付账号等个人信息表单字段，若无工作区已确认的用户数据 → 该步骤必须标 request_user_action，禁止生成"AI 自动定位输入框并填写个人数据"的步骤（如 auto_input/type 填入姓名、身份证）。需要用户回传具体信息（如所在地市）时写法 "request_user_action: <标题>;ask_text" 提醒执行模型开启附言输入框。资金/不可逆操作（支付/转账/删除/权限变更）保持 supervised:true，同时 tool_hint 标 request_user_action。
+- **ask_user**：该步骤需用户提供可选偏好/选择（如"办理方式：本人/代办"）→ "ask_user: <问题关键词>"。执行模型用选择题收集，答案回传后继续。
 - ⚠️ **横向滚轮选择器**（时间/日期/人数/星级等）：SOP 中 action_type=swipe 的步骤为横向滑动选择——该步骤 goal 写"横向滑动选择目标时段/日期/人数"（横向滑动=两点 swipe），禁止改写成"点击"。
 ⚠️ **Plan 步骤必须原子化**：一个步骤只对应一个工具（一个 tool_hint）；"先打开应用再操作"等复合动作必须拆成多个连续步骤（open_app 步骤排最前），禁止把两个工具合并进一个步骤的 tool_hint。
+⚠️ **用户步骤禁止 AI 代做**：任务含"用户操作/用户提供信息"环节（登录、验证码、支付、填表、上传、确认提交、选择办理方式等）时，绝对禁止把这步写成 AI 自主执行的快捷工具（open_app/auto_input/select_spec）——必须保留 goal 为动作描述，tool_hint 标 request_user_action 或 ask_user。通俗判据：AI 会动手点击/输入的→标快捷工具；需要用户动手或提供私人数据的→标 request_user_action/ask_user。
 
 ### 输出紧凑度（防截断，步骤数不限）
 步骤数不设上限（可超 10 步）但每步紧凑：goal≤15字只写动作；success_criteria 只留执行模型判断所需最小信息（界面状态/元素变体/异常处理），禁复述目标/客套。
@@ -161,6 +165,7 @@ Plan 示例（预约挂号，单步）：
 - 闲聊/愿望/查询类（不执行）：{"status":"need_more_info","message":"<真正回复用户的自然语言文字>"}
 - 操作-模糊 或 执行方式歧义：必须调用 ask_questions（禁止输出 questions 文本字段）
 ⚠️ **操作红线**：操作禁输裸文本 need_more_info（无 questions）。操作出口只有 ready JSON 或 ask_questions；转发 ready 前须至少调一次 ask_questions（用户已说"随便/你定/直接执行"除外）。
+⚠️ 未取齐必填信息禁止输出 ready：Plan 中任何"用户必填字段"若未经 ask_questions 确认或工作区落盘，一律不得出现于步骤措辞或 tool_hint。
 
 最后一行（必须遵守）：输出必须是严格的 JSON 对象或一次工具调用；禁止用 markdown 代码块包裹 JSON，禁止输出 JSON 之外的任何解释文字。
 """
@@ -303,12 +308,15 @@ Plan 示例（预约挂号，单步）：
             )
         )
 
-        // 无工具调用（includeTools=false，禁用 tools 字段——模型只能纯总结，不会误调工具）
+        // 无工具调用（includeTools=false，禁用 tools 字段——模型只能纯总结，不会误调工具）；
+        // useJsonFormat=false：报告是自由文本，禁止 json_object（JSON 模式下 DeepSeek 把内容沉入
+        // reasoning_content、content 仅吐空白，导致报告判空回退摘要——实测复现）
         val result = callApiWithTools(
             apiUrl, apiKey, model, messages,
             toolChoiceJson = "\"none\"",
             maxTokens = 2048,
-            includeTools = false
+            includeTools = false,
+            useJsonFormat = false
         )
         val report = result?.content?.trim()
         if (report.isNullOrEmpty()) {
@@ -976,14 +984,18 @@ Plan 示例（预约挂号，单步）：
         messages: List<Map<String, Any>>,
         toolChoiceJson: String = "\"auto\"",
         maxTokens: Int = MAX_TOKENS,
-        includeTools: Boolean = true
+        includeTools: Boolean = true,
+        useJsonFormat: Boolean = true
     ): CallResult? {
         return try {
             // 先尝试启用 JSON 模式（response_format: json_object，由 API 层保证输出合法 JSON，
-            // 避免模型输出裸文本/代码块导致解析失败）；若 API 不支持则回退为普通请求重试
-            var requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = true, maxTokens = maxTokens, includeTools = includeTools)
+            // 避免模型输出裸文本/代码块导致解析失败）；若 API 不支持则回退为普通请求重试。
+            // reportResult（useJsonFormat=false）为自由文本总结：JSON 模式下 DeepSeek 会把
+            // 报告内容沉入 reasoning_content、content 仅吐空白 → 判空失败，故报告模式不走此分支。
+            var requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = useJsonFormat, maxTokens = maxTokens, includeTools = includeTools)
             var (responseCode, body) = executeDecisionRequest(apiUrl, apiKey, requestBody)
-            if (responseCode !in 200..299) {
+            // JSON 模式失败时回退普通请求（仅 useJsonFormat=true 才有回退意义；false 时二者等价，无需重复请求）
+            if (useJsonFormat && responseCode !in 200..299) {
                 val firstError = parseErrorMessage(body, responseCode)
                 Log.w(TAG, "决策对话 JSON 模式请求失败: HTTP $responseCode, $firstError，回退为普通请求重试")
                 requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = false, maxTokens = maxTokens, includeTools = includeTools)
@@ -1015,12 +1027,12 @@ Plan 示例（预约挂号，单步）：
             val usageObj = responseJson.get("usage")?.takeIf { it.isJsonObject }?.asJsonObject
             val completionTokens = usageObj?.get("completion_tokens")?.asInt ?: 0
             val truncated = finishReason == "length" ||
-                (completionTokens > 0 && completionTokens >= MAX_TOKENS) ||
+                (completionTokens > 0 && completionTokens >= maxTokens) ||
                 isLikelyTruncated(content)
             // 诊断日志：每次决策响应都记录 finish_reason/usage（区分 length 顶格 vs 响应体截断 vs 正常）
             Log.d(TAG, "决策响应统计: finish_reason='$finishReason', completion_tokens=$completionTokens/$maxTokens, content=${content.length}字符")
             if (truncated) {
-                Log.w(TAG, "决策对话输出疑似截断（finish_reason='$finishReason', completion_tokens=$completionTokens/${MAX_TOKENS}, content 长度=${content.length}）")
+                Log.w(TAG, "决策对话输出疑似截断（finish_reason='$finishReason', completion_tokens=$completionTokens/$maxTokens, content 长度=${content.length}）")
             }
 
             // 解析 tool_calls（OpenAI 兼容格式）
@@ -1069,26 +1081,26 @@ Plan 示例（预约挂号，单步）：
         useJsonFormat: Boolean,
         maxTokens: Int = MAX_TOKENS,
         includeTools: Boolean = true
-    ): String = buildString {
-        append("{")
-        append("\"model\":\"$model\",")
-        append("\"messages\":${gson.toJson(messages)},")
-        // 显式设置足够的输出上限（16384），避免长 plan（复杂任务可超 10 步）被截断；
-        // 不传该字段时 API 使用默认上限（约 4096）仍会截断，必须显式给足
-        append("\"max_tokens\":$maxTokens,")
-        append("\"temperature\":$TEMPERATURE,")
-        if (useJsonFormat) {
-            // API 层结构化输出约束（OpenAI 兼容格式，与 function calling 可共存）
-            append("\"response_format\":{\"type\":\"json_object\"},")
+    ): String {
+        // 使用 Gson JsonObject 结构化构造，彻底消除手工拼串带来的 trailing comma / 转义风险
+        val obj = JsonObject().apply {
+            addProperty("model", model)
+            add("messages", gson.toJsonTree(messages))
+            addProperty("max_tokens", maxTokens)
+            addProperty("temperature", TEMPERATURE)
+            if (useJsonFormat) {
+                add("response_format", JsonObject().apply {
+                    addProperty("type", "json_object")
+                })
+            }
+            if (includeTools) {
+                add("tools", JsonParser.parseString(buildToolsJson()))
+                // toolChoiceJson 本身是 JSON 字面量（如 "\"auto\"" 或 "\"none\""），用 JsonParser 解析后塞入
+                // 避免被当作字符串再次加引号
+                add("tool_choice", JsonParser.parseString(toolChoiceJson))
+            }
         }
-        // 注入 tools 字段，让模型能主动调 list_apps / kb_read / amap_* / web_search
-        // enable_search 已删除 — 联网搜索由 web_search 工具提供（与执行模型统一）
-        // includeTools=false：报告模式（reportResult）——纯总结不注入工具，避免模型误调工具
-        if (includeTools) {
-            append("\"tools\":${buildToolsJson()},")
-            append("\"tool_choice\":$toolChoiceJson")
-        }
-        append("}")
+        return gson.toJson(obj)
     }
 
     /**

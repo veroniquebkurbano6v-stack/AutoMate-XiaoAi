@@ -1,0 +1,63 @@
+{
+  "sop_id": "67b9ac896a3e76c1",
+  "original_task_name": "支付宝电子社保卡养老待遇资格认证",
+  "task_name": "通过支付宝电子社保卡办理养老金待遇资格认证",
+  "app_name": "支付宝",
+  "source": "qwen_generated",
+  "difficulty": "L3",
+  "domain": "政务服务",
+  "keywords": [
+    "支付宝",
+    "电子社保卡",
+    "市民中心",
+    "待遇资格认证",
+    "养老认证",
+    "刷脸认证",
+    "养老金",
+    "社保"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的支付宝应用图标启动应用",
+      "expected": "支付宝启动并进入首页，展示常用功能入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击支付宝首页中的市民中心功能入口",
+      "expected": "进入市民中心页面，展示社保等服务分类",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "在市民中心页面中点击社保服务分类",
+      "expected": "进入社保服务页面，展示电子社保卡等入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在社保页面中点击电子社保卡服务入口",
+      "expected": "进入电子社保卡页面，展示社保服务功能列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "在服务列表中点击社保待遇资格认证服务项",
+      "expected": "进入认证页面，展示待认证的本人参保信息",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "核对个人信息无误后点击开始认证按钮",
+      "expected": "进入人脸识别认证页面，屏幕显示取景圆框",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "正对屏幕按提示完成眨眼点头等人脸识别动作",
+      "expected": "认证通过，页面展示待遇资格认证成功的提示",
+      "action_type": "click"
+    }
+  ]
+}

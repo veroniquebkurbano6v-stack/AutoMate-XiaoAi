@@ -50,8 +50,7 @@ class ActionExecutorParamMappingTest {
         // 创建 ActionExecutor 实例
         executor = ActionExecutor(
             screenDescriptor = Mockito.mock(ScreenDescriptor::class.java),
-            progressTracker = Mockito.mock(TaskProgressTracker::class.java),
-            smartWait = Mockito.mock(SmartWaitStrategy::class.java)
+            progressTracker = Mockito.mock(TaskProgressTracker::class.java)
         )
 
         // 反射拿到 private 方法

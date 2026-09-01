@@ -1,0 +1,51 @@
+{
+  "sop_id": "612b616f5c4aaf83",
+  "original_task_name": "国家医保服务平台医保亲情账户绑定",
+  "task_name": "通过国家医保服务平台为老人绑定医保亲情账户",
+  "app_name": "国家医保服务平台",
+  "source": "qwen_generated",
+  "difficulty": "L3",
+  "domain": "政务服务",
+  "keywords": [
+    "国家医保服务平台",
+    "亲情账户",
+    "医保电子凭证",
+    "医保码",
+    "绑定老人",
+    "家人医保",
+    "代刷码",
+    "医保"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的国家医保服务平台应用图标",
+      "expected": "应用启动并进入首页，展示医保码等功能入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击页面底部菜单栏中的我的按钮",
+      "expected": "进入个人中心页面，展示我的家庭成员版块",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击我的家庭成员版块中的加号图标",
+      "expected": "进入亲情账户添加页面，展示绑定方式选项",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在亲情账户添加页面点击身份证号绑定方式",
+      "expected": "进入绑定须知页面，展示告知书内容",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "阅读告知书内容后点击页面底部的确认按钮",
+      "expected": "进入家庭成员信息填写页面，展示待填写的信息项",
+      "action_type": "click"
+    }
+  ]
+}
