@@ -5,7 +5,7 @@
 ### 配置
 - 嵌入模型：bge-small-zh-v1.5 INT8 ONNX（端侧同款）
 - 检索：向量(task 0.7 + keyword 0.3) + 关键词子串 → RRF 融合(RRF_K=60)
-- 知识库：514 条 SOP JSON
+- 知识库：545 条 SOP JSON
 - 评测集：**32 条 query，覆盖 17 个 App + 跨App 场景**（购物/导航/社交/视频/音乐/
   生活/效率/查询）；query 表述与知识库实际条目一致（注：饿了么平台已下线，
   知识库为「淘宝闪购外卖」，故 query 1 用淘宝闪购表述）
@@ -56,7 +56,7 @@
 | top-1 命中率 | **100%** (32/32) |
 | 命中平均分 | 0.78 |
 | 平均嵌入延迟 | 2–3 ms（PC 模拟，单条） |
-| 平均检索延迟 | ~3 ms（514 条暴力检索） |
+| 平均检索延迟 | ~3 ms（545 条暴力检索） |
 | 平均端到端 | 14 ms（embed + 检索） |
 
 > 评测脚本：[eval/eval_retrieval.py](../eval/eval_retrieval.py)（与 `LocalKbEngine` 同口径：
@@ -132,5 +132,5 @@
 - 决策模型：deepseek-v4-flash（温度 0.3，max_tokens 16384）
 - 执行模型：deepseek-v4-flash（配置见 `local.default.properties`）
 - 视觉定位：gui-plus-2026-02-26（阿里云百炼）
-- 知识库：端侧 bge-small-zh INT8，514 条 SOP
+- 知识库：端侧 bge-small-zh INT8，545 条 SOP
 - 检索参数：top_k=3，RRF_K=60，置信度阈值 0.3

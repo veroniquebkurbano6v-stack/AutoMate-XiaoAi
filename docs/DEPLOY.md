@@ -144,14 +144,14 @@ python eval/eval_vision.py
 
 ## 五、知识库数据来源
 
-App 内置的 **514 条离线 SOP**（`app/src/main/assets/kb/sop_raw/`）来源于
+App 内置的 **545 条离线 SOP**（`app/src/main/assets/kb/sop_raw/`）来源于
 **CAGUI 数据集**（OpenBMB 开源的国内 Android GUI 智能体轨迹数据集，CC-BY-NC 4.0）
 的**后处理结果**，生成方式为：
 
 1. 取 CAGUI `CAGUI_agent/domestic/` 下真实任务轨迹（含每步截图、点击/长按坐标、输入文字、操作类型）；
 2. 用**本地视觉模型逐帧识图**，结合轨迹中的真实操作信息（坐标/文字/动作类型），
    由视觉模型输出每步的具体操作描述（如"点击搜索框"、"点击联系人头像"）；
-3. 人工/脚本抽检修正，去重、统一字段规范后形成 514 条 SOP（含 `task_name` 泛化、
+3. 人工/脚本抽检修正，去重、统一字段规范后形成 545 条 SOP（含 `task_name` 泛化、
    `app_name`、`domain`、`keywords`、分步 `steps`）。
 
 详细合规说明（许可、边界）见 [DEPENDENCIES.md](DEPENDENCIES.md) 与 [OPEN-SOURCE-BOUNDARY.md](OPEN-SOURCE-BOUNDARY.md)。
