@@ -50,8 +50,6 @@ class GUIAccessibilityService : AccessibilityService() {
         private const val SCREENSHOT_TIMEOUT_MS = 3000L
     }
 
-    @Volatile
-    private var lastEventTime = 0L
     private var eventCount = 0
 
     @Volatile
@@ -59,6 +57,9 @@ class GUIAccessibilityService : AccessibilityService() {
     private var lastAgentActionTime = 0L
     @Volatile
     private var agentActing = false
+    // 最近一次 UI 事件（窗口/内容变化）时间戳，供 ActionExecutor 做"事件静默"空闲等待
+    @Volatile
+    private var lastUiEventTime = 0L
 
     fun markAgentAction() {
         lastAgentActionTime = System.currentTimeMillis()
@@ -81,13 +82,11 @@ class GUIAccessibilityService : AccessibilityService() {
 
     fun isUserTouchDetected(): Boolean = userTouchDetected
 
-    /**
-     * 返回最近一次无障碍事件的时间戳（毫秒）。
-     * SmartWaitStrategy 据此判断"事件流是否已静默"——事件流静默意味着页面渲染/动画
-     * 已收敛（不再产生 TYPE_WINDOW_CONTENT_CHANGED 等事件），比"元素数量不变"
-     * 更可靠的界面稳定信号。0 表示尚未收到任何事件。
-     */
-    fun getLastAccessibilityEventTime(): Long = lastEventTime
+    /** 距最近一次 UI 事件（窗口/内容/点击/文本变化）的毫秒数；服务未启动或无事件时返回 Long.MAX_VALUE */
+    fun millisSinceLastUiEvent(): Long {
+        val t = lastUiEventTime
+        return if (t == 0L) Long.MAX_VALUE else System.currentTimeMillis() - t
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -114,8 +113,8 @@ class GUIAccessibilityService : AccessibilityService() {
         if (agentActing) {
             when (event.eventType) {
                 AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                    // 窗口变化是 AI 执行的关键信号，即使 agentActing 也要记录
-                    lastEventTime = System.currentTimeMillis()
+                    // 窗口变化是 AI 执行的关键信号
+                    lastUiEventTime = System.currentTimeMillis()
                 }
                 // 其他事件在 AI 操作时全部跳过，减少冲突
                 else -> return
@@ -123,7 +122,6 @@ class GUIAccessibilityService : AccessibilityService() {
         }
 
         eventCount++
-        lastEventTime = System.currentTimeMillis()
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_VIEW_CLICKED,
@@ -133,9 +131,11 @@ class GUIAccessibilityService : AccessibilityService() {
                 if (!agentActing && System.currentTimeMillis() - lastAgentActionTime > 5000) {
                     userTouchDetected = true
                 }
+                lastUiEventTime = System.currentTimeMillis()
             }
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                lastUiEventTime = System.currentTimeMillis()
                 if (eventCount % 10 == 0) {
                     if (Log.isLoggable(TAG, Log.DEBUG)) {
                         Log.d(TAG, "已处理${eventCount}个事件，最近事件: ${event.packageName}/${event.className}")

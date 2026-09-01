@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.palmagent.app.AgentApplication
 import com.palmagent.app.tool.ToolRegistry
 import com.palmagent.app.tool.impl.ListAppsTool
@@ -689,6 +690,99 @@ class DecisionDialogServiceTest {
                 instanceField.set(null, savedAgentApplicationInstance)
             }
         } catch (_: Exception) { /* ignore */ }
+    }
+
+    // ===== P1-1 回归：buildDecisionRequestBody 四种组合 JSON 构造 =====
+
+    @Test
+    fun `buildDecisionRequestBody 四种组合都是合法JSON无trailing comma`() = runBlocking {
+        val method = DecisionDialogService::class.java.getDeclaredMethod(
+            "buildDecisionRequestBody",
+            String::class.java,      // model
+            List::class.java,        // messages
+            String::class.java,      // toolChoiceJson
+            Boolean::class.javaPrimitiveType!!, // useJsonFormat
+            Int::class.javaPrimitiveType!!,     // maxTokens
+            Boolean::class.javaPrimitiveType!!  // includeTools
+        )
+        method.isAccessible = true
+
+        val messages = listOf(mapOf("role" to "user", "content" to "帮我点外卖"))
+        for (useJsonFormat in listOf(true, false)) {
+            for (includeTools in listOf(true, false)) {
+                val body = method.invoke(
+                    dialogService,
+                    "mock-model", messages, "\"auto\"", useJsonFormat, 2048, includeTools
+                ) as String
+
+                // 合法 JSON 解析不抛异常（trailing comma 会导致 JsonParser 失败——历史 HTTP 400 根因）
+                val json = JsonParser.parseString(body).asJsonObject
+                assertEquals("mock-model", json.get("model").asString)
+                assertEquals(2048, json.get("max_tokens").asInt)
+                assertEquals(useJsonFormat, json.has("response_format"))
+                if (useJsonFormat) {
+                    assertEquals("json_object", json.getAsJsonObject("response_format").get("type").asString)
+                }
+                assertEquals(includeTools, json.has("tools"))
+                assertEquals(includeTools, json.has("tool_choice"))
+            }
+        }
+    }
+
+    // ===== P0-2 回归：截断判断按本次 maxTokens（而非全局 MAX_TOKENS） =====
+
+    private fun mockOpenAiResponseWithCompletionTokens(content: String, completionTokens: Int): String {
+        return """
+        {
+            "id":"chatcmpl-1",
+            "object":"chat.completion",
+            "created":1234567890,
+            "model":"mock-model",
+            "choices":[{
+                "index":0,
+                "message":{"role":"assistant","content":${gson.toJson(content)},"tool_calls":null},
+                "finish_reason":"stop"
+            }],
+            "usage":{"prompt_tokens":10,"completion_tokens":$completionTokens,"total_tokens":30}
+        }
+        """.trimIndent()
+    }
+
+    @Test
+    fun `callApiWithTools 截断判断用maxTokens参数而非MAX_TOKENS`() = runBlocking {
+        // 反射调用 callApiWithTools（reportResult 传 maxTokens=2048，旧代码误用 MAX_TOKENS=16384 兜底）
+        val method = DecisionDialogService::class.java.getDeclaredMethod(
+            "callApiWithTools",
+            String::class.java,             // apiUrl
+            String::class.java,             // apiKey
+            String::class.java,             // model
+            List::class.java,               // messages
+            String::class.java,             // toolChoiceJson
+            Int::class.javaPrimitiveType!!, // maxTokens
+            Boolean::class.javaPrimitiveType!!, // includeTools
+            Boolean::class.javaPrimitiveType!!  // useJsonFormat
+        )
+        method.isAccessible = true
+        // 截断判断结果字段（private data class CallResult）
+        val truncatedField = Class.forName("com.palmagent.app.service.DecisionDialogService\$CallResult")
+            .getDeclaredField("truncated")
+        truncatedField.isAccessible = true
+
+        fun invokeWithCompletionTokens(tokens: Int): Boolean {
+            testInterceptor.responses.add(mockOpenAiResponseWithCompletionTokens("""{"status":"ready"}""", tokens))
+            val result = method.invoke(
+                dialogService,
+                "https://api.test.com/v1/chat/completions", "test-key", "mock-model",
+                listOf(mapOf("role" to "user", "content" to "hi")),
+                "\"none\"", 2048, false, false
+            ) ?: return false
+            return truncatedField.get(result) as Boolean
+        }
+
+        // maxTokens=2048，completion=2048 顶格应判截断（旧代码 16384 阈值不会触发）
+        assertTrue("completion=2048≥maxTokens=2048 应判截断", invokeWithCompletionTokens(2048))
+        // maxTokens=2048，completion=2000 未顶格不判截断
+        assertFalse("completion=2000<maxTokens=2048 不应判截断", invokeWithCompletionTokens(2000))
     }
 }
 

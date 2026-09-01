@@ -99,7 +99,8 @@ object GuiOwlService {
         val type: String,                  // normal / close / auto
         val coordinate: String? = null,    // "x,y" [0,1000] 归一化（close）
         val conf: Float? = null,           // 置信度 0-1（close）
-        val delaySeconds: Int? = null      // 等待秒数（auto）
+        val delaySeconds: Int? = null,     // 等待秒数（auto）
+        val closeButton: String? = null    // 关闭按钮（文字=位置），GLM 视觉描述给出（close）
     )
 
     /** 屏幕描述/视觉问答结果（自 VlmService 迁移） */

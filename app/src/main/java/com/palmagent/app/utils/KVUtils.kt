@@ -308,12 +308,6 @@ object KVUtils {
     /** 屏幕描述模型是否已配置（API Key 非空即视为已配置，未配置时回退 GUI-Plus 描述） */
     fun hasScreenVlmConfig(): Boolean = getString(KEY_SCREEN_VLM_API_KEY).isNotEmpty()
 
-    private const val KEY_SMART_WAIT_TIMEOUT_MS = "KEY_SMART_WAIT_TIMEOUT_MS"
-
-    // 智能等待超时配置（默认8000ms，调研报告建议慢启动App需更长超时）
-    fun getSmartWaitTimeoutMs(): Long = getString(KEY_SMART_WAIT_TIMEOUT_MS).toLongOrNull() ?: 4000L
-    fun setSmartWaitTimeoutMs(value: Long) = edit { putString(KEY_SMART_WAIT_TIMEOUT_MS, value.toString()) }
-
     // ==================== 执行模型联网搜索配置 ====================
     // 与决策模型共用 web_search 工具（通过 WebSearchService 后端）
     private const val KEY_EXECUTION_ENABLE_SEARCH = "KEY_EXECUTION_ENABLE_SEARCH"

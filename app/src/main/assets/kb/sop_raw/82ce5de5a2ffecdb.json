@@ -1,0 +1,69 @@
+{
+  "sop_id": "82ce5de5a2ffecdb",
+  "original_task_name": "电子社保卡养老金发放记录查询",
+  "task_name": "通过电子社保卡查询养老金发放明细",
+  "app_name": "微信",
+  "source": "qwen_generated",
+  "difficulty": "L3",
+  "domain": "政务服务",
+  "keywords": [
+    "微信",
+    "电子社保卡",
+    "养老金",
+    "发放明细",
+    "到账查询",
+    "养老金查询",
+    "发放记录",
+    "社保"
+  ],
+  "steps": [
+    {
+      "step_order": 1,
+      "goal": "点击手机桌面上的微信应用图标启动应用",
+      "expected": "微信启动并进入首页聊天列表界面",
+      "action_type": "click"
+    },
+    {
+      "step_order": 2,
+      "goal": "点击微信页面底部菜单栏中的我按钮",
+      "expected": "进入个人中心页面，展示服务与支付等入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 3,
+      "goal": "点击个人中心页面中的服务功能入口",
+      "expected": "进入服务页面，展示城市服务等生活服务分类",
+      "action_type": "click"
+    },
+    {
+      "step_order": 4,
+      "goal": "在服务页面中点击城市服务选项进入",
+      "expected": "进入城市服务页面，展示社保等服务板块",
+      "action_type": "click"
+    },
+    {
+      "step_order": 5,
+      "goal": "在城市服务页面中点击社保板块入口",
+      "expected": "进入社保服务页面，展示电子社保卡等入口",
+      "action_type": "click"
+    },
+    {
+      "step_order": 6,
+      "goal": "在社保页面中点击电子社保卡服务入口",
+      "expected": "进入电子社保卡页面，展示社保查询服务列表",
+      "action_type": "click"
+    },
+    {
+      "step_order": 7,
+      "goal": "在服务列表中点击养老金发放明细查询服务",
+      "expected": "进入发放明细页面，展示各月养老金发放记录",
+      "action_type": "click"
+    },
+    {
+      "step_order": 8,
+      "goal": "点击目标月份的发放记录查看到账金额详情",
+      "expected": "页面展示该月养老金的到账金额与发放状态",
+      "action_type": "click"
+    }
+  ]
+}

@@ -62,8 +62,9 @@ class ScreenDescriptor {
         // ===== 容器表（container_swipe 锚定数据源——每轮容器识别结果刷新；name → 容器信息）=====
         data class ContainerInfo(
             val name: String,
-            val yScreen: Int,      // 屏幕像素 y（容器行中心线）
-            val selected: String   // 当前选中值（滑动效果核对）
+            val yScreen: Int,          // 屏幕像素 y（容器中心线）
+            val selected: String,      // 当前选中值（滑动效果核对）
+            val direction: String      // 滑动方向：horizontal（横向滑动）/ vertical（竖向滚动）
         )
 
         @Volatile
@@ -762,7 +763,7 @@ class ScreenDescriptor {
                     "$visualQuestion$selectedHint"
                 } else visualQuestion
 
-                // 每轮并行容器识别（独立请求——与视觉描述各自专注）：识别可横向滑动容器（[0,1000] 归一化坐标）
+                // 每轮并行容器识别（独立请求——与视觉描述各自专注）：识别可横向滑动 + 可竖向滚动容器（[0,1000] 归一化坐标）
                 val containerDeferred = async {
                     try {
                         GuiOwlService.recognizeContainers(croppedBmp)
@@ -772,8 +773,9 @@ class ScreenDescriptor {
                     }
                 }
 
-                // 云端 VLM 屏幕描述：优先智谱 GLM-5.3-Flash 简短描述（复用 GUI-Plus 无广告判定的轻量通道）；
-                // 未配置或调用失败时回退 GUI-Plus describeScreen（保留广告判定兼容）
+                // 云端 VLM 屏幕描述：优先智谱 GLM-5.3-Flash 简短描述（含广告标记行解析）
+                // （复用 GUI-Plus 无广告判定的轻量通道）；未配置或调用失败时回退 GUI-Plus
+                // describeScreen（保留 GUI-Plus 的 XML 广告判定兼容）
                 val vlmResult = if (ScreenVlmDescribeService.isConfigured) {
                     val short = try {
                         ScreenVlmDescribeService.describeScreen(croppedBmp)
@@ -782,11 +784,26 @@ class ScreenDescriptor {
                         null
                     }
                     if (short?.success == true && short.answer.isNotBlank()) {
+                        // GLM 广告标记行 → AdJudgement：auto_skip=true 归入 auto（重新描述等待自动跳过，
+                        // 不客户端点击；视觉描述本身耗时 ~5s，描述完广告多半已自动跳过）；
+                        // auto_skip=false 归入 close，并携带 GLM 描述的关闭按钮位置供 grounding 定位点击
+                        val glmAd = short.adInfo?.takeIf { it.isAd }?.let { info ->
+                            Log.w(TAG, "GLM识别到广告[${info.adType}]，auto_skip=${info.autoSkip}，关闭按钮: ${info.closeButton}")
+                            LiveLogBuffer.append("🚫 GLM广告判定: ${info.adType}（${info.closeButton}）")
+                            if (info.autoSkip) {
+                                GuiOwlService.AdJudgement(type = "auto", delaySeconds = null)
+                            } else {
+                                GuiOwlService.AdJudgement(
+                                    type = "close", coordinate = null, conf = null,
+                                    closeButton = info.closeButton
+                                )
+                            }
+                        }
                         GuiOwlService.VlmResult(
                             success = true,
                             answer = short.answer,
                             durationMs = short.durationMs,
-                            adJudgement = null   // GLM 描述不带广告判定，弹窗防御走系统提示词兜底
+                            adJudgement = glmAd
                         )
                     } else if (short?.error != null) {
                         Log.w(TAG, "GLM屏幕描述失败(${short.error})，回退GUI-Plus")
@@ -860,7 +877,7 @@ class ScreenDescriptor {
         }
     }
 
-    /** 容器识别 JSON（新规范 name/y/selected）→ 【可横向滑动容器】注入文本（y 转屏幕像素）+ 更新容器表 */
+    /** 容器识别 JSON（name/y/type/selected）→ 双容器段（横向/竖向）注入文本（y 转屏幕像素）+ 更新容器表 */
     private fun buildContainerSection(
         containerJson: String,
         imgWidth: Int,
@@ -868,10 +885,17 @@ class ScreenDescriptor {
         cropTopPx: Int
     ): String {
         return try {
-            val arr = JSONArray(containerJson)
+            // 容错：剥离模型可能输出的 ```json 代码块包裹，再解析
+            val cleanedJson = containerJson
+                .replace(Regex("```(?:json)?", RegexOption.IGNORE_CASE), "")
+                .trim()
+            val arr = JSONArray(cleanedJson)
             if (arr.length() == 0) return ""
             val containers = mutableListOf<ContainerInfo>()
-            val sb = StringBuilder("\n【可横向滑动容器】（屏幕像素 y——container_swipe 按容器名滑动）\n")
+            val horizontalSb = StringBuilder("\n【可横向滑动容器】（屏幕像素 y——swipe_until 的 container 按容器名选取并横向滑动）\n")
+            val verticalSb = StringBuilder("\n【可竖向滚动容器】（屏幕像素 y——swipe_until 的 container 按容器名选取并竖向滚动）\n")
+            var hCount = 0
+            var vCount = 0
             for (i in 0 until arr.length()) {
                 val obj = arr.optJSONObject(i) ?: continue
                 val name = obj.optString("name", "").trim()
@@ -879,14 +903,28 @@ class ScreenDescriptor {
                 val y1000 = obj.optInt("y", -1)
                 if (y1000 < 0) continue
                 val selected = obj.optString("selected", "")
+                val direction = obj.optString("type", "horizontal").ifBlank { "horizontal" }
+                val isVertical = direction.equals("vertical", ignoreCase = true)
                 val sy = y1000 * imgHeight / 1000 + cropTopPx
-                containers += ContainerInfo(name, sy, selected)
-                sb.append("- $name: y=${sy}px, 当前选中${selected.ifBlank { "无" }}\n")
+                containers += ContainerInfo(name, sy, selected, if (isVertical) "vertical" else "horizontal")
+                val line = "- $name: y=${sy}px, 当前选中${selected.ifBlank { "无" }}\n"
+                if (isVertical) {
+                    verticalSb.append(line)
+                    vCount++
+                } else {
+                    horizontalSb.append(line)
+                    hCount++
+                }
             }
             if (containers.isNotEmpty()) {
                 updateContainerTable(containers)
             }
-            sb.toString()
+            // 真机调试观测点：容器解析结果（横向/竖向数量 + 注入段），与 GuiOwlService[CONTAINER] 呼应形成链路闭环
+            Log.d(TAG, "容器识别解析: 横向${hCount}个, 竖向${vCount}个 → ${buildString { if (hCount > 0) append("【可横向滑动容器】") ; if (vCount > 0) append("【可竖向滚动容器】") }}")
+            buildString {
+                if (hCount > 0) append(horizontalSb.toString())
+                if (vCount > 0) append(verticalSb.toString())
+            }
         } catch (e: Exception) {
             Log.w(TAG, "容器识别结果解析失败: ${e.message}")
             ""
@@ -936,8 +974,9 @@ class ScreenDescriptor {
 
     /**
      * 方案C：广告弹窗处理。
-     * close → 三层关闭：模型坐标(conf≥0.6) → 无障碍树 → BACK
-     * auto → 等待 delay(clamp 1-10s)
+     * close → 四层关闭：GLM关闭按钮grounding(第0层) → 模型坐标(conf≥0.6) → 无障碍树 → BACK
+     * auto → GLM auto_skip=true 时不做客户端点击，交由复确认重新发起视觉描述；
+     *        GUI-Plus auto（delaySeconds 非空）等待 delay(clamp 1-10s)
      */
     private suspend fun handleAdPopup(judgement: GuiOwlService.AdJudgement) {
         val service = GUIAccessibilityService.instance ?: return
@@ -949,19 +988,49 @@ class ScreenDescriptor {
                     Log.d(TAG, "方案C close conf=${judgement.conf}<0.6 低置信，按 normal 处理，不关闭")
                     return
                 }
-                // 第1层：模型坐标
                 var closed = false
-                val coord = judgement.coordinate?.split(",")?.mapNotNull { it.trim().toFloatOrNull() }
-                if (coord != null && coord.size >= 2) {
+                // 第0层：GLM closeButton（关闭按钮文字=位置）→ GUI-Plus Grounding 定位点击。
+                // GLM 视觉描述给出的关闭按钮位置（如 "×=弹窗右上角白色小叉"），由 grounding 精确定位后点击。
+                if (!closed && !judgement.closeButton.isNullOrBlank() &&
+                    !judgement.closeButton.contains("无关闭按钮")
+                ) {
                     val size = getScreenSizePx()
-                    if (size[0] <= 0 || size[1] <= 0) {
-                        Log.w(TAG, "方案C close第1层跳过：屏幕尺寸获取失败（走第2层无障碍兜底）")
+                    val shot = service.takeScreenshot()
+                    if (size[0] > 0 && size[1] > 0 && shot != null) {
+                        try {
+                            val g = GuiOwlService.ground(
+                                instruction = "点击关闭广告弹窗的关闭按钮：${judgement.closeButton}",
+                                bitmap = shot,
+                                screenWidth = size[0],
+                                screenHeight = size[1]
+                            )
+                            if (g.success && g.pixelCoordinate != null) {
+                                closed = service.performAccessibilityClick(g.pixelCoordinate.x, g.pixelCoordinate.y)
+                                Log.d(TAG, "方案C close第0层(GLM关闭按钮grounding): ${g.pixelCoordinate.x},${g.pixelCoordinate.y} -> $closed")
+                            } else {
+                                Log.w(TAG, "方案C close第0层 grounding失败: ${g.error ?: "无坐标"}")
+                            }
+                        } finally {
+                            shot.recycleSafely()
+                        }
                     } else {
-                        val px = GuiOwlService.scaleCoordinate(
-                            coord[0].toDouble(), coord[1].toDouble(), size[0], size[1]
-                        )
-                        closed = service.performAccessibilityClick(px.x, px.y)
-                        Log.d(TAG, "方案C close第1层(模型坐标): ${px.x},${px.y} -> $closed")
+                        Log.w(TAG, "方案C close第0层跳过：截图/尺寸获取失败（走第2层无障碍兜底）")
+                    }
+                }
+                // 第1层：模型坐标
+                if (!closed) {
+                    val coord = judgement.coordinate?.split(",")?.mapNotNull { it.trim().toFloatOrNull() }
+                    if (coord != null && coord.size >= 2) {
+                        val size = getScreenSizePx()
+                        if (size[0] <= 0 || size[1] <= 0) {
+                            Log.w(TAG, "方案C close第1层跳过：屏幕尺寸获取失败（走第2层无障碍兜底）")
+                        } else {
+                            val px = GuiOwlService.scaleCoordinate(
+                                coord[0].toDouble(), coord[1].toDouble(), size[0], size[1]
+                            )
+                            closed = service.performAccessibilityClick(px.x, px.y)
+                            Log.d(TAG, "方案C close第1层(模型坐标): ${px.x},${px.y} -> $closed")
+                        }
                     }
                 }
                 // 第2层：无障碍树（模型坐标异常/点击无效时）
@@ -992,10 +1061,17 @@ class ScreenDescriptor {
                 if (closed) delay(500)   // 等待弹窗关闭动画
             }
             "auto" -> {
-                // 等待 delay（clamp 1-10s，审查 #1-3）
-                val delaySec = (judgement.delaySeconds ?: 3).coerceIn(1, 10)
-                Log.d(TAG, "方案C auto等待 ${delaySec}s")
-                delay(delaySec * 1000L)
+                // GLM auto（可自动跳过）：delaySeconds=null，不做客户端点击，交由 describeCleanScreen
+                // 重新发起一轮视觉描述（描述耗时 ~5s，广告大概率已自动跳过；仍广告则由主循环重试）。
+                // GUI-Plus auto（delaySeconds 非空）保留原有等待语义。
+                val delaySec = judgement.delaySeconds
+                if (delaySec != null) {
+                    val sec = delaySec.coerceIn(1, 10)
+                    Log.d(TAG, "方案C auto等待 ${sec}s")
+                    delay(sec * 1000L)
+                } else {
+                    Log.d(TAG, "方案C auto跳过等待：交由复确认重新发起视觉描述")
+                }
             }
             else -> {}
         }
@@ -1019,18 +1095,47 @@ class ScreenDescriptor {
 
     /**
      * 方案C：弹窗处理完成后重新截屏复确认，返回干净描述；仍为广告/失败返回 null。
+     * auto 分支（GLM 可自动跳过广告）：不客户端点击，由本方法重新发起一轮 GLM 视觉描述
+     * ——描述耗时 ~5s，广告大概率已自动跳过；复确认判定为非广告即返回干净描述。
      */
     private suspend fun describeCleanScreen(question: String?): String? {
         val service = GUIAccessibilityService.instance ?: return null
         val shot = service.takeScreenshot() ?: return null
         try {
-            val reCheck = GuiOwlService.describeScreen(shot, question) ?: return null
-            if (!reCheck.success || reCheck.answer.isBlank()) return null
+            // 优先 GLM 视觉描述（含广告标记行解析），失败/未配置回退 GUI-Plus
+            val reCheck = if (ScreenVlmDescribeService.isConfigured) {
+                val glm = try {
+                    ScreenVlmDescribeService.describeScreen(shot)
+                } catch (e: Exception) {
+                    Log.w(TAG, "GLM复确认描述异常: ${e.message}")
+                    null
+                }
+                if (glm?.success == true && glm.answer.isNotBlank()) {
+                    GuiOwlService.VlmResult(
+                        success = true,
+                        answer = glm.answer,
+                        durationMs = glm.durationMs,
+                        adJudgement = glm.adInfo?.takeIf { it.isAd }?.let { info ->
+                            // 复确认仍判定为广告：按 GLM auto_skip 再转一次类型，便于主循环继续分流
+                            if (info.autoSkip) {
+                                GuiOwlService.AdJudgement(type = "auto", delaySeconds = null)
+                            } else {
+                                GuiOwlService.AdJudgement(
+                                    type = "close", coordinate = null, conf = null,
+                                    closeButton = info.closeButton
+                                )
+                            }
+                        }
+                    )
+                } else null
+            } else null
+            val finalCheck = reCheck ?: (GuiOwlService.describeScreen(shot, question) ?: return null)
+            if (!finalCheck.success || finalCheck.answer.isBlank()) return null
             // 复确认：仅当不再判定为广告/弹窗时才采用描述
-            if (reCheck.adJudgement != null && reCheck.adJudgement.type != "normal") return null
+            if (finalCheck.adJudgement != null && finalCheck.adJudgement.type != "normal") return null
             return buildString {
                 append("【屏幕视觉描述】")
-                appendLine(reCheck.answer)
+                appendLine(finalCheck.answer)
             }
         } finally {
             shot.recycleSafely()

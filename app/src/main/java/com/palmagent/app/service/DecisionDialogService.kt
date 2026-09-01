@@ -308,12 +308,15 @@ Plan 示例（预约挂号，单步）：
             )
         )
 
-        // 无工具调用（includeTools=false，禁用 tools 字段——模型只能纯总结，不会误调工具）
+        // 无工具调用（includeTools=false，禁用 tools 字段——模型只能纯总结，不会误调工具）；
+        // useJsonFormat=false：报告是自由文本，禁止 json_object（JSON 模式下 DeepSeek 把内容沉入
+        // reasoning_content、content 仅吐空白，导致报告判空回退摘要——实测复现）
         val result = callApiWithTools(
             apiUrl, apiKey, model, messages,
             toolChoiceJson = "\"none\"",
             maxTokens = 2048,
-            includeTools = false
+            includeTools = false,
+            useJsonFormat = false
         )
         val report = result?.content?.trim()
         if (report.isNullOrEmpty()) {
@@ -981,14 +984,18 @@ Plan 示例（预约挂号，单步）：
         messages: List<Map<String, Any>>,
         toolChoiceJson: String = "\"auto\"",
         maxTokens: Int = MAX_TOKENS,
-        includeTools: Boolean = true
+        includeTools: Boolean = true,
+        useJsonFormat: Boolean = true
     ): CallResult? {
         return try {
             // 先尝试启用 JSON 模式（response_format: json_object，由 API 层保证输出合法 JSON，
-            // 避免模型输出裸文本/代码块导致解析失败）；若 API 不支持则回退为普通请求重试
-            var requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = true, maxTokens = maxTokens, includeTools = includeTools)
+            // 避免模型输出裸文本/代码块导致解析失败）；若 API 不支持则回退为普通请求重试。
+            // reportResult（useJsonFormat=false）为自由文本总结：JSON 模式下 DeepSeek 会把
+            // 报告内容沉入 reasoning_content、content 仅吐空白 → 判空失败，故报告模式不走此分支。
+            var requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = useJsonFormat, maxTokens = maxTokens, includeTools = includeTools)
             var (responseCode, body) = executeDecisionRequest(apiUrl, apiKey, requestBody)
-            if (responseCode !in 200..299) {
+            // JSON 模式失败时回退普通请求（仅 useJsonFormat=true 才有回退意义；false 时二者等价，无需重复请求）
+            if (useJsonFormat && responseCode !in 200..299) {
                 val firstError = parseErrorMessage(body, responseCode)
                 Log.w(TAG, "决策对话 JSON 模式请求失败: HTTP $responseCode, $firstError，回退为普通请求重试")
                 requestBody = buildDecisionRequestBody(model, messages, toolChoiceJson, useJsonFormat = false, maxTokens = maxTokens, includeTools = includeTools)
@@ -1020,12 +1027,12 @@ Plan 示例（预约挂号，单步）：
             val usageObj = responseJson.get("usage")?.takeIf { it.isJsonObject }?.asJsonObject
             val completionTokens = usageObj?.get("completion_tokens")?.asInt ?: 0
             val truncated = finishReason == "length" ||
-                (completionTokens > 0 && completionTokens >= MAX_TOKENS) ||
+                (completionTokens > 0 && completionTokens >= maxTokens) ||
                 isLikelyTruncated(content)
             // 诊断日志：每次决策响应都记录 finish_reason/usage（区分 length 顶格 vs 响应体截断 vs 正常）
             Log.d(TAG, "决策响应统计: finish_reason='$finishReason', completion_tokens=$completionTokens/$maxTokens, content=${content.length}字符")
             if (truncated) {
-                Log.w(TAG, "决策对话输出疑似截断（finish_reason='$finishReason', completion_tokens=$completionTokens/${MAX_TOKENS}, content 长度=${content.length}）")
+                Log.w(TAG, "决策对话输出疑似截断（finish_reason='$finishReason', completion_tokens=$completionTokens/$maxTokens, content 长度=${content.length}）")
             }
 
             // 解析 tool_calls（OpenAI 兼容格式）
@@ -1074,26 +1081,26 @@ Plan 示例（预约挂号，单步）：
         useJsonFormat: Boolean,
         maxTokens: Int = MAX_TOKENS,
         includeTools: Boolean = true
-    ): String = buildString {
-        append("{")
-        append("\"model\":\"$model\",")
-        append("\"messages\":${gson.toJson(messages)},")
-        // 显式设置足够的输出上限（16384），避免长 plan（复杂任务可超 10 步）被截断；
-        // 不传该字段时 API 使用默认上限（约 4096）仍会截断，必须显式给足
-        append("\"max_tokens\":$maxTokens,")
-        append("\"temperature\":$TEMPERATURE,")
-        if (useJsonFormat) {
-            // API 层结构化输出约束（OpenAI 兼容格式，与 function calling 可共存）
-            append("\"response_format\":{\"type\":\"json_object\"},")
+    ): String {
+        // 使用 Gson JsonObject 结构化构造，彻底消除手工拼串带来的 trailing comma / 转义风险
+        val obj = JsonObject().apply {
+            addProperty("model", model)
+            add("messages", gson.toJsonTree(messages))
+            addProperty("max_tokens", maxTokens)
+            addProperty("temperature", TEMPERATURE)
+            if (useJsonFormat) {
+                add("response_format", JsonObject().apply {
+                    addProperty("type", "json_object")
+                })
+            }
+            if (includeTools) {
+                add("tools", JsonParser.parseString(buildToolsJson()))
+                // toolChoiceJson 本身是 JSON 字面量（如 "\"auto\"" 或 "\"none\""），用 JsonParser 解析后塞入
+                // 避免被当作字符串再次加引号
+                add("tool_choice", JsonParser.parseString(toolChoiceJson))
+            }
         }
-        // 注入 tools 字段，让模型能主动调 list_apps / kb_read / amap_* / web_search
-        // enable_search 已删除 — 联网搜索由 web_search 工具提供（与执行模型统一）
-        // includeTools=false：报告模式（reportResult）——纯总结不注入工具，避免模型误调工具
-        if (includeTools) {
-            append("\"tools\":${buildToolsJson()},")
-            append("\"tool_choice\":$toolChoiceJson")
-        }
-        append("}")
+        return gson.toJson(obj)
     }
 
     /**
