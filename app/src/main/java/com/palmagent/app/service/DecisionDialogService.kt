@@ -1026,6 +1026,9 @@ Plan 示例（预约挂号，单步）：
             // 防御性读取 usage：字段缺失/非对象时按 0 处理，避免异常导致整次调用失败
             val usageObj = responseJson.get("usage")?.takeIf { it.isJsonObject }?.asJsonObject
             val completionTokens = usageObj?.get("completion_tokens")?.asInt ?: 0
+            val promptTokens = usageObj?.get("prompt_tokens")?.asInt ?: 0
+            // 证据优化：LLM token 用量落盘（summary.txt / token_usage.log，供成本精确测算）
+            com.palmagent.app.agent.AgentLogger.recordTokenUsage(model, promptTokens, completionTokens)
             val truncated = finishReason == "length" ||
                 (completionTokens > 0 && completionTokens >= maxTokens) ||
                 isLikelyTruncated(content)

@@ -645,6 +645,7 @@ class DefaultAgentService @Inject constructor(
                     if (failedActions.size >= 2 && round - lastCompactRound >= 3) {
                         lastCompactRound = round
                         val snapshot = failedActions.toList()
+                        AgentLogger.recordSelfHeal(round, "失败压缩触发（累计失败 ${failedActions.size} 条）")
                         coroutineScope.launch {
                             failureSummary = failureCompactor.compact(userPrompt, snapshot)
                         }

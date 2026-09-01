@@ -18,7 +18,7 @@ AutoMate·小艾 是一个 **Android 原生 App**（Kotlin），把"看得懂屏
       │ Plan
       ▼
 ┌─────────────────────────────────────────────────────────┐
-│ 执行模型（逐步骤执行，最多 25 个动作工具）                   │
+│ 执行模型（逐步骤执行，最多 22 个动作工具）                   │
 │   多通道感知（每轮）                                       │
 │    ├─ 无障碍树（文本通道，读屏/无障碍用户友好）              │
 │    ├─ 视觉截图 + GUI-Plus（坐标直出，视障用户友好）          │
@@ -59,7 +59,7 @@ AutoMate·小艾 是一个 **Android 原生 App**（Kotlin），把"看得懂屏
 ## 端侧知识库（完全本地 RAG，隐私不出手机）
 
 ```
-assets/kb/ 514 条 SOP JSON
+assets/kb/ 545 条 SOP JSON
       │ 首次启动
       ▼
 bge-small-zh INT8 ONNX 嵌入（端侧推理）
@@ -105,8 +105,8 @@ SQLite BLOB 持久化向量（后续启动直接读库）
 app/src/main/java/com/palmagent/app/
 ├── agent/     # 执行编排（DefaultAgentService / ActionExecutor / FailureCompactor / ContextManager）
 ├── kb/        # 端侧知识库（LocalKbEngine / OnnxEmbedder / KbDbAccessor ...）
-├── service/   # 服务层（无障碍 / OCR / VLM / GUI-Plus / 决策 / 搜索 / 保活）
-├── tool/impl/ # 25 个动作工具（TapTool / AutoInputTool / SelectSpecTool ...）
+├── service/   # 服务层（无障碍 / VLM 屏幕描述 / GUI-Plus / 决策 / 搜索 / 保活）
+├── tool/impl/ # 22 个动作工具（TapTool / AutoInputTool / SelectSpecTool ...）
 ├── channel/   # 消息通道（微信机器人，可远程下发任务）
 ├── floating/  # 悬浮窗（追问 / 进度展示）
 ├── framework/ # DI(Hilt) / EventBus / 协程调度

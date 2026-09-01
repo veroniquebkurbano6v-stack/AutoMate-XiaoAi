@@ -586,6 +586,7 @@ class ActionExecutor @Inject constructor(
     private suspend fun handleUserActionRequest(action: AgentAction): ToolResult {
         val guideText = action.description.ifBlank { "模型需要您进行手动操作" }
         AgentLogger.log(AgentLogger.LogType.DECISION, "请求用户手动操作: $guideText")
+        AgentLogger.recordUserActionRequest()
 
         return try {
             val completed = kotlinx.coroutines.suspendCancellableCoroutine { cont ->

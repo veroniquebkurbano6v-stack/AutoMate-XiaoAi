@@ -1,6 +1,7 @@
 package com.palmagent.app.agent
 
 import android.graphics.Bitmap
+import android.os.Build
 import android.util.Log
 import com.palmagent.app.AgentApplication
 import com.palmagent.app.LiveLogBuffer
@@ -65,6 +66,15 @@ object AgentLogger {
     private var logFileWriter: PrintWriter? = null
     private var endTaskCalled = false
 
+    // ===== 任务级统计（endTask 时汇总为 summary.txt）=====
+    private var currentTaskId: String = ""
+    private var taskStartTimeMs: Long = 0L
+    private var roundCount: Int = 0
+    private var requestUserActionCount: Int = 0
+    private var selfHealCount: Int = 0
+    /** model -> [promptTokens, completionTokens]（决策/执行 LLM，来自 API usage 字段） */
+    private val tokenUsageMap = LinkedHashMap<String, LongArray>()
+
     @Volatile
     var isEnabled: Boolean = true
 
@@ -91,6 +101,12 @@ object AgentLogger {
             logFileWriter = PrintWriter(FileWriter(logFile, true), true)
 
             endTaskCalled = false
+            currentTaskId = taskId
+            taskStartTimeMs = System.currentTimeMillis()
+            roundCount = 0
+            requestUserActionCount = 0
+            selfHealCount = 0
+            tokenUsageMap.clear()
 
             writeHeader()
             log(LogType.SYSTEM, "任务开始", "taskId=$taskId")
@@ -105,6 +121,7 @@ object AgentLogger {
         if (endTaskCalled) return
         endTaskCalled = true
         log(LogType.SYSTEM, "任务结束", reason)
+        writeSummary(reason)
         logFileWriter?.flush()
         logFileWriter?.close()
         logFileWriter = null
@@ -236,6 +253,7 @@ object AgentLogger {
         planContext: Plan? = null
     ) {
         val roundDir = getOrCreateRoundDir(round) ?: return
+        roundCount++
 
         // 1. 截图
         screenshotJpegBytes?.let {
@@ -258,6 +276,7 @@ object AgentLogger {
 
         // 6. 决策结果
         val decisionData = buildString {
+            appendLine("timestamp=${dateFormat.get().format(Date())}")
             appendLine("mode=$mode")
             appendLine("actionType=${action.type}")
             appendLine("description=${action.description}")
@@ -270,6 +289,7 @@ object AgentLogger {
 
         // 7. 执行结果
         val actionResult = buildString {
+            appendLine("timestamp=${dateFormat.get().format(Date())}")
             appendLine("success=$actionSuccess")
             appendLine("result=$actionResultSummary")
         }
@@ -394,6 +414,7 @@ object AgentLogger {
             writer.println("=".repeat(80))
             writer.println("PalmAgent 代理日志")
             writer.println("开始时间: ${dateFormat.get().format(Date())}")
+            writer.println("设备: ${Build.MANUFACTURER} ${Build.MODEL} | Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
             writer.println("=".repeat(80))
             writer.println()
             writer.flush()
@@ -429,5 +450,61 @@ object AgentLogger {
 
     fun getCurrentLogFilePath(): String? {
         return currentTaskDir?.let { File(it, "agent_full.log").absolutePath }
+    }
+
+    /** 敏感操作：request_user_action 触发计数（任务摘要用） */
+    fun recordUserActionRequest() {
+        requestUserActionCount++
+    }
+
+    /** 失败自愈事件计数（FailureCompactor 触发压缩时调用） */
+    fun recordSelfHeal(round: Int, note: String) {
+        selfHealCount++
+        log(LogType.SYSTEM, "失败自愈 #$selfHealCount：$note", "round=$round")
+    }
+
+    /** 记录 LLM 调用的 token 用量（决策/执行模型，来自 API usage 字段），追加 token_usage.log 并汇总 */
+    fun recordTokenUsage(model: String, promptTokens: Int, completionTokens: Int) {
+        if (promptTokens <= 0 && completionTokens <= 0) return
+        val arr = tokenUsageMap.getOrPut(model) { LongArray(2) }
+        arr[0] += promptTokens
+        arr[1] += completionTokens
+        try {
+            val dir = currentTaskDir ?: return
+            val f = File(dir, "token_usage.log")
+            f.appendText("${dateFormat.get().format(Date())} model=$model prompt_tokens=$promptTokens completion_tokens=$completionTokens\n")
+        } catch (_: Exception) {}
+    }
+
+    /** endTask 时生成任务级摘要：评委一眼可核对轮数/耗时/结果/敏感操作/自愈/成本 */
+    private fun writeSummary(reason: String) {
+        val dir = currentTaskDir ?: return
+        val durationSec = if (taskStartTimeMs > 0) (System.currentTimeMillis() - taskStartTimeMs) / 1000 else 0
+        val sb = StringBuilder().apply {
+            appendLine("=== 任务摘要（summary）===")
+            appendLine("taskId=$currentTaskId")
+            appendLine("开始时间: ${if (taskStartTimeMs > 0) dateFormat.get().format(Date(taskStartTimeMs)) else "未知"}")
+            appendLine("结束时间: ${dateFormat.get().format(Date())}")
+            appendLine("总耗时: ${durationSec} 秒")
+            appendLine("轮数: $roundCount")
+            appendLine("结果: $reason")
+            appendLine("敏感操作: request_user_action 触发 $requestUserActionCount 次")
+            appendLine("失败自愈: 失败压缩触发 $selfHealCount 次")
+            appendLine("Token 用量（决策/执行 LLM，API usage 精确值）:")
+            if (tokenUsageMap.isEmpty()) {
+                appendLine("  （无记录——需 LLM 响应含 usage 字段）")
+            } else {
+                var totalPrompt = 0L
+                var totalCompletion = 0L
+                tokenUsageMap.forEach { (m, v) ->
+                    appendLine("  $m: prompt=${v[0]}, completion=${v[1]}")
+                    totalPrompt += v[0]
+                    totalCompletion += v[1]
+                }
+                appendLine("  合计: prompt=$totalPrompt, completion=$totalCompletion, 总计=${totalPrompt + totalCompletion}")
+            }
+            appendLine("说明: VLM/GUI-Plus 图像 token 未计入（如需可后续接入），逐条明细见 token_usage.log")
+        }
+        try { File(dir, "summary.txt").writeText(sb.toString()) } catch (_: Exception) {}
     }
 }

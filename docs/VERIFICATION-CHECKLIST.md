@@ -7,7 +7,7 @@
 
 ## 0. 先看（1 分钟）
 
-- [ ] 仓库：https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi
+- [ ] 仓库：GitHub 主仓库 https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi ｜ GitCode 镜像 https://gitcode.com/weigai666/AutoMate-XiaoAi
 - [ ] 落地页（GitHub Pages）：`docs/index.html` —— 产品定位 + 端到端演示视频
 - [ ] README：项目简介、核心特性、评估摘要
 - [ ] 技术方案 PDF：`docs/tech-solution.pdf` / 报名材料 `03_技术方案`
@@ -35,7 +35,7 @@
 - [ ] `python eval/eval_retrieval.py` → 32/32 场景 100% 检索命中率（与 `docs/evaluation.md` 一致）
 - [ ] `python eval/eval_vision.py` → 视觉鲁棒性/提示词消融（185 张真实截图）
 - [ ] `python eval/audit_dedup.py` / `audit_sop_quality.py` → 知识库数据质量审计
-- [ ] `./gradlew.bat :app:testDebugUnitTest` → 201 个用例全部通过（其中 6 个云端 VLM/LLM 集成用例因未配置 API Key 按设计跳过，属预期行为；在 `local.properties` 配置 `VLM_API_KEY` / `PLANNER_API_KEY` 后会自动运行）
+- [ ] `./gradlew.bat :app:testDebugUnitTest` → 348 个用例全部通过（其中 3 个云端 VLM/LLM 集成用例因未配置 API Key 按设计跳过，属预期行为；在 `local.properties` 配置 `VLM_API_KEY` / `PLANNER_API_KEY` 后会自动运行）
 
 > 检索评测与 App 端**同一 ONNX 模型、同一 RRF 参数**，结果可直接复现。
 
