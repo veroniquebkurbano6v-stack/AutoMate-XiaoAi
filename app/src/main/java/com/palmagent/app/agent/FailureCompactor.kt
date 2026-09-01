@@ -33,15 +33,16 @@ class FailureCompactor {
     private val gson = Gson()
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
     companion object {
         private const val TAG = "FailureCompactor"
         private const val JSON_MEDIA_TYPE = "application/json; charset=utf-8"
-        /** 单次压缩调用超时（毫秒），超时按压缩失败处理 */
-        private const val COMPACT_TIMEOUT_MS = 10_000L
+        /** 单次压缩调用超时（毫秒）。压缩模型生成 300-500 字摘要 + 可能的思考模式耗时较长，
+         *  10s 实测偏短（频繁超时回退），放宽到 30s；失败自动重试 1 次，总预算 ≤60s（后台执行不阻塞主流程） */
+        private const val COMPACT_TIMEOUT_MS = 30_000L
 
         private val COMPACT_SYSTEM_PROMPT = """
 你是一个任务失败分析助手。你将收到 Android 自动化任务执行过程中失败的操作记录（JSON 数组）。
@@ -119,39 +120,8 @@ class FailureCompactor {
 
         Log.d(TAG, "调用压缩模型: model=$model, url=$apiUrl, 失败记录=${failures.size}条")
 
-        return withTimeoutOrNull(COMPACT_TIMEOUT_MS) {
-            withContext(Dispatchers.IO) {
-                try {
-                    val request = Request.Builder()
-                        .url(apiUrl)
-                        .addHeader("Authorization", "Bearer $apiKey")
-                        .addHeader("Content-Type", "application/json")
-                        .post(payload.toRequestBody(JSON_MEDIA_TYPE.toMediaType()))
-                        .build()
-
-                    client.newCall(request).execute().use { response ->
-                        val body = response.body?.string()
-                        if (!response.isSuccessful || body.isNullOrBlank()) {
-                            Log.w(TAG, "压缩模型调用失败: HTTP ${response.code}")
-                            LiveLogBuffer.append("⚠️ 失败信息压缩失败(HTTP ${response.code})，使用原始错误")
-                            null
-                        } else {
-                            val answer = parseContent(body)
-                            if (answer.isBlank()) {
-                                Log.w(TAG, "压缩模型返回空内容")
-                                null
-                            } else {
-                                LiveLogBuffer.append("📦 失败信息已压缩: ${answer.take(60)}...")
-                                answer
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "压缩模型调用异常: ${e.message}")
-                    null
-                }
-            }
-        }?.takeIf { it.isNotBlank() }
+        return callWithRetry(apiUrl, apiKey, payload, "失败信息压缩")
+            ?.takeIf { it.isNotBlank() }
             ?.take(maxChars)
             ?: fallbackText(failures, maxChars)
     }
@@ -205,7 +175,17 @@ class FailureCompactor {
 
         Log.d(TAG, "调用运行摘要压缩: model=$model, 早期记录=${earlyActions.size}条")
 
-        return withTimeoutOrNull(COMPACT_TIMEOUT_MS) {
+        return callWithRetry(apiUrl, apiKey, payload, "运行摘要压缩")
+            ?.takeIf { it.isNotBlank() }
+            ?.take(maxChars)
+            ?: fallbackHistory(existingSummary, earlyActions, maxChars)
+    }
+
+    /**
+     * 单次压缩调用（网络请求 + 响应解析），失败/超时返回 null
+     */
+    private suspend fun callOnce(apiUrl: String, apiKey: String, payload: String, tag: String): String? =
+        withTimeoutOrNull(COMPACT_TIMEOUT_MS) {
             withContext(Dispatchers.IO) {
                 try {
                     val request = Request.Builder()
@@ -218,27 +198,47 @@ class FailureCompactor {
                     client.newCall(request).execute().use { response ->
                         val body = response.body?.string()
                         if (!response.isSuccessful || body.isNullOrBlank()) {
-                            Log.w(TAG, "运行摘要压缩失败: HTTP ${response.code}")
+                            Log.w(TAG, "${tag}失败: HTTP ${response.code}")
+                            LiveLogBuffer.append("⚠️ ${tag}失败(HTTP ${response.code})，使用原始错误")
                             null
                         } else {
                             val answer = parseContent(body)
                             if (answer.isBlank()) {
-                                Log.w(TAG, "运行摘要压缩返回空内容")
+                                Log.w(TAG, "${tag}返回空内容")
                                 null
                             } else {
-                                LiveLogBuffer.append("📦 运行摘要已更新: ${answer.take(60)}...")
                                 answer
                             }
                         }
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "运行摘要压缩异常: ${e.message}")
+                    Log.w(TAG, "${tag}异常: ${e.message}")
                     null
                 }
             }
-        }?.takeIf { it.isNotBlank() }
-            ?.take(maxChars)
-            ?: fallbackHistory(existingSummary, earlyActions, maxChars)
+        }
+
+    /**
+     * 带一次重试的压缩调用（后台执行，不阻塞主流程）；
+     * 失败原因写入任务证据日志（agent_full.log）便于追溯
+     */
+    private suspend fun callWithRetry(apiUrl: String, apiKey: String, payload: String, tag: String): String? {
+        var answer = callOnce(apiUrl, apiKey, payload, tag)
+        if (answer == null) {
+            LiveLogBuffer.append("↻ ${tag}首次调用失败，重试一次…")
+            answer = callOnce(apiUrl, apiKey, payload, tag)
+        }
+        if (answer == null) {
+            // 失败原因写入任务证据日志
+            AgentLogger.log(
+                AgentLogger.LogType.ERROR,
+                "${tag}调用失败（已重试 1 次）",
+                "可能原因：生成超时(${COMPACT_TIMEOUT_MS / 1000}s)/网络异常/模型返回空内容；已回退原始错误截断"
+            )
+        } else {
+            LiveLogBuffer.append("📦 ${tag}成功: ${answer.take(60)}...")
+        }
+        return answer
     }
 
     /** 早期操作记录 → 压缩输入的精简 JSON 条目（收敛输入大小） */
@@ -288,7 +288,8 @@ class FailureCompactor {
     }
 
     /**
-     * 从响应体中提取 content 字段（兼容 content 为字符串的常规响应）
+     * 从响应体中提取 content 字段（兼容 content 为字符串的常规响应；
+     * 思考模式模型正文可能位于 reasoning_content，content 为空时兜底取之）
      */
     private fun parseContent(body: String): String {
         return runCatching {
@@ -296,7 +297,8 @@ class FailureCompactor {
             val choices = obj["choices"] as? List<*> ?: return ""
             val message = (choices.firstOrNull() as? Map<*, *>)?.get("message") as? Map<*, *>
                 ?: return ""
-            (message["content"] as? String) ?: ""
+            (message["content"] as? String)?.takeIf { it.isNotBlank() }
+                ?: (message["reasoning_content"] as? String) ?: ""
         }.getOrDefault("")
     }
 
