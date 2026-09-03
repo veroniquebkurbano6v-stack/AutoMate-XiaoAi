@@ -1,6 +1,6 @@
 # AutoMate·小艾 — 你的随身助理
 
-> GOAI 无界应用赛道 · 数字无障碍智能体 · 完全端侧知识库（离线可用）
+> GOAI 无界应用赛道 · 数字无障碍智能体 · 端侧知识库（检索离线可用）
 
 ## 一句话简介
 
@@ -33,7 +33,7 @@ AutoMate·小艾 是一个运行在 Android 上的**数字无障碍智能体应�
 
 | 能力 | 技术实现 |
 |------|---------|
-| **完全端侧知识库** | bge-small-zh-v1.5 INT8 ONNX 嵌入 + SQLite 向量 + 关键词融合 + RRF 混合检索，**数据不出手机、离线可用** |
+| **完全端侧知识库** | bge-small-zh-v1.5 INT8 ONNX 嵌入 + SQLite 向量 + 关键词融合 + RRF 混合检索，**数据不出手机、检索离线可用**；**识图与操作需联网** |
 | **多通道感知** | 无障碍树（文本）→ VLM 屏幕描述（GLM-5.3-Flash）→ GUI-Plus（指令→动作坐标）多通道配合，适配不同障碍人群 |
 | **广告弹窗智能拦截** | GLM 屏幕描述携带 `◆广告◆` 标记行 → 解析为广告类型/可否自动跳过/关闭按钮 → 四层兜底关闭（GLM 定位 / 模型坐标 / 无障碍树 / BACK），业务功能弹窗误关防护 |
 | **双模型编排** | 决策模型（DeepSeek-V4-Flash）负责任务路由与 Plan 生成；执行模型负责逐步动作决策 |
@@ -60,18 +60,18 @@ AutoMate·小艾 是一个运行在 Android 上的**数字无障碍智能体应�
 - **平台**：Android（minSdk 29 / targetSdk 36，Kotlin + Hilt + Coroutines）
 - **端侧 AI**：ONNX Runtime（bge-small-zh-v1.5 INT8）、SQLite
 - **云端模型（可替换，均有免费额度）**：DeepSeek-V4-Flash（执行/决策）、GLM-5.3-Flash（每轮屏幕视觉描述）、Qwen3-VL-Flash（键盘检测等视觉任务）、GUI-Plus（视觉定位）、高德 MCP（位置/导航）
-- **完全端侧优先**：核心 RAG 与执行能力离线可用，云端仅用于 LLM 推理
+- **端侧知识库（离线可用仅指检索）**：核心 RAG（知识库检索/SOP 指引）完全离线、数据不出手机；云端用于模型推理（文本决策/屏幕理解/视觉定位，均为国产云端 API）——**识图与操作执行需联网**
 
 ## 开源与合规
 
 - 开源协议：Apache License 2.0
-- 代码仓库：GitHub 主仓库 https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi ｜ GitCode 镜像 https://gitcode.com/weigai666/AutoMate-XiaoAi
+- 代码仓库：GitCode 主仓库 https://gitcode.com/weigai666/AutoMate-XiaoAi ｜ GitHub 镜像 https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi（落地页 GitHub Pages 与 Release 由 GitHub 镜像托管）
 - 模型与 API 来源：阿里云百炼（Qwen 系列）、DeepSeek、智谱（GLM）、高德 MCP、BoCha 搜索——均为公开商业 API，按各自条款合规使用，Key 不随源码仓库提交
-- 隐私：端侧知识库数据不出手机；聊天记录本地持久化（Room）
+- 隐私：端侧知识库数据不出手机；聊天记录本地持久化（Room）；屏幕截图由国产云端模型处理（数据不出境，详见 DEPENDENCIES.md）
 
 ## 快速上手（评委验证路径）
 
 1. **看演示**：打开仓库 README，点击3分钟项目总览视频 + 多段场景实录
 2. **装 APK**：安装附件中的 `AutoMate-XiaoAi-v1.0.apk`（**不含任何 API Key**，安装后在 App「设置」页自行填写 Key）
-3. **跑任务**：开启无障碍服务 → 输入"帮我在淘宝点杯奶茶" → 观察 AI 逐步完成
+3. **跑任务**：按 DEPLOY.md 开启完整权限（无障碍服务 + 悬浮窗 + 通知 + 电池白名单）→ 输入"帮我在淘宝点杯奶茶" → 观察 AI 逐步完成
 4. **复现评测**：`eval/` 下脚本在 PC 直接运行，复现 32 场景 100% 检索命中率

@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-> Android 数字无障碍助手 · 完全端侧知识库（离线可用）· 多通道感知（无障碍树 + 视觉）
+> Android 数字无障碍助手 · 端侧知识库（检索离线可用） · 多通道感知（无障碍树 + 视觉）
 > 本项目采用 [Apache License 2.0](LICENSE) 开源协议。
 
 ## 📋 为什么做这个
@@ -19,7 +19,7 @@ AI 自主完成搜索、定位、输入、选择、下单等全部步骤，**无
 **多通道感知**同时融合三种"眼睛"，适配不同障碍人群：
 - 🦯 **无障碍树**（文本通道）→ 读屏用户友好，App 未被屏蔽时优先
 - 👁️ **屏幕视觉 + GUI-Plus**（坐标通道）→ 低视力用户友好，看不清时视觉兜底
-- 🧠 **端侧知识库**（离线 SOP 指引）→ 无需联网，数据不出手机
+- 🧠 **端侧知识库**（离线 SOP 指引）→ 检索离线可用，数据不出手机；**识图与操作需联网云端模型**
 
 ## 🎯 选题说明
 
@@ -33,8 +33,8 @@ AI 自主完成搜索、定位、输入、选择、下单等全部步骤，**无
 **为什么适合放在一起评**：
 - **社会价值**：中国 60 岁以上人口超 2.8 亿，加上视障、听障、手部不便人群，
   是"数字鸿沟"最严重的群体；本项目的目标是让 AI 替他们"看屏幕、点按钮"。
-- **技术价值**：完整落地了"端侧 RAG（隐私不出手机）+ 双模型编排 + 无障碍感知"
-  这一组合，工程上有 25 个动作工具、514 条离线 SOP、<80ms 端侧检索。
+- **技术价值**：完整落地了"端侧 RAG（知识库数据不出手机）+ 双模型编排 + 无障碍感知"
+  这一组合，工程上有 25 个动作工具、545 条离线 SOP、<80ms 端侧检索。
 - **可验证性**：多段真实操作演示视频 + 可复现的检索/视觉消融评测数据
   （见 [docs/evaluation.md](docs/evaluation.md)），非概念 Demo。
 
@@ -45,7 +45,7 @@ AI 自主完成搜索、定位、输入、选择、下单等全部步骤，**无
 
 | 特性 | 技术实现 | 对用户的意义 |
 |------|---------|------------|
-| 完全端侧知识库 | bge-small-zh INT8 ONNX + SQLite 向量 + RRF 混合检索 | 离线可用、隐私不出手机 |
+| 完全端侧知识库 | bge-small-zh INT8 ONNX + SQLite 向量 + RRF 混合检索 | 检索离线可用、数据不出手机；**识图与操作需联网** |
 | 多通道感知 | 无障碍树 + OCR + VLM + GUI-Plus 四通道回退 | 视障/读屏总有一条"眼睛"可用 |
 | 一句话任务路由 | 决策模型工具链（kb_read / list_apps / amap_* / web_search / 追问） | 用户只需"说"，无需"会" |
 | 结构化 Plan | 决策模型生成分步 Plan（含完成标志、监督标记） | 复杂跨页流程拆解为可执行步骤 |
@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/9db81a0d-4a39-4bb9-939f-031f8f49c6b8
 https://github.com/user-attachments/assets/4da8022d-3aba-47f9-92cf-db198f330f7f
 
 > 以上为代表性演示。底层是覆盖购物 / 社交 / 导航 / 生活服务的**通用底座**，
-> 配合 514 条端侧离线 SOP，可进一步扩展到点外卖、打车、挂号、缴费等更多日常场景。
+> 配合 545 条端侧离线 SOP，可进一步扩展到点外卖、打车、挂号、缴费等更多日常场景。
 > 高清原片：可在 [GitHub Releases](https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi/releases) 下载。
 
 ## 🗺️ 端到端流程
@@ -139,7 +139,7 @@ cp local.default.properties local.properties
 - `AMAP_API_KEY` / `AMAP_MCP_BASE_URL`：高德地图 MCP
 - `BOCHA_API_KEY`：联网搜索（不配则降级 DuckDuckGo）
 
-> 端侧知识库无需配置：App 内置 ONNX 模型 + 514 条 SOP，首次启动自动建库，离线可用。
+> 端侧知识库无需配置：App 内置 ONNX 模型 + 545 条 SOP，首次启动自动建库，**检索离线可用**（识图与操作需联网云端模型）。
 
 ### 3. 编译安装
 ```bash
@@ -177,9 +177,9 @@ app/src/main/java/com/palmagent/app/
 - **简单模式**：用户请求 → 直接交执行模型（跳过决策层）
 
 ### 端侧知识库（完全本地 RAG）
-514 条 SOP JSON → 端侧 bge-small-zh INT8 嵌入 → SQLite BLOB 向量 → 内存检索。
+545 条 SOP JSON → 端侧 bge-small-zh INT8 嵌入 → SQLite BLOB 向量 → 内存检索。
 检索管线：关键词 + 向量（task 0.7 + keyword 0.3）→ RRF 融合（RRF_K=60）→ 阈值过滤 0.3。
-**无服务端、无网络依赖**，首次启动自动建库。
+**端侧知识库完全本地**：首次启动自动建库，知识库检索离线可用；屏幕识图与操作决策需联网云端模型。
 
 ## 🗓️ Roadmap（无障碍专项）
 
@@ -195,7 +195,7 @@ app/src/main/java/com/palmagent/app/
   上下文有界，防膨胀（对齐 Anthropic Context Editing 做法）
 - **执行引擎增强**：FailureCompactor 失败跨轮记忆 + 工具熔断，防重试风暴烧 token
 - **视觉流程修复**：修复 OCR HARDWARE 位图崩溃、输入降级 instruction 丢失
-- **完全端侧知识库**：无服务端依赖，隐私不出手机
+- **端侧知识库完全本地**：知识库检索离线可用、数据不出手机；屏幕识图与操作决策需联网云端模型
 
 ## 📄 License
 

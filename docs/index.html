@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoMate·小艾 — 你的随身助理</title>
-<meta name="description" content="AutoMate·小艾：Android 数字无障碍智能体。完全端侧知识库（离线可用），多通道感知，一句话替你完成手机操作。GOAI 无界应用赛道作品。">
+<meta name="description" content="AutoMate·小艾：Android 数字无障碍智能体。端侧知识库（检索离线可用），多通道感知，一句话替你完成手机操作。GOAI 无界应用赛道作品。">
 <meta property="og:title" content="AutoMate·小艾 — 你的随身助理">
 <meta property="og:description" content="Android 数字无障碍智能体：端侧知识库（离线可用）+ 多通道感知，一句话替你完成手机操作。32 场景检索 100% 命中，多段真实任务演示。GOAI 无界应用赛道作品。">
 <meta property="og:type" content="website">
@@ -93,7 +93,36 @@
     .video-tabs{grid-template-columns:repeat(2,1fr)}
     .steps{grid-template-columns:1fr}
     .nav-links .hide-sm{display:none}
+    .problem .facts{gap:20px}
+    .problem .fact{border-right:none;min-width:100px}
+    .results-grid{grid-template-columns:repeat(2,1fr)}
+    .compare table{font-size:12px}
+    .compare th,.compare td{padding:8px 10px}
   }
+  /* problem section */
+  .problem{background:linear-gradient(135deg,#1E293B 0%,#0F172A 100%);color:#fff;padding:56px 0}
+  .problem h2{font-size:26px;font-weight:800;color:#F8FAFC;text-align:center;margin-bottom:12px}
+  .problem .sub{text-align:center;color:#94A3B8;font-size:14px;margin-bottom:32px}
+  .problem .facts{display:flex;gap:0;justify-content:center;flex-wrap:wrap;margin-bottom:32px}
+  .problem .fact{padding:0 28px;border-right:1px solid rgba(255,255,255,.12);min-width:140px;text-align:center}
+  .problem .fact:last-child{border-right:none}
+  .problem .fact b{display:block;font-size:32px;font-weight:800;color:#F97316}
+  .problem .fact span{font-size:12px;color:#94A3B8}
+  .problem .quote{max-width:660px;margin:0 auto;text-align:center;font-size:15px;color:#CBD5E1;line-height:1.8;border-left:3px solid #F97316;padding-left:16px}
+  /* results section */
+  .results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px}
+  .result-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;text-align:center}
+  .result-card .num{display:block;font-size:36px;font-weight:800;color:var(--primary)}
+  .result-card .label{font-size:13px;color:var(--muted);margin-top:4px}
+  .result-card .note{font-size:11px;color:#9CA3AF;margin-top:2px}
+  /* compare table */
+  .compare{max-width:740px;margin:0 auto}
+  .compare table{width:100%;border-collapse:collapse;font-size:14px}
+  .compare th,.compare td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--line)}
+  .compare th{background:var(--bg);font-weight:700;color:var(--primary-dark)}
+  .compare tr:last-child td{border-bottom:none}
+  .compare .highlight{background:#F0FDF4;font-weight:700}
+  .compare .highlight td:first-child{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -108,7 +137,7 @@
       <a href="#demo" class="hide-sm">演示</a>
       <a href="#features" class="hide-sm">架构</a>
       <a href="#guide" class="hide-sm">快速上手</a>
-      <a class="btn btn-primary" href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi" target="_blank" rel="noopener">GitHub 仓库 ↗</a>
+      <a class="btn btn-primary" href="https://gitcode.com/weigai666/AutoMate-XiaoAi" target="_blank" rel="noopener">GitCode 仓库 ↗</a>
     </div>
   </div>
 </header>
@@ -121,12 +150,12 @@
     <p class="sub">一个运行在 Android 上的数字无障碍智能体：说一句“帮我在淘宝点杯奶茶”，AI 就自主完成搜索、定位、输入、选择、下单整个流程——无需看清屏幕、无需记住步骤、无需精确点击。</p>
     <div class="ctas">
       <a class="btn btn-primary" href="#demo">▶ 观看 4 分钟演示</a>
-      <a class="btn btn-ghost" href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi" target="_blank" rel="noopener">浏览源码</a>
+      <a class="btn btn-ghost" href="https://gitcode.com/weigai666/AutoMate-XiaoAi" target="_blank" rel="noopener">浏览源码</a>
     </div>
     <div class="stats">
       <div class="stat"><b>32/32</b><span>检索命中率（top-1）</span></div>
       <div class="stat"><b>&lt;80ms</b><span>端侧检索延迟</span></div>
-      <div class="stat"><b>537</b><span>离线 SOP 知识条目</span></div>
+      <div class="stat"><b>545</b><span>离线 SOP 知识条目</span></div>
       <div class="stat"><b>端到端</b><span>真实任务演示完成</span></div>
     </div>
   </div>
@@ -199,6 +228,61 @@
   </div>
 </section>
 
+<!-- Problem: 数字鸿沟 -->
+<section id="problem" class="problem">
+  <div class="wrap">
+    <h2>数字鸿沟：3.1 亿人被"效率"抛弃</h2>
+    <p class="sub">中国 60 岁以上人口超 2.8 亿 · 视障 1700 万 · 听障/手部不便群体 —— 他们是智能手机时代最需要帮助的人</p>
+    <div class="facts">
+      <div class="fact"><b>75%</b><span>任务需人工接管</span></div>
+      <div class="fact"><b>25%</b><span>独立完成率</span></div>
+      <div class="fact"><b>67s</b><span>平均任务耗时</span></div>
+      <div class="fact"><b>10 次</b><span>平均人工介入</span></div>
+    </div>
+    <p class="quote">"有人教"已成为中老年及特殊群体使用智能手机的前提条件，而非辅助手段。<br><span style="font-size:12px;color:#64748B">——基于 8 个真实用户测试场景的实测数据（2 名中年用户 45/48 岁，真机实拍）</span></p>
+  </div>
+</section>
+
+<!-- Results: 实测数据 -->
+<section id="results" style="background:var(--bg)">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>实测数据（6 任务 · 45 轮 · 真机验证）</h2>
+      <p>Redmi K90 真机 · Android 16 · 每轮完整证据链（决策/动作/截图/日志）· 赛前可复现</p>
+    </div>
+    <div class="results-grid">
+      <div class="result-card"><span class="num">100%</span><span class="label">任务完成率</span><span class="note">6/6 任务全部达到目标状态</span></div>
+      <div class="result-card"><span class="num">7.5</span><span class="label">平均轮数</span><span class="note">每轮含决策+感知+动作+结果</span></div>
+      <div class="result-card"><span class="num">3'03"</span><span class="label">平均耗时</span><span class="note">含网络/模型推理/操作执行</span></div>
+      <div class="result-card"><span class="num">32/32</span><span class="label">检索命中率</span><span class="note">top-1 · 17 个 App 覆盖</span></div>
+      <div class="result-card"><span class="num">185</span><span class="label">截图消融评测</span><span class="note">广告弹窗不误判</span></div>
+      <div class="result-card"><span class="num">0</span><span class="label">敏感操作越界</span><span class="note">18 次运行 · 0 次未授权支付</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Compare: 成本与竞品 -->
+<section id="compare" style="background:#fff;border-top:1px solid var(--line)">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>成本优势：单任务 ¥0.03</h2>
+      <p>国产模型全栈 · 跨品牌 Android 通用 · 无订阅门槛 · 数据不出境</p>
+    </div>
+    <div class="compare">
+      <table>
+        <thead><tr><th>方案</th><th>单任务成本</th><th>成功率</th><th>跨品牌</th></tr></thead>
+        <tbody>
+          <tr class="highlight"><td><strong>AutoMate·小艾</strong></td><td>¥0.03</td><td>100%（6/6）</td><td>✅ 通用</td></tr>
+          <tr><td>AutoGLM（智谱）</td><td>$0.20（≈¥1.45）</td><td>B 端实测</td><td>❌ 绑定浏览器</td></tr>
+          <tr><td>AppAgent</td><td>$0.90</td><td>7%</td><td>✅ 研究</td></tr>
+          <tr><td>Mobile-Agent</td><td>$0.025</td><td>29%</td><td>✅ 研究</td></tr>
+          <tr><td>厂商智能体（荣耀 YOYO 等）</td><td>免费 / 订阅</td><td>低</td><td>❌ 限本品牌</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
 <!-- Guide -->
 <section id="guide">
   <div class="wrap">
@@ -224,21 +308,23 @@
       </div>
     </div>
     <div style="text-align:center;margin-top:28px;display:flex;flex-direction:column;align-items:center;gap:12px">
-      <a class="btn btn-primary" href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi/releases/latest/download/AutoMate-XiaoAi-v1.0-noKey.apk" target="_blank" rel="noopener">⬇ 下载安装包（GitHub Release）</a>
-      <a class="btn btn-ghost" href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi" target="_blank" rel="noopener">查看完整文档与技术方案 ↗</a>
-      <p style="font-size:12px;color:var(--muted);max-width:640px;line-height:1.7">APK 不含任何 API Key（避免泄露与合规风险），安装后请进入「设置」页自行填写模型 Key 即可使用（作者为学生个人开发者，暂无力承担大规模 API 消费）。端侧知识库离线可用，不依赖任何 Key。</p>
+      <a class="btn btn-primary" href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi/releases/latest/download/AutoMate-XiaoAi-v1.0-noKey.apk" target="_blank" rel="noopener">⬇ 下载安装包（GitHub 镜像 Release）</a>
+      <a class="btn btn-ghost" href="https://gitcode.com/weigai666/AutoMate-XiaoAi" target="_blank" rel="noopener">查看完整文档与技术方案 ↗</a>
+      <p style="font-size:12px;color:var(--muted);max-width:640px;line-height:1.7">APK 不含任何 API Key（避免泄露与合规风险），安装后请进入「设置」页自行填写模型 Key 即可使用（作者为学生个人开发者，暂无力承担大规模 API 消费）。端侧知识库检索离线可用、不依赖任何 Key；屏幕识图与操作决策需联网云端模型。</p>
     </div>
   </div>
 </section>
 
 <footer>
-  <div>AutoMate·小艾 · Android 数字无障碍智能体 · 完全端侧知识库（离线可用）· 多通道感知</div>
+  <div>AutoMate·小艾 · Android 数字无障碍智能体 · 端侧知识库（检索离线可用） · 多通道感知</div>
   <div class="links">
-    <a href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi" target="_blank" rel="noopener">GitHub 仓库</a>
-    <a href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi/blob/main/README.md" target="_blank" rel="noopener">README</a>
-    <a href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi/blob/main/docs/tech-solution.md" target="_blank" rel="noopener">技术方案</a>
+    <a href="https://gitcode.com/weigai666/AutoMate-XiaoAi" target="_blank" rel="noopener">GitCode 主仓库</a>
+    <a href="https://gitcode.com/weigai666/AutoMate-XiaoAi/blob/main/README.md" target="_blank" rel="noopener">README</a>
+    <a href="https://gitcode.com/weigai666/AutoMate-XiaoAi/blob/main/docs/tech-solution.md" target="_blank" rel="noopener">技术方案</a>
+    <a href="https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi" target="_blank" rel="noopener">GitHub 镜像</a>
   </div>
   <div style="margin-top:10px">开源协议：Apache License 2.0 · GOAI 世界人工智能开源大赛 · 无界应用赛道</div>
+  <div style="margin-top:4px;font-size:12px;color:var(--muted)">主仓库：GitCode · GitHub 为镜像（本落地页与 Release 下载由 GitHub 镜像托管）</div>
 </footer>
 
 <script>

@@ -30,15 +30,34 @@ adb install AutoMate-XiaoAi-v1.0.apk
 
 也可将 APK 拷贝到手机，点击安装（需允许"安装未知来源应用"）。
 
-### A2. 授权无障碍服务（关键）
+### A2. 开启完整权限（关键——不是只有无障碍服务）
 
-打开 App → 跟随引导进入「设置」开启 **AutoMate·小艾 无障碍服务**。
-为让无障碍服务具备开机自动恢复能力，需一次性授予系统级写权限：
+小艾需要**常驻后台**（无障碍服务被系统杀掉任务即中断）并**浮层交互**（状态条/追问/交接确认），
+因此**仅开启无障碍服务不够**——国产 ROM（小米 HyperOS、荣耀 MagicOS、OPPO ColorOS、vivo OriginOS 等）
+会自动回收未完整授权的后台服务。请按顺序开启：
 
+**① 无障碍服务（核心）**
+打开 App → 设置 → 开启 **AutoMate·小艾 无障碍服务**（读取屏幕内容 + 截屏 + 手势操作能力）。
+
+**② 悬浮窗权限（显示在其他应用上层）**
+任务运行状态条、追问/交接确认面板依赖悬浮窗。App 首次引导时授权；遗漏可到
+系统设置 → 应用 → AutoMate·小艾 → 显示在其他应用上层 → 允许。
+
+**③ 通知权限**
+交接用户操作（request_user_action）时通过系统通知兜底提醒，需允许通知（Android 13+ 会弹授权）。
+
+**④ 电池白名单与后台运行（防杀关键）**
+系统设置 → 应用 → AutoMate·小艾 → 电池 → **不限制/无限制**（忽略电池优化），
+并在系统「自启动/后台运行管理」中允许 AutoMate。**缺少此项，服务会被系统杀掉**，
+表现为任务进行到一半无响应或自动停止。
+
+**⑤（可选）系统级自动恢复权限**：服务崩溃/重启后自动恢复：
 ```bash
-# 一次性授权（仅需执行一次；不执行不影响基本使用，仅影响服务崩溃后自动恢复）
+# 仅需执行一次；不执行不影响基本使用，仅影响崩溃/重启后的自动恢复
 adb shell pm grant com.palmagent.app android.permission.WRITE_SECURE_SETTINGS
 ```
+
+**⑥（可选）麦克风权限**：使用语音输入指令时授权录音（可仅在使用时允许）。
 
 ### A3. 跑一个真实任务
 
@@ -51,7 +70,8 @@ adb shell pm grant com.palmagent.app android.permission.WRITE_SECURE_SETTINGS
 
 ### A4. 验证端侧知识库（离线能力）
 
-- 首次启动 App 自动建库约 30–60 秒，完成后**断网**再发任务，检索与执行仍可用。
+- 首次启动 App 自动建库约 30–60 秒，端侧**知识库检索**（RRF 混合检索）完全离线：断网状态下查询知识库/SOP 指引仍可用（可复现 `eval/eval_retrieval.py` 32/32）。
+- ⚠️ **离线可用仅指知识库检索与指引**：屏幕识图（视觉理解）与操作决策依赖**云端模型**（DeepSeek/GLM/GUI-Plus，均需联网并在 App「设置」页配置 Key）；未联网或未配置 Key 时无法执行识图/操作类任务。
 - 知识库为完全端侧 RAG（ONNX 嵌入 + SQLite 向量），隐私不出手机。
 
 > 说明：APK **不含任何 API Key**。需在 App「设置」页填写 Key 后，云端 LLM 推理（执行/决策/视觉定位）
@@ -72,7 +92,7 @@ adb shell pm grant com.palmagent.app android.permission.WRITE_SECURE_SETTINGS
 ### B2. 克隆并配置
 
 ```bash
-git clone https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi.git
+git clone https://gitcode.com/weigai666/AutoMate-XiaoAi.git   # 主仓库（GitHub 镜像：github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi）
 cd AutoMate-XiaoAi
 cp local.default.properties local.properties
 # 编辑 local.properties，填入 API Key + 修改 sdk.dir（见下方）
@@ -162,8 +182,8 @@ App 内置的 **545 条离线 SOP**（`app/src/main/assets/kb/sop_raw/`）来源
 
 | 问题 | 排查 |
 |------|------|
-| 装 APK 后点击任务没反应 | 确认无障碍服务已开启；确认已授予悬浮窗权限 |
-| 无障碍服务总被系统杀掉 | 执行 `adb shell pm grant ... WRITE_SECURE_SETTINGS` 一次性授权，App 会自动恢复服务 |
+| 装 APK 后点击任务没反应 | 按 A2 逐一确认：无障碍服务 + 悬浮窗 + 通知 + 电池白名单四项均已开启 |
+| 无障碍服务总被系统杀掉 | 先加电池白名单/允许后台（A2 第④步，防杀关键）；再执行 `adb shell pm grant ... WRITE_SECURE_SETTINGS` 让崩溃/重启后自动恢复 |
 | 任务卡在"检索知识库" | 首次建库需 30–60s，等待完成；或检查 `设置 → 启用知识库` 开关 |
 | 构建报错找不到 SDK | 在 `local.properties` 中设置 `sdk.dir` 指向本机 Android SDK |
 | 想换模型/Key | 编辑 `local.properties` 的 `LLM_MODEL` / `VLM_MODEL` 等，重新构建即可 |

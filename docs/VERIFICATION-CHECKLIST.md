@@ -7,7 +7,7 @@
 
 ## 0. 先看（1 分钟）
 
-- [ ] 仓库：GitHub 主仓库 https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi ｜ GitCode 镜像 https://gitcode.com/weigai666/AutoMate-XiaoAi
+- [ ] 仓库：GitCode 主仓库 https://gitcode.com/weigai666/AutoMate-XiaoAi ｜ GitHub 镜像 https://github.com/veroniquebkurbano6v-stack/AutoMate-XiaoAi（落地页与 Release 由 GitHub 镜像托管）
 - [ ] 落地页（GitHub Pages）：`docs/index.html` —— 产品定位 + 端到端演示视频
 - [ ] README：项目简介、核心特性、评估摘要
 - [ ] 技术方案 PDF：`docs/tech-solution.pdf` / 报名材料 `03_技术方案`
@@ -25,7 +25,8 @@
 ## 2. 跑真机任务（约 5 分钟，可选）
 
 - [ ] 安装 `AutoMate-XiaoAi-v1.0.apk`（不含任何 API Key），在 App「设置」页自行填写模型 Key
-- [ ] 开启无障碍服务（必要时执行 `adb shell pm grant com.palmagent.app android.permission.WRITE_SECURE_SETTINGS`）
+- [ ] 开启完整权限（**不是只有无障碍服务**，缺一会导致服务被杀/交互中断，详见 DEPLOY.md A2）：无障碍服务 + 悬浮窗 + 通知 + **电池白名单（忽略电池优化/允许后台——防杀关键）**
+- [ ] （可选）`adb shell pm grant com.palmagent.app android.permission.WRITE_SECURE_SETTINGS`（崩溃/重启后自动恢复）
 - [ ] 输入 `帮我在淘宝点杯奶茶` → 观察 AI 自主完成全流程
 - [ ] 输入 `用微信给联系人发消息` → 观察定位/输入/发送
 - [ ] （可选）断网测试：端侧知识库离线检索仍可用
